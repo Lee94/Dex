@@ -21,30 +21,35 @@ files in this folder hold the detail (goal, scope, technical approach, and a
 
 ## Timeline
 
-| Version                                  | Theme              | Status     | One-liner                                                                             |
-| ---------------------------------------- | ------------------ | ---------- | ------------------------------------------------------------------------------------- |
-| [v0.1.0](./v0.1.0-threads-mvp.md)        | Threads MVP        | ✅ Shipped | Agentic SQL analyst + Blueprint "Dex" thread UI wired to the live agent; eng pass.    |
-| [v0.2.0](./v0.2.0-quality-foundation.md) | Quality foundation | 📋 Planned | Automated tests (Vitest / RTL) + CI (GitHub Actions). The deferred engineering work.  |
-| [v0.3.0](./v0.3.0-persistence.md)        | Persistence        | 📋 Planned | Conversation memory + saved/named threads that survive a refresh.                     |
-| [v0.4.0](./v0.4.0-richer-results.md)     | Richer results     | 📋 Planned | Chart-type selection, time-series charts, and table/CSV export.                       |
-| [v0.5.0](./v0.5.0-live-warehouses.md)    | Live warehouses    | 📋 Planned | Real Postgres connections behind a connector interface + an endorsed/semantic layer.  |
-| [v1.0.0](./v1.0.0-notebook-editor.md)    | NotebookEditor     | 📋 Planned | The full cell-based notebook editor — Dex becomes a notebook, not just a thread chat. |
+| Version                                  | Theme              | Status     | One-liner                                                                                                            |
+| ---------------------------------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------- |
+| [v0.1.0](./v0.1.0-threads-mvp.md)        | Threads MVP        | ✅ Shipped | Agentic SQL analyst + Blueprint "Dex" thread UI wired to the live agent; eng pass.                                   |
+| [v0.2.0](./v0.2.0-persistence.md)        | Persistence        | 📋 Planned | Conversation memory + saved/named threads that survive a refresh.                                                    |
+| [v0.3.0](./v0.3.0-live-warehouses.md)    | Live warehouses    | 📋 Planned | Real Postgres connections behind a clean connector interface.                                                        |
+| [v0.4.0](./v0.4.0-semantic-layer.md)     | Semantic layer     | 📋 Planned | A CubeJS-style model (cubes, measures, dimensions, joins) the agent queries for trusted, consistent metrics.         |
+| [v0.5.0](./v0.5.0-richer-results.md)     | Richer results     | 📋 Planned | Chart-type selection, time-series charts, and table/CSV export.                                                      |
+| [v1.0.0](./v1.0.0-quality-foundation.md) | Quality foundation | 📋 Planned | Automated tests (Vitest / RTL) + CI (GitHub Actions) — the prototype graduates into a real, tested 1.0 product.      |
+| [v2.0.0](./v2.0.0-notebook-editor.md)    | NotebookEditor     | 📋 Planned | The full cell-based notebook editor — Dex becomes a notebook, not just a thread chat; the first major leap past 1.0. |
 
 ## How the milestones build on each other
 
 ```
-v0.1  Threads MVP ───► v0.2  tests + CI (iterate safely)
-                          └──► v0.3  persistence (threads survive refresh)
-                                 └──► v0.4  richer results (viz + export)
-                                        └──► v0.5  live warehouses + semantic layer
-                                               └──► v1.0  NotebookEditor
+v0.1  Threads MVP ───► v0.2  persistence (threads survive refresh)
+                          └──► v0.3  live warehouses (real connections)
+                                 └──► v0.4  semantic layer (CubeJS-style)
+                                        └──► v0.5  richer results (viz + export)
+                                               └──► v1.0  tests + CI (prototype → product)
+                                                      └──► v2.0  NotebookEditor
 ```
 
-The early steps are deliberately small and high-leverage: **v0.2** makes the
-prototype safe to change, **v0.3** makes it feel like a real product (your work
-persists), and **v0.4** sharpens the payoff (better answers to look at). The
-bigger bets — real data sources (**v0.5**) and the full notebook surface
-(**v1.0**) — come once the foundation is solid.
+The plan leads with **features**, then hardens: **v0.2** makes it feel like a real
+product (your work persists), **v0.3** points Dex at real data sources, **v0.4**
+models that data into a CubeJS-style semantic layer so answers use trusted,
+consistent metrics, and **v0.5** sharpens the payoff (better answers to look at —
+chart types and export). **v1.0** then pays down the deferred engineering — a real
+test runner + CI — graduating the prototype into a tested, production-solid product.
+The biggest bet, the full notebook surface (**v2.0**), is the next major leap on top
+of that foundation.
 
 ## Guiding principles
 
@@ -56,8 +61,8 @@ bigger bets — real data sources (**v0.5**) and the full notebook surface
   (`assertReadOnly`) hold across versions.
 - **The design handoff leads the UI.** `design/hex-tech/project/` has three
   surfaces — `Notebook.dc.html` (shipped in v0.1), `NotebookEditor.dc.html`
-  (v1.0), and `Canvas.dc.html` (icebox). New UI maps back to these.
-- **Verification is part of "done."** Until v0.2 lands a real test runner,
+  (v2.0), and `Canvas.dc.html` (icebox). New UI maps back to these.
+- **Verification is part of "done."** Until v1.0 lands a real test runner,
   "done" still means: `format:check` + `typecheck` + `lint` + `build` (web) and
   `npm run smoke` (agent) all green.
 
@@ -67,7 +72,9 @@ bigger bets — real data sources (**v0.5**) and the full notebook surface
   free-form board of results), a sibling to the notebook.
 - **Multi-user & auth** — accounts, per-user threads, sharing / permalinks.
 - **More warehouses** — BigQuery / Snowflake / DuckDB connectors once the
-  connector interface (v0.5) exists.
+  connector interface (v0.3) exists.
+- **Semantic-layer pre-aggregations** — materialized rollups + caching for the
+  v0.4 model (CubeJS's performance layer); correctness ships first.
 - **Multiple / specialized agents** — e.g. a planner + a SQL specialist, or
   per-domain analysts.
 - **Guardrails & cost controls** — row/byte limits, query timeouts, spend caps.
