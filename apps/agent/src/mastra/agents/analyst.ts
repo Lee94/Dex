@@ -1,5 +1,6 @@
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
+import { anthropic, MODEL_ID } from '../model';
 import { listTablesTool } from '../tools/list-tables';
 import { describeTableTool } from '../tools/describe-table';
 import { runSqlTool } from '../tools/run-sql';
@@ -26,7 +27,8 @@ Final answer:
 - Lead with the direct answer to the question, including the key numbers.
 - Then, if helpful, a short supporting detail (e.g. the SQL logic or a caveat).
 - Keep it readable and concise.`,
-  model: 'anthropic/claude-opus-4-8',
+  // Use the AI SDK Anthropic provider directly (reads ANTHROPIC_API_KEY).
+  model: anthropic(MODEL_ID),
   tools: { listTablesTool, describeTableTool, runSqlTool },
   memory: new Memory(),
 });

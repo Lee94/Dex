@@ -26,9 +26,25 @@ export type AssistantMessage = {
   steps: ToolStep[];
   status: 'streaming' | 'done' | 'error';
   errorText?: string;
+  /** Epoch ms when the turn started, for the "Worked for …" timer. */
+  startedAt: number;
+  /** Epoch ms when the turn finished. */
+  finishedAt?: number;
 };
 
 export type ChatMessage = UserMessage | AssistantMessage;
+
+/** A conversation. Ephemeral (in-memory) for now. */
+export type Thread = {
+  id: string;
+  title: string;
+  /** Display string for the threads list, e.g. "2 hrs ago" / "just now". */
+  updated: string;
+  creator: string;
+  /** Single-letter avatar initial. */
+  initial: string;
+  messages: ChatMessage[];
+};
 
 /** Shape of a successful run_sql tool result. */
 export type SqlResult = {

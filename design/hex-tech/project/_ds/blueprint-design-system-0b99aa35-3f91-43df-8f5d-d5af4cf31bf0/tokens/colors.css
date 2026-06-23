@@ -1,0 +1,113 @@
+/* Blueprint semantic colors — intents, surfaces, text.
+ * Source: packages/core/src/design-tokens (intent/surface/typography) + _color-aliases.scss
+ * Intent colors are theme-independent; surfaces adapt per color scheme. */
+:root {
+  /* ---- Intents: rest / hover / active / disabled / foreground ----
+   * BP6 pattern: colors get DARKER on hover (toward palette index 1). */
+  --bp-intent-default-rest: var(--bp-palette-gray-1);
+  --bp-intent-default-hover: var(--bp-palette-dark-gray-5);
+  --bp-intent-default-active: var(--bp-palette-dark-gray-4);
+  --bp-intent-default-disabled: var(--bp-palette-gray-3);
+  --bp-intent-default-foreground: var(--bp-palette-white);
+
+  --bp-intent-primary-rest: var(--bp-palette-blue-3);
+  --bp-intent-primary-hover: var(--bp-palette-blue-2);
+  --bp-intent-primary-active: var(--bp-palette-blue-1);
+  --bp-intent-primary-disabled: var(--bp-palette-blue-4);
+  --bp-intent-primary-foreground: var(--bp-palette-white);
+
+  --bp-intent-success-rest: var(--bp-palette-green-3);
+  --bp-intent-success-hover: var(--bp-palette-green-2);
+  --bp-intent-success-active: var(--bp-palette-green-1);
+  --bp-intent-success-disabled: var(--bp-palette-green-4);
+  --bp-intent-success-foreground: var(--bp-palette-white);
+
+  --bp-intent-warning-rest: var(--bp-palette-orange-3);
+  --bp-intent-warning-hover: var(--bp-palette-orange-2);
+  --bp-intent-warning-active: var(--bp-palette-orange-1);
+  --bp-intent-warning-disabled: var(--bp-palette-orange-4);
+  --bp-intent-warning-foreground: var(--bp-palette-black);
+
+  --bp-intent-danger-rest: var(--bp-palette-red-3);
+  --bp-intent-danger-hover: var(--bp-palette-red-2);
+  --bp-intent-danger-active: var(--bp-palette-red-1);
+  --bp-intent-danger-disabled: var(--bp-palette-red-4);
+  --bp-intent-danger-foreground: var(--bp-palette-white);
+
+  /* ---- App backgrounds (light theme) ---- */
+  --bp-app-background-color: var(--bp-palette-light-gray-5);
+  --bp-app-secondary-background-color: var(--bp-palette-white);
+  --bp-app-elevated-background-color: var(--bp-palette-light-gray-4);
+
+  /* ---- Surface background colors: default intent resolves to white→gray ---- */
+  --bp-surface-background-color-default-rest: var(--bp-palette-white);
+  --bp-surface-background-color-default-hover: var(--bp-palette-light-gray-5);
+  --bp-surface-background-color-default-active: var(--bp-palette-light-gray-4);
+  --bp-surface-background-color-default-disabled: var(--bp-palette-white);
+
+  /* ---- Subtle intent tints (5% alpha layers, for callouts / selected rows) ---- */
+  --bp-surface-layer-opacity: 0.05;
+  --bp-surface-layer-color-default: color-mix(in srgb, var(--bp-intent-default-rest) 5%, transparent);
+  --bp-surface-layer-color-primary: color-mix(in srgb, var(--bp-intent-primary-rest) 5%, transparent);
+  --bp-surface-layer-color-success: color-mix(in srgb, var(--bp-intent-success-rest) 5%, transparent);
+  --bp-surface-layer-color-warning: color-mix(in srgb, var(--bp-intent-warning-rest) 5%, transparent);
+  --bp-surface-layer-color-danger: color-mix(in srgb, var(--bp-intent-danger-rest) 5%, transparent);
+
+  /* ---- Text ---- */
+  --bp-text-color: var(--bp-palette-dark-gray-1);
+  --bp-text-color-muted: var(--bp-palette-gray-1);
+  --bp-text-color-disabled: color-mix(in srgb, var(--bp-palette-gray-1) 60%, transparent);
+  --bp-heading-color: var(--bp-text-color);
+  --bp-link-color: var(--bp-palette-blue-2);
+  --bp-text-selection-color: rgba(125, 188, 255, 0.6);
+
+  /* ---- Icons ---- */
+  --bp-icon-color: var(--bp-text-color-muted);
+  --bp-icon-color-hover: var(--bp-text-color);
+  --bp-icon-color-disabled: var(--bp-text-color-disabled);
+  --bp-icon-color-selected: var(--bp-intent-primary-rest);
+
+  /* ---- Dividers / borders ---- */
+  --bp-divider-black: rgba(17, 20, 24, 0.15);
+  --bp-divider-black-muted: rgba(17, 20, 24, 0.1);
+  --bp-surface-border-color-default: color-mix(in srgb, var(--bp-intent-default-rest) 12%, transparent);
+  --bp-surface-border-color-strong: color-mix(in srgb, var(--bp-intent-default-rest) 25%, transparent);
+
+  /* ---- Focus ---- */
+  --bp-outline-color: rgba(45, 114, 210, 0.6);
+  --bp-focus-indicator-color: rgba(33, 93, 176, 0.752);
+
+  /* ---- Code ---- */
+  --bp-code-text-color: var(--bp-text-color-muted);
+  --bp-code-background-color: rgba(255, 255, 255, 0.7);
+}
+
+/* ---- Dark theme overrides ---- */
+[data-bp-color-scheme="dark"],
+.bp6-dark {
+  --bp-app-background-color: var(--bp-palette-dark-gray-1);
+  --bp-app-secondary-background-color: var(--bp-palette-dark-gray-1);
+  --bp-app-elevated-background-color: var(--bp-palette-dark-gray-3);
+
+  --bp-surface-background-color-default-rest: var(--bp-palette-dark-gray-3);
+  --bp-surface-background-color-default-hover: var(--bp-palette-dark-gray-4);
+  --bp-surface-background-color-default-active: var(--bp-palette-dark-gray-5);
+  --bp-surface-background-color-default-disabled: var(--bp-palette-dark-gray-2);
+
+  --bp-text-color: var(--bp-palette-light-gray-5);
+  --bp-text-color-muted: var(--bp-palette-gray-4);
+  --bp-text-color-disabled: color-mix(in srgb, var(--bp-palette-gray-4) 60%, transparent);
+  --bp-heading-color: var(--bp-text-color);
+  --bp-link-color: var(--bp-palette-blue-5);
+
+  --bp-icon-color: var(--bp-text-color-muted);
+  --bp-icon-color-hover: var(--bp-text-color);
+
+  --bp-surface-border-color-default: color-mix(in srgb, var(--bp-palette-white) 20%, transparent);
+  --bp-surface-border-color-strong: color-mix(in srgb, var(--bp-palette-white) 25%, transparent);
+  --bp-divider-black: rgba(255, 255, 255, 0.2);
+  --bp-divider-black-muted: rgba(255, 255, 255, 0.1);
+
+  --bp-focus-indicator-color: rgba(138, 187, 255, 0.752);
+  --bp-code-background-color: rgba(17, 20, 24, 0.3);
+}
