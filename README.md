@@ -75,10 +75,13 @@ npm run smoke     # exercises the SQL tools + the read-only guard
 
 ## Status & roadmap
 
-Implemented (step 1): the **Notebook.dc.html** design — app shell (sidebar, nav,
+Shipped (**v0.1.0**): the **Notebook.dc.html** design — app shell (sidebar, nav,
 recents), the Threads list, and the focused **thread chat wired to the live
 agent**.
 
-Next: chart-type selection · semantic/"endorsed" data layer · conversation
-memory & saved threads · real warehouse connections (Postgres) · the full
-cell-based **NotebookEditor**.
+Next milestones: tests + CI (v0.2) · persistence / saved threads (v0.3) ·
+chart-type selection & export (v0.4) · live Postgres connections + a semantic
+layer (v0.5) · the full cell-based **NotebookEditor** (v1.0).
+
+The detailed version plan — what's shipped and what each upcoming version
+delivers — lives in [`docs/roadmap/`](./docs/roadmap/README.md).
