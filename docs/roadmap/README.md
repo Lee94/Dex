@@ -24,9 +24,9 @@ files in this folder hold the detail (goal, scope, technical approach, and a
 | Version                                  | Theme              | Status     | One-liner                                                                                                            |
 | ---------------------------------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------- |
 | [v0.1.0](./v0.1.0-threads-mvp.md)        | Threads MVP        | ✅ Shipped | Agentic SQL analyst + Blueprint "Dex" thread UI wired to the live agent; eng pass.                                   |
-| [v0.2.0](./v0.2.0-persistence.md)        | Persistence        | 📋 Planned | Conversation memory + saved/named threads that survive a refresh.                                                    |
-| [v0.3.0](./v0.3.0-live-warehouses.md)    | Live warehouses    | 📋 Planned | Real Postgres connections behind a clean connector interface.                                                        |
-| [v0.4.0](./v0.4.0-semantic-layer.md)     | Semantic layer     | 📋 Planned | A CubeJS-style model (cubes, measures, dimensions, joins) the agent queries for trusted, consistent metrics.         |
+| [v0.2.0](./v0.2.0-persistence.md)        | Persistence        | ✅ Shipped | Conversation memory + saved/named threads that survive a refresh.                                                    |
+| [v0.3.0](./v0.3.0-live-warehouses.md)    | Live warehouses    | ✅ Shipped | Real Postgres connections behind a clean connector interface.                                                        |
+| [v0.4.0](./v0.4.0-semantic-layer.md)     | Semantic layer     | ✅ Shipped | A CubeJS-style model (cubes, measures, dimensions, joins) the agent queries for trusted, consistent metrics.         |
 | [v0.5.0](./v0.5.0-richer-results.md)     | Richer results     | 📋 Planned | Chart-type selection, time-series charts, and table/CSV export.                                                      |
 | [v1.0.0](./v1.0.0-quality-foundation.md) | Quality foundation | 📋 Planned | Automated tests (Vitest / RTL) + CI (GitHub Actions) — the prototype graduates into a real, tested 1.0 product.      |
 | [v2.0.0](./v2.0.0-notebook-editor.md)    | NotebookEditor     | 📋 Planned | The full cell-based notebook editor — Dex becomes a notebook, not just a thread chat; the first major leap past 1.0. |
