@@ -20,6 +20,8 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.85",
+    "@ai-sdk/deepseek": "^2.0.39",
+    "@ai-sdk/openai-compatible": "^2.0.51",
     "@libsql/client": "^0.17.4",
     "@mastra/core": "^1.45.0",
     "@mastra/duckdb": "^1.5.0",
@@ -27,6 +29,8 @@
     "@mastra/loggers": "^1.2.0",
     "@mastra/memory": "^1.21.0",
     "@mastra/observability": "^1.15.0",
+    "@types/pg": "^8.20.0",
+    "pg": "^8.22.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

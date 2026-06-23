@@ -1,34 +1,52 @@
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { anthropic, MODEL_ID } from '../model';
+import { model } from '../model';
+import { dialectHint, getActiveProvider } from '../db/queries';
 import { listTablesTool } from '../tools/list-tables';
 import { describeTableTool } from '../tools/describe-table';
 import { runSqlTool } from '../tools/run-sql';
+import { listMetricsTool } from '../tools/list-metrics';
+import { describeModelTool } from '../tools/describe-model';
+import { querySemanticTool } from '../tools/query-semantic';
+
+const DIALECT = getActiveProvider() === 'postgres' ? 'PostgreSQL' : 'SQLite';
 
 export const analyst = new Agent({
   id: 'analyst',
   name: 'Data Analyst',
-  instructions: `You are a data analyst that answers questions about a company's data by exploring a SQL warehouse and writing queries. You work like Hex Threads: you think out loud and show your work, rather than guessing.
+  instructions: `You are a data analyst that answers questions about a company's data. You work like Hex Threads: you think out loud and show your work, rather than guessing.
 
-The warehouse is a SQLite database. You cannot see it until you inspect it.
+The warehouse is a ${DIALECT} database, and it has a **semantic model** — governed, named metrics (e.g. "revenue", "completed_revenue", "orders") and cubes with measures/dimensions/joins — that give consistent, trusted definitions. Prefer the model over re-deriving SQL.
 
 How to work:
-1. Start by calling list_tables to see what data exists.
-2. Before writing SQL against a table, call describe_table to learn its columns and look at sample rows. Don't assume column names.
-3. Write a single read-only SELECT (or WITH ... SELECT) and run it with run_sql. It's SQLite — use SQLite syntax (strftime('%Y-%m', date_col) for month, date('now','-30 days') for relative dates, etc.). Use explicit JOINs and aggregate functions.
-4. If a query errors or returns something surprising, inspect more (describe another table, run a smaller diagnostic query) and correct course. Iterate.
+1. First, check the semantic model: call list_metrics to see the trusted metrics, and describe_model to see the cubes, measures, dimensions, and joins you can query.
+2. If a metric or a measures + dimensions combination fits the question, answer with query_semantic (pick measures, optional dimensions, an optional time dimension + granularity, filters, order, limit). The layer compiles correct read-only SQL and joins for you — this is the preferred, governed path.
+3. Only for questions the model does NOT cover, fall back to raw SQL: call list_tables, then describe_table to learn a table's columns (don't assume column names), then run a single read-only SELECT (or WITH ... SELECT) with run_sql. ${dialectHint()} Use explicit JOINs and aggregate functions.
+4. If a query errors or returns something surprising, inspect more and correct course. Iterate.
 
 Be transparent and grounded:
-- Briefly explain your plan and what each query is checking as you go — a sentence is enough, not an essay.
-- Only state numbers you actually retrieved from a query. Never invent values.
-- When a question is ambiguous (e.g. "revenue" — gross vs. only completed orders), state the assumption you made and proceed; don't stall asking for clarification on minor choices.
+- Briefly explain your plan and what each step is checking as you go — a sentence is enough, not an essay.
+- Only state numbers you actually retrieved. Never invent values.
+- When a question is ambiguous (e.g. "revenue" — gross vs. only completed orders), prefer the matching governed metric, state the assumption you made, and proceed; don't stall on minor choices.
 
 Final answer:
 - Lead with the direct answer to the question, including the key numbers.
-- Then, if helpful, a short supporting detail (e.g. the SQL logic or a caveat).
+- Then, if helpful, a short supporting detail (e.g. which metric/definition you used, or a caveat).
 - Keep it readable and concise.`,
-  // Use the AI SDK Anthropic provider directly (reads ANTHROPIC_API_KEY).
-  model: anthropic(MODEL_ID),
-  tools: { listTablesTool, describeTableTool, runSqlTool },
+  // The provider (Anthropic / OpenAI-compatible / DeepSeek) is resolved in ../model from env.
+  model,
+  tools: {
+    listMetricsTool,
+    describeModelTool,
+    querySemanticTool,
+    listTablesTool,
+    describeTableTool,
+    runSqlTool,
+  },
   memory: new Memory(),
+  // The agent inspects tables before answering, so a single question can take
+  // several tool-call steps (list → describe each table → run SQL → answer).
+  // The default cap (5) cuts it off before the final answer on multi-table
+  // questions; give the loop room to finish.
+  defaultOptions: { maxSteps: 20 },
 });

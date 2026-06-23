@@ -1,4 +1,13 @@
-import { assertReadOnly, describeTable, listTables, runReadOnlySql } from './queries';
+import {
+  assertReadOnly,
+  describeTable,
+  getActiveProvider,
+  getConnector,
+  listTables,
+  runReadOnlySql,
+} from './queries';
+import { PostgresConnector } from './connectors/postgres';
+import { compile, model, runSemanticQuery, validateModel } from './semantic';
 
 /**
  * Non-LLM smoke test: exercises the warehouse query helpers (the same logic the
@@ -14,6 +23,14 @@ async function main(): Promise<void> {
       if (detail !== undefined) console.log('      ', detail);
     }
   };
+
+  // 0. connector interface — SQLite is the no-setup default
+  const connector = getConnector();
+  check(
+    'active provider defaults to sqlite (no Postgres configured)',
+    getActiveProvider() === 'sqlite' && connector.dialect === 'sqlite',
+    { provider: getActiveProvider(), dialect: connector.dialect, label: connector.label },
+  );
 
   // 1. list_tables
   const tables = await listTables();
@@ -75,6 +92,90 @@ async function main(): Promise<void> {
     allowed = false;
   }
   check('read-only guard allows a SELECT', allowed);
+
+  // 5. semantic layer (v0.4) — model validation, compiler, join resolution, exec
+  const modelErrors = validateModel(model);
+  check('semantic model validates (no structural errors)', modelErrors.length === 0, modelErrors);
+
+  const compiled = compile({
+    measures: ['revenue'],
+    dimensions: ['products.category'],
+    order: [{ member: 'revenue', direction: 'desc' }],
+  });
+  check(
+    'compiler emits endorsed read-only SQL (revenue by category)',
+    /^SELECT/i.test(compiled.sql) && compiled.endorsed === true,
+    compiled.sql,
+  );
+  let compiledGuardOk = true;
+  try {
+    assertReadOnly(compiled.sql);
+  } catch {
+    compiledGuardOk = false;
+  }
+  check('compiled semantic SQL passes assertReadOnly', compiledGuardOk);
+
+  const revByCat = await runSemanticQuery({
+    measures: ['revenue'],
+    dimensions: ['products.category'],
+    order: [{ member: 'revenue', direction: 'desc' }],
+  });
+  check(
+    'query_semantic: revenue by category returns 3 categories',
+    revByCat.columns.includes('category') &&
+      revByCat.columns.includes('revenue') &&
+      revByCat.rows.length === 3,
+    revByCat.rows,
+  );
+  console.log('      revenue by category:', revByCat.rows);
+
+  // The completed_revenue metric must match the seed's known total.
+  const completed = await runSemanticQuery({ measures: ['completed_revenue'] });
+  const completedVal = Number(completed.rows[0]?.completed_revenue);
+  check(
+    'query_semantic: completed_revenue matches seeded total (78779.94)',
+    Math.abs(completedVal - 78779.94) < 0.01 && completed.endorsed === true,
+    { completedVal, endorsed: completed.endorsed, sql: completed.sql },
+  );
+
+  // Join resolution through a bridge cube: order_items → orders → customers.
+  const monthlyByCountry = await runSemanticQuery({
+    measures: ['revenue'],
+    dimensions: ['customers.country'],
+    timeDimension: { dimension: 'orders.order_date', granularity: 'month' },
+    limit: 100,
+  });
+  check(
+    'query_semantic: monthly revenue by country auto-resolves joins',
+    monthlyByCountry.columns.includes('country') &&
+      monthlyByCountry.columns.includes('month') &&
+      monthlyByCountry.rows.length > 0,
+    { columns: monthlyByCountry.columns, rows: monthlyByCountry.rows.length },
+  );
+
+  // 6. Postgres connector — only when a connection is configured; otherwise skip
+  // so the SQLite path stays the no-setup default.
+  const pgConfigured =
+    !!process.env.DATABASE_URL || !!process.env.PG_CONNECTION_STRING || !!process.env.PGHOST;
+  if (pgConfigured) {
+    const pg = new PostgresConnector();
+    try {
+      const pgTables = await pg.listTables();
+      check('postgres connector lists tables', Array.isArray(pgTables), pgTables);
+      if (pgTables.length > 0) {
+        const desc = await pg.describeTable(pgTables[0].name);
+        check('postgres connector describes a table', desc.columns.length > 0, desc.columns);
+        const probe = await pg.runReadOnlySql('SELECT 1 AS one');
+        check('postgres connector runs a read-only query', probe.rows[0]?.one === 1, probe.rows);
+      }
+    } catch (err) {
+      check('postgres connector reachable', false, err instanceof Error ? err.message : err);
+    } finally {
+      await pg.close();
+    }
+  } else {
+    console.log('SKIP  postgres connector (no DATABASE_URL / PGHOST configured)');
+  }
 
   console.log(failures === 0 ? '\nAll smoke checks passed.' : `\n${failures} check(s) failed.`);
   process.exit(failures === 0 ? 0 : 1);
