@@ -149,6 +149,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.recentsEmpty {
+  padding: 4px 9px;
+  font-size: 12.5px;
+  color: var(--dex-text-faint);
+}
 
 /* ---- divider ---- */
 .divider {

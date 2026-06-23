@@ -145,6 +145,33 @@
   cursor: pointer;
 }
 
+/* ---- conversation loading / load-error ---- */
+.loadState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 64px 0;
+  text-align: center;
+}
+.loadSpinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--dex-line);
+  border-top-color: var(--dex-accent);
+  animation: spin 0.7s linear infinite;
+}
+.loadText {
+  font-size: 14px;
+  color: var(--dex-text-muted);
+}
+.loadSubtext {
+  font-size: 12.5px;
+  color: var(--dex-text-faint);
+  max-width: 380px;
+}
+
 /* ---- AssistantBlock ---- */
 .assistant {
   margin-bottom: 26px;

@@ -10,7 +10,19 @@ const ThreadView = lazy(() =>
 );
 
 export default function App() {
-  const { threads, activeThread, setActiveId, createThread, sendMessage, stop } = useThreads();
+  const {
+    threads,
+    activeThread,
+    listLoading,
+    listError,
+    setActiveId,
+    refreshList,
+    createThread,
+    renameThread,
+    removeThread,
+    sendMessage,
+    stop,
+  } = useThreads();
 
   const [view, setView] = useState<View>('threads');
   const [nav, setNav] = useState('threads');
@@ -51,6 +63,7 @@ export default function App() {
           onBack={back}
           onSend={(text) => sendMessage(activeThread.id, text)}
           onStop={stop}
+          onRetryLoad={() => openThread(activeThread.id)}
         />
       </Suspense>
     );
@@ -63,9 +76,14 @@ export default function App() {
       otherTitle={otherTitle}
       otherIcon={otherIcon}
       threads={threads}
+      listLoading={listLoading}
+      listError={listError}
       onNavigate={navigate}
       onNewThread={newThread}
       onOpenThread={openThread}
+      onRetryList={refreshList}
+      onRenameThread={renameThread}
+      onDeleteThread={removeThread}
     />
   );
 }

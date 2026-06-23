@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import styles from './ui.module.css';
 
-type Variant = 'ghost' | 'quick' | 'green';
+type Variant = 'ghost' | 'quick' | 'green' | 'danger';
 
 export function Button({
   variant = 'ghost',

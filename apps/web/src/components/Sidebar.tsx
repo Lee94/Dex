@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { IconButton, Button, Pill } from '@/components/ui';
+import type { Thread } from '@/types';
 import styles from './Sidebar.module.css';
 
 export type View = 'threads' | 'thread' | 'notebook' | 'other';
+
+// How many recent threads to surface in the sidebar.
+const MAX_RECENTS = 8;
 
 type NavItem = { key: string; label: string; view: View; beta?: boolean };
 
@@ -24,35 +28,21 @@ const NAV_MAIN: NavItem[] = [
   { key: 'data', label: 'Data', view: 'other' },
 ];
 
-type Recent = { name: string; icon: string; thread?: boolean; view: View; nav: string };
-const RECENTS: Recent[] = [
-  { name: 'Bar chart data', icon: 'threads', thread: true, view: 'thread', nav: 'threads' },
-  { name: '[Demo] Sales Revenue Dash…', icon: 'dashboard', view: 'notebook', nav: 'projects' },
-  { name: 'Behavioral customer segme…', icon: 'projects', view: 'other', nav: 'projects' },
-  {
-    name: 'Exploration on Jun 23, 11:3…',
-    icon: 'explorations',
-    view: 'other',
-    nav: 'explorations',
-  },
-  {
-    name: 'Exploration on Jun 23, 11:5…',
-    icon: 'explorations',
-    view: 'other',
-    nav: 'explorations',
-  },
-];
-
 export function Sidebar({
   nav,
+  threads,
   onNavigate,
   onNewThread,
+  onOpenThread,
 }: {
   nav: string;
+  threads: Thread[];
   onNavigate: (view: View, navKey: string, title: string) => void;
   onNewThread: () => void;
+  onOpenThread: (id: string) => void;
 }) {
   const [recentsOpen, setRecentsOpen] = useState(true);
+  const recents = threads.slice(0, MAX_RECENTS);
 
   const renderNav = (items: NavItem[]) =>
     items.map((it) => {
@@ -148,16 +138,16 @@ export function Sidebar({
         </div>
         {recentsOpen ? (
           <div>
-            {RECENTS.map((r, i) => (
-              <div
-                key={i}
-                className={styles.recentRow}
-                onClick={() => (r.thread ? onNewThread() : onNavigate(r.view, r.nav, r.name))}
-              >
-                <Icon name={r.icon} size={14} color="var(--dex-icon-subtle)" />
-                <span className={styles.recentLabel}>{r.name}</span>
-              </div>
-            ))}
+            {recents.length === 0 ? (
+              <div className={styles.recentsEmpty}>No threads yet</div>
+            ) : (
+              recents.map((t) => (
+                <div key={t.id} className={styles.recentRow} onClick={() => onOpenThread(t.id)}>
+                  <Icon name="threads" size={14} color="var(--dex-icon-subtle)" />
+                  <span className={styles.recentLabel}>{t.title}</span>
+                </div>
+              ))
+            )}
           </div>
         ) : null}
       </div>

@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { Button, IconButton } from '@/components/ui';
-import { isSqlResult, type AssistantMessage, type Thread, type ToolStep } from '@/types';
+import {
+  isSqlResult,
+  resultProvenance,
+  type AssistantMessage,
+  type Thread,
+  type ToolStep,
+} from '@/types';
 import { Composer } from '@/components/Composer';
 import { ResultCard } from '@/components/ResultCard';
 import styles from './ThreadView.module.css';
@@ -17,11 +23,13 @@ export function ThreadView({
   onBack,
   onSend,
   onStop,
+  onRetryLoad,
 }: {
   thread: Thread;
   onBack: () => void;
   onSend: (text: string) => void;
   onStop: () => void;
+  onRetryLoad: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -31,6 +39,9 @@ export function ThreadView({
   }, [thread.messages]);
 
   const streaming = thread.messages.some((m) => m.role === 'assistant' && m.status === 'streaming');
+  const empty = thread.messages.length === 0;
+  const loading = empty && thread.loadingMessages;
+  const loadError = empty && !thread.loadingMessages ? thread.loadError : undefined;
 
   return (
     <div className={styles.root}>
@@ -38,7 +49,11 @@ export function ThreadView({
 
       <div ref={scrollRef} className={styles.scroll}>
         <div className={styles.page}>
-          {thread.messages.length === 0 ? (
+          {loading ? (
+            <LoadingConversation />
+          ) : loadError ? (
+            <LoadError message={loadError} onRetry={onRetryLoad} />
+          ) : empty ? (
             <EmptyState onPick={onSend} />
           ) : (
             <div className={styles.dividerIcons}>
@@ -104,6 +119,28 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
       <Button variant="ghost">
         <Icon name="share" size={14} color="var(--dex-icon)" />
         Share
+      </Button>
+    </div>
+  );
+}
+
+function LoadingConversation() {
+  return (
+    <div className={styles.loadState}>
+      <span className={styles.loadSpinner} />
+      <span className={styles.loadText}>Loading conversation…</span>
+    </div>
+  );
+}
+
+function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className={styles.loadState}>
+      <Icon name="help" size={22} color="var(--dex-danger)" />
+      <div className={styles.loadText}>Couldn’t load this conversation.</div>
+      <div className={styles.loadSubtext}>{message}</div>
+      <Button variant="ghost" onClick={onRetry} style={{ marginTop: 4 }}>
+        Retry
       </Button>
     </div>
   );
@@ -176,14 +213,14 @@ function AssistantBlock({ msg }: { msg: AssistantMessage }) {
       {/* assistant answer text */}
       {msg.text ? <p className={styles.answerText}>{msg.text}</p> : null}
 
-      {/* result cards (from run_sql) */}
-      {cards.map((s) => (
-        <ResultCard
-          key={s.toolCallId}
-          result={s.result}
-          sql={typeof s.args.sql === 'string' ? s.args.sql : undefined}
-        />
-      ))}
+      {/* result cards (from run_sql or the semantic layer's query_semantic) */}
+      {cards.map((s) => {
+        const prov = resultProvenance(s.result);
+        const sql = prov.sql ?? (typeof s.args.sql === 'string' ? s.args.sql : undefined);
+        return (
+          <ResultCard key={s.toolCallId} result={s.result} sql={sql} endorsed={prov.endorsed} />
+        );
+      })}
 
       {/* error */}
       {msg.status === 'error' ? (

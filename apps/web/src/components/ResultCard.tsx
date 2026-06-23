@@ -17,8 +17,16 @@ function fmt(v: unknown): string {
   return String(v);
 }
 
-/** Renders a run_sql tool result as the design's result card (bar chart or table). */
-export function ResultCard({ result, sql }: { result: unknown; sql?: string }) {
+/** Renders a run_sql / query_semantic tool result as the design's result card. */
+export function ResultCard({
+  result,
+  sql,
+  endorsed = false,
+}: {
+  result: unknown;
+  sql?: string;
+  endorsed?: boolean;
+}) {
   const [showSql, setShowSql] = useState(false);
 
   if (!isSqlResult(result)) {
@@ -91,6 +99,12 @@ export function ResultCard({ result, sql }: { result: unknown; sql?: string }) {
           {rowCount.toLocaleString()} {rowCount === 1 ? 'row' : 'rows'}
           {truncated ? ' (showing first 1,000)' : ''}
         </span>
+        {endorsed ? (
+          <Pill tone="endorsed">
+            <Icon name="tickCircle" size={12} color="currentColor" />
+            Trusted definition
+          </Pill>
+        ) : null}
         <Pill tone="success">
           <Icon name="tickCircle" size={12} color="currentColor" />
           Read-only

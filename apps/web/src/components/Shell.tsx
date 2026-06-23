@@ -10,25 +10,50 @@ export function Shell({
   otherTitle,
   otherIcon,
   threads,
+  listLoading,
+  listError,
   onNavigate,
   onNewThread,
   onOpenThread,
+  onRetryList,
+  onRenameThread,
+  onDeleteThread,
 }: {
   view: View;
   nav: string;
   otherTitle: string;
   otherIcon: string;
   threads: Thread[];
+  listLoading: boolean;
+  listError: string | null;
   onNavigate: (view: View, navKey: string, title: string) => void;
   onNewThread: () => void;
   onOpenThread: (id: string) => void;
+  onRetryList: () => void;
+  onRenameThread: (id: string, title: string) => void;
+  onDeleteThread: (id: string) => void;
 }) {
   return (
     <div className={styles.shell}>
-      <Sidebar nav={nav} onNavigate={onNavigate} onNewThread={onNewThread} />
+      <Sidebar
+        nav={nav}
+        threads={threads}
+        onNavigate={onNavigate}
+        onNewThread={onNewThread}
+        onOpenThread={onOpenThread}
+      />
       <div className={styles.main}>
         {view === 'threads' ? (
-          <ThreadsList threads={threads} onOpenThread={onOpenThread} onNewThread={onNewThread} />
+          <ThreadsList
+            threads={threads}
+            loading={listLoading}
+            error={listError}
+            onOpenThread={onOpenThread}
+            onNewThread={onNewThread}
+            onRetry={onRetryList}
+            onRename={onRenameThread}
+            onDelete={onDeleteThread}
+          />
         ) : view === 'notebook' ? (
           <Placeholder
             icon="projects"
