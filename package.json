@@ -1,0 +1,21 @@
+{
+  "name": "dex",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Dex — an agentic data Threads prototype (Mastra agent + React UI).",
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "npm run lint --prefix apps/web",
+    "typecheck": "npm run typecheck --prefix apps/agent && npm run typecheck --prefix apps/web",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.0",
+    "prettier": "^3.4.2"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,css,json,md}": "prettier --write"
+  }
+}

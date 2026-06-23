@@ -1,11 +1,16 @@
-import { useState } from 'react';
-import { Shell } from './components/Shell';
-import type { View } from './components/Sidebar';
-import { ThreadView } from './components/ThreadView';
-import { useThreads } from './hooks/useThreads';
+import { lazy, Suspense, useState } from 'react';
+import { Shell } from '@/components/Shell';
+import type { View } from '@/components/Sidebar';
+import { useThreads } from '@/hooks/useThreads';
+
+// Code-split the thread view (and its chart/result rendering) — loaded only
+// when a thread is opened.
+const ThreadView = lazy(() =>
+  import('@/components/ThreadView').then((m) => ({ default: m.ThreadView })),
+);
 
 export default function App() {
-  const { threads, activeThread, setActiveId, createThread, sendMessage } = useThreads();
+  const { threads, activeThread, setActiveId, createThread, sendMessage, stop } = useThreads();
 
   const [view, setView] = useState<View>('threads');
   const [nav, setNav] = useState('threads');
@@ -39,7 +44,16 @@ export default function App() {
   };
 
   if (view === 'thread' && activeThread) {
-    return <ThreadView thread={activeThread} onBack={back} onSend={(text) => sendMessage(activeThread.id, text)} />;
+    return (
+      <Suspense fallback={null}>
+        <ThreadView
+          thread={activeThread}
+          onBack={back}
+          onSend={(text) => sendMessage(activeThread.id, text)}
+          onStop={stop}
+        />
+      </Suspense>
+    );
   }
 
   return (

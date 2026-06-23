@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
-import { analystAgent } from '../lib/mastraClient';
-import type { AssistantMessage, ChatMessage, Thread, ToolStep } from '../types';
+import { useCallback, useRef, useState } from 'react';
+import { analystAgent } from '@/lib/mastraClient';
+import type { AssistantMessage, ChatMessage, Thread, ToolStep } from '@/types';
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
 
@@ -20,12 +20,15 @@ function seedThreads(): Thread[] {
 
 function titleFromText(text: string): string {
   const t = text.trim().replace(/\s+/g, ' ');
-  return t.length > 48 ? t.slice(0, 48) + '…' : t || 'New thread';
+  return t.length > 48 ? `${t.slice(0, 48)}…` : t || 'New thread';
 }
 
 export function useThreads() {
   const [threads, setThreads] = useState<Thread[]>(seedThreads);
   const [activeId, setActiveId] = useState<string | null>(null);
+  // Stop handler for the in-flight stream (one at a time — the composer is
+  // disabled while streaming).
+  const stopRef = useRef<(() => void) | null>(null);
 
   const activeThread = threads.find((t) => t.id === activeId) ?? null;
 
@@ -62,6 +65,10 @@ export function useThreads() {
     },
     [],
   );
+
+  const stop = useCallback(() => {
+    stopRef.current?.();
+  }, []);
 
   const sendMessage = useCallback(
     async (threadId: string, text: string) => {
@@ -105,13 +112,36 @@ export function useThreads() {
         ),
       );
 
+      // --- abortable streaming (soft stop) ---
+      let aborted = false;
+      let cancelBody: (() => void) | undefined;
+      stopRef.current = () => {
+        aborted = true;
+        cancelBody?.();
+        patchAssistant(threadId, assistantId, (m) =>
+          m.status === 'streaming' ? { ...m, status: 'done', finishedAt: Date.now() } : m,
+        );
+      };
+
       try {
         const response = await analystAgent.stream(payload);
+        cancelBody = () => {
+          try {
+            void response.body?.cancel();
+          } catch {
+            /* body may already be locked/closed */
+          }
+        };
+
         await response.processDataStream({
           onChunk: (chunk) => {
+            if (aborted) return;
             switch (chunk.type) {
               case 'text-delta':
-                patchAssistant(threadId, assistantId, (m) => ({ ...m, text: m.text + chunk.payload.text }));
+                patchAssistant(threadId, assistantId, (m) => ({
+                  ...m,
+                  text: m.text + chunk.payload.text,
+                }));
                 break;
               case 'reasoning-delta':
                 patchAssistant(threadId, assistantId, (m) => ({
@@ -134,7 +164,12 @@ export function useThreads() {
                   ...m,
                   steps: m.steps.map((s) =>
                     s.toolCallId === chunk.payload.toolCallId
-                      ? { ...s, result: chunk.payload.result, isError: chunk.payload.isError, status: 'done' }
+                      ? {
+                          ...s,
+                          result: chunk.payload.result,
+                          isError: chunk.payload.isError,
+                          status: 'done',
+                        }
                       : s,
                   ),
                 }));
@@ -162,23 +197,29 @@ export function useThreads() {
           },
         });
 
-        patchAssistant(threadId, assistantId, (m) => ({
-          ...m,
-          status: m.status === 'error' ? 'error' : 'done',
-          finishedAt: Date.now(),
-        }));
+        if (!aborted) {
+          patchAssistant(threadId, assistantId, (m) => ({
+            ...m,
+            status: m.status === 'error' ? 'error' : 'done',
+            finishedAt: Date.now(),
+          }));
+        }
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        patchAssistant(threadId, assistantId, (m) => ({
-          ...m,
-          status: 'error',
-          errorText: message,
-          finishedAt: Date.now(),
-        }));
+        if (!aborted) {
+          const message = err instanceof Error ? err.message : String(err);
+          patchAssistant(threadId, assistantId, (m) => ({
+            ...m,
+            status: 'error',
+            errorText: message,
+            finishedAt: Date.now(),
+          }));
+        }
+      } finally {
+        stopRef.current = null;
       }
     },
     [threads, patchAssistant],
   );
 
-  return { threads, activeId, activeThread, setActiveId, createThread, sendMessage };
+  return { threads, activeId, activeThread, setActiveId, createThread, sendMessage, stop };
 }

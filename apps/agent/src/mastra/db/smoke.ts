@@ -18,13 +18,21 @@ async function main(): Promise<void> {
   // 1. list_tables
   const tables = await listTables();
   const names = tables.map((t) => t.name).sort();
-  check('list_tables returns the 4 seeded tables', JSON.stringify(names) === JSON.stringify(['customers', 'order_items', 'orders', 'products']), names);
+  check(
+    'list_tables returns the 4 seeded tables',
+    JSON.stringify(names) === JSON.stringify(['customers', 'order_items', 'orders', 'products']),
+    names,
+  );
   check('orders table is populated', (tables.find((t) => t.name === 'orders')?.rowCount ?? 0) > 0);
 
   // 2. describe_table
   const desc = await describeTable('order_items');
   const colNames = desc.columns.map((c) => c.name);
-  check('describe_table(order_items) returns expected columns', ['id', 'order_id', 'product_id', 'quantity', 'unit_price'].every((c) => colNames.includes(c)), colNames);
+  check(
+    'describe_table(order_items) returns expected columns',
+    ['id', 'order_id', 'product_id', 'quantity', 'unit_price'].every((c) => colNames.includes(c)),
+    colNames,
+  );
   check('describe_table returns sample rows', desc.sampleRows.length > 0);
 
   // 3. run_sql — a realistic analytical query (top products by completed revenue)
@@ -38,11 +46,19 @@ async function main(): Promise<void> {
     ORDER BY revenue DESC
     LIMIT 5
   `);
-  check('run_sql returns ranked products', topProducts.rows.length === 5 && topProducts.columns.includes('revenue'), topProducts.rows);
+  check(
+    'run_sql returns ranked products',
+    topProducts.rows.length === 5 && topProducts.columns.includes('revenue'),
+    topProducts.rows,
+  );
   console.log('      top products by revenue:', topProducts.rows);
 
   // 4. read-only guard rejects writes
-  for (const bad of ['DELETE FROM orders', 'DROP TABLE products', 'SELECT 1; DROP TABLE products']) {
+  for (const bad of [
+    'DELETE FROM orders',
+    'DROP TABLE products',
+    'SELECT 1; DROP TABLE products',
+  ]) {
     let rejected = false;
     try {
       assertReadOnly(bad);

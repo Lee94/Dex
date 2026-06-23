@@ -8,7 +8,10 @@ import { createAnthropic } from '@ai-sdk/anthropic';
  * `/v1` suffix, which makes the SDK POST to `/messages` and 404. Normalize the
  * base URL so it always ends in `/v{n}`.
  */
-const raw = (process.env.ANTHROPIC_BASE_URL?.trim() || 'https://api.anthropic.com').replace(/\/+$/, '');
+const raw = (process.env.ANTHROPIC_BASE_URL?.trim() || 'https://api.anthropic.com').replace(
+  /\/+$/,
+  '',
+);
 const baseURL = /\/v\d+$/.test(raw) ? raw : `${raw}/v1`;
 
 export const anthropic = createAnthropic({ baseURL });

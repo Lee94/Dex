@@ -1,0 +1,109 @@
+/* Shared styles for the ui/ primitives — all token-driven (see styles/theme.css). */
+
+/* ---- IconButton ---- */
+.iconBtn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--bp-border-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--dex-transition);
+}
+.hoverStrong:hover {
+  background: var(--dex-hover-strong);
+}
+.hoverMid:hover {
+  background: var(--dex-hover-mid);
+}
+.hoverSoft:hover {
+  background: rgba(95, 107, 124, 0.1);
+}
+
+/* ---- Button (text) ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  border-radius: var(--bp-border-radius);
+  transition: background var(--dex-transition);
+  height: 30px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.ghost {
+  background: var(--dex-surface);
+  box-shadow: inset 0 0 0 1px var(--dex-ring-input);
+  color: var(--dex-text);
+}
+.ghost:hover:not(:disabled) {
+  background: var(--dex-app-bg);
+}
+.quick {
+  background: var(--dex-subtle-bg);
+  box-shadow: inset 0 0 0 1px var(--dex-line-soft);
+  color: var(--dex-text-strong);
+  font-size: 12.5px;
+  border-radius: 6px;
+  padding: 0;
+}
+.quick:hover:not(:disabled) {
+  background: var(--dex-subtle-bg-hover);
+}
+.green {
+  background: var(--dex-success);
+  color: var(--dex-on-primary);
+  font-weight: 600;
+  font-size: 13.5px;
+  border-radius: 5px;
+  height: 32px;
+  padding: 0 14px;
+}
+.green:hover:not(:disabled) {
+  background: var(--dex-success-hover);
+}
+
+/* ---- Pill / badge ---- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+}
+.pillSuccess {
+  height: 21px;
+  padding: 0 9px;
+  border-radius: 11px;
+  font-size: 11.5px;
+  background: var(--dex-success-tint);
+  color: var(--dex-success-fg);
+}
+.pillBeta {
+  padding: 1px 5px;
+  border-radius: var(--bp-border-radius);
+  font-size: 10px;
+  letter-spacing: 0.2px;
+  background: var(--dex-accent-tint);
+  color: var(--dex-accent-fg);
+}
+
+/* ---- Avatar ---- */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 600;
+  flex: none;
+}

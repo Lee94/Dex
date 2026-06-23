@@ -46,10 +46,45 @@ const PRODUCTS = [
   { name: 'Glide Everyday Sneakers', category: 'Apparel', price: 74.99 },
 ];
 
-const FIRST_NAMES = ['Ava', 'Liam', 'Mia', 'Noah', 'Zoe', 'Kai', 'Ivy', 'Leo', 'Nora', 'Eli', 'Maya', 'Owen', 'Lena', 'Theo', 'Ruby'];
-const LAST_NAMES = ['Chen', 'Patel', 'Garcia', 'Kim', 'Nguyen', 'Silva', 'Haddad', 'Olsen', 'Rossi', 'Tanaka'];
+const FIRST_NAMES = [
+  'Ava',
+  'Liam',
+  'Mia',
+  'Noah',
+  'Zoe',
+  'Kai',
+  'Ivy',
+  'Leo',
+  'Nora',
+  'Eli',
+  'Maya',
+  'Owen',
+  'Lena',
+  'Theo',
+  'Ruby',
+];
+const LAST_NAMES = [
+  'Chen',
+  'Patel',
+  'Garcia',
+  'Kim',
+  'Nguyen',
+  'Silva',
+  'Haddad',
+  'Olsen',
+  'Rossi',
+  'Tanaka',
+];
 const COUNTRIES = ['United States', 'United Kingdom', 'Canada', 'Germany', 'Australia', 'Japan'];
-const ORDER_STATUSES = ['completed', 'completed', 'completed', 'completed', 'cancelled', 'refunded', 'pending'];
+const ORDER_STATUSES = [
+  'completed',
+  'completed',
+  'completed',
+  'completed',
+  'cancelled',
+  'refunded',
+  'pending',
+];
 
 const NUM_CUSTOMERS = 30;
 const NUM_ORDERS = 280;

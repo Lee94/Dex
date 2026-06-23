@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.mastra
+**/.mastra
+*.db
+package-lock.json
+**/package-lock.json
+
+# Vendored / handoff artifacts — keep pristine
+design/
+apps/web/src/blueprint/

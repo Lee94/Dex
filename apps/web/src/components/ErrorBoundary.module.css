@@ -1,0 +1,42 @@
+.wrap {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--dex-app-bg);
+  padding: 24px;
+}
+.card {
+  max-width: 460px;
+  background: var(--dex-surface);
+  border-radius: var(--bp-border-radius);
+  box-shadow: var(--dex-shadow-card);
+  padding: 24px;
+}
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--dex-text);
+  margin-bottom: 8px;
+}
+.message {
+  font-size: 13px;
+  color: var(--dex-text-muted);
+  font-family: var(--dex-mono);
+  white-space: pre-wrap;
+  margin-bottom: 16px;
+}
+.button {
+  height: 30px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--bp-border-radius);
+  background: var(--dex-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.button:hover {
+  background: var(--dex-primary-hover);
+}

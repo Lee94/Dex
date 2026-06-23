@@ -22,6 +22,7 @@ design/     # The Claude Design handoff (reference): Notebook.dc.html + design s
 ```
 
 Backend (`apps/agent/src/mastra/`):
+
 - `agents/analyst.ts` — the data-analyst agent (instructions + model + tools).
 - `model.ts` — the Anthropic provider (normalizes the API base URL).
 - `tools/` — `list_tables`, `describe_table`, `run_sql` (read-only SELECT guard).
@@ -53,7 +54,7 @@ npm run dev                   # Vite at http://localhost:5173
 ```
 
 Open http://localhost:5173, click **New thread**, and ask e.g.
-*"Top 5 products by revenue"* or *"Monthly revenue trend this year"*. You can
+_"Top 5 products by revenue"_ or _"Monthly revenue trend this year"_. You can
 also chat with the agent directly in Mastra Studio at http://localhost:4111.
 
 ### Verify without an API key

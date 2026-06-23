@@ -1,0 +1,30 @@
+.root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--dex-app-bg);
+  gap: 14px;
+}
+
+.icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: var(--dex-bubble-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--dex-text-muted);
+}
+
+.subtitle {
+  font-size: 13.5px;
+  color: var(--dex-text-subtle);
+}

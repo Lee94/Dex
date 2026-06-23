@@ -1,0 +1,78 @@
+/* Dex app token layer — the single source of truth for component styles.
+ * Each value maps onto a Blueprint token (--bp-*) where the design matches it
+ * exactly, or a literal where the design diverges. Components reference --dex-*
+ * (and --bp-space-* / --bp-border-radius / --bp-font-* directly for the grid). */
+:root {
+  /* ---- Brand / intent ---- */
+  --dex-primary: var(--bp-intent-primary-rest); /* #2d72d2 */
+  --dex-primary-hover: var(--bp-intent-primary-hover); /* #215db0 */
+  --dex-on-primary: var(--bp-palette-white);
+
+  --dex-success: var(--bp-intent-success-rest); /* #238551 */
+  --dex-success-hover: var(--bp-intent-success-hover); /* #1c6e42 */
+  --dex-success-fg: var(--bp-palette-green-2); /* #1c6e42 */
+  --dex-success-check: var(--bp-palette-green-4); /* #32a467 */
+  --dex-success-tint: rgba(35, 133, 81, 0.12);
+
+  --dex-danger: var(--bp-intent-danger-rest); /* #cd4246 */
+  --dex-danger-fg: var(--bp-palette-red-2); /* #ac2f33 */
+  --dex-danger-tint: rgba(205, 66, 70, 0.1);
+  --dex-danger-ring: rgba(205, 66, 70, 0.25);
+
+  --dex-accent: var(--bp-palette-indigo-3); /* #7961db (thread purple) */
+  --dex-accent-fg: var(--bp-palette-indigo-2); /* #634dbf (beta text) */
+  --dex-accent-tint: rgba(121, 97, 219, 0.14);
+  --dex-accent-tile: rgba(121, 97, 219, 0.12);
+
+  --dex-avatar-bg: var(--bp-palette-orange-3); /* #c87619 */
+
+  /* ---- Text ---- */
+  --dex-text: var(--bp-text-color); /* #1c2127 */
+  --dex-text-strong: var(--bp-palette-dark-gray-5); /* #404854 */
+  --dex-text-muted: var(--bp-text-color-muted); /* #5f6b7c */
+  --dex-text-subtle: var(--bp-palette-gray-3); /* #8f99a8 */
+  --dex-text-faint: var(--bp-palette-gray-4); /* #abb3bf */
+  --dex-text-faintest: var(--bp-palette-gray-5); /* #c5cbd3 */
+
+  /* ---- Icons ---- */
+  --dex-icon: var(--bp-palette-gray-1); /* #5f6b7c */
+  --dex-icon-subtle: var(--bp-palette-gray-3); /* #8f99a8 */
+  --dex-icon-faint: var(--bp-palette-gray-4); /* #abb3bf */
+
+  /* ---- Surfaces ---- */
+  --dex-surface: var(--bp-palette-white);
+  --dex-app-bg: var(--bp-app-background-color); /* #f6f7f9 */
+  --dex-bubble-bg: var(--bp-palette-light-gray-4); /* #edeff2 */
+  --dex-subtle-bg: #f1f3f6;
+  --dex-subtle-bg-hover: var(--bp-palette-light-gray-3); /* #e5e8eb */
+  --dex-chart-bar: #5078a8;
+  --dex-selected-bg: rgba(45, 114, 210, 0.1);
+
+  /* ---- Hairlines / rings (near-black) ---- */
+  --dex-line-faint: rgba(17, 20, 24, 0.06);
+  --dex-line-soft: rgba(17, 20, 24, 0.08);
+  --dex-line: rgba(17, 20, 24, 0.1); /* == --bp-divider-black-muted */
+  --dex-ring: rgba(17, 20, 24, 0.12);
+  --dex-ring-strong: var(--bp-divider-black); /* rgba(17,20,24,.15) */
+  --dex-ring-input: rgba(17, 20, 24, 0.18);
+
+  /* ---- Hover washes (gray-1 alpha) ---- */
+  --dex-hover: rgba(95, 107, 124, 0.08);
+  --dex-hover-mid: rgba(95, 107, 124, 0.12);
+  --dex-hover-strong: rgba(95, 107, 124, 0.15);
+
+  /* ---- Elevation (exact design values) ---- */
+  --dex-shadow-card: 0 0 0 1px rgba(17, 20, 24, 0.12), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --dex-shadow-composer: 0 0 0 1px rgba(17, 20, 24, 0.15), 0 2px 8px -2px rgba(0, 0, 0, 0.08);
+  --dex-divider-bottom: 0 1px 0 0 rgba(17, 20, 24, 0.1);
+  --dex-divider-bottom-soft: 0 1px 0 0 rgba(17, 20, 24, 0.08);
+  --dex-divider-top-soft: 0 -1px 0 0 rgba(17, 20, 24, 0.08);
+  --dex-sidebar-edge: 1px 0 0 0 rgba(17, 20, 24, 0.1);
+
+  /* ---- Type ---- */
+  --dex-font: var(--bp-font-family);
+  --dex-mono: var(--bp-font-family-monospace);
+
+  /* ---- Motion ---- */
+  --dex-transition: var(--bp-transition-duration); /* 100ms */
+}

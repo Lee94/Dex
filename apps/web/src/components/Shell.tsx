@@ -1,7 +1,8 @@
-import type { Thread } from '../types';
-import { Placeholder } from './Placeholder';
-import { Sidebar, type View } from './Sidebar';
-import { ThreadsList } from './ThreadsList';
+import type { Thread } from '@/types';
+import { Placeholder } from '@/components/Placeholder';
+import { Sidebar, type View } from '@/components/Sidebar';
+import { ThreadsList } from '@/components/ThreadsList';
+import styles from './Shell.module.css';
 
 export function Shell({
   view,
@@ -23,15 +24,23 @@ export function Shell({
   onOpenThread: (id: string) => void;
 }) {
   return (
-    <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: '#f6f7f9' }}>
+    <div className={styles.shell}>
       <Sidebar nav={nav} onNavigate={onNavigate} onNewThread={onNewThread} />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className={styles.main}>
         {view === 'threads' ? (
           <ThreadsList threads={threads} onOpenThread={onOpenThread} onNewThread={onNewThread} />
         ) : view === 'notebook' ? (
-          <Placeholder icon="projects" title="Projects" subtitle="The notebook editor is coming soon." />
+          <Placeholder
+            icon="projects"
+            title="Projects"
+            subtitle="The notebook editor is coming soon."
+          />
         ) : (
-          <Placeholder icon={otherIcon} title={otherTitle || 'Coming soon'} subtitle="Nothing here yet." />
+          <Placeholder
+            icon={otherIcon}
+            title={otherTitle || 'Coming soon'}
+            subtitle="Nothing here yet."
+          />
         )}
       </div>
     </div>

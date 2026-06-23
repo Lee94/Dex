@@ -85,7 +85,10 @@ export async function describeTable(table: string): Promise<{
  * SQL (trailing semicolons stripped) or throws with a clear reason.
  */
 export function assertReadOnly(sqlRaw: string): string {
-  const sql = sqlRaw.trim().replace(/;+\s*$/, '').trim();
+  const sql = sqlRaw
+    .trim()
+    .replace(/;+\s*$/, '')
+    .trim();
   if (!sql) {
     throw new Error('Empty SQL query.');
   }

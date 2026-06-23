@@ -9,7 +9,9 @@ export const runSqlTool = createTool({
     'Write/DDL statements (INSERT/UPDATE/DELETE/DROP/...) are rejected. ' +
     'Inspect the relevant tables with describe_table before querying. This is SQLite, so use SQLite date functions (e.g. strftime, date()).',
   inputSchema: z.object({
-    sql: z.string().describe('A single read-only SQLite query. No multiple semicolon-separated statements.'),
+    sql: z
+      .string()
+      .describe('A single read-only SQLite query. No multiple semicolon-separated statements.'),
   }),
   outputSchema: z.object({
     columns: z.array(z.string()),
