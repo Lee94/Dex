@@ -3,17 +3,48 @@ import { getActiveProvider, getConnector } from '../connector';
 import type { QueryResult } from '../types';
 import { compileSemanticQuery } from './compile';
 import { model } from './model';
-import { assertValidModel } from './validate';
-import type { CompileResult, SemanticQuery } from './types';
+import { assertValidModel, validateModel } from './validate';
+import { listUserCubes } from './store';
+import type { CompileResult, SemanticModel, SemanticQuery } from './types';
 
 export { model } from './model';
 export { compileSemanticQuery } from './compile';
 export { validateModel, assertValidModel } from './validate';
 export * from './types';
+export * from './store';
 
 // Fail fast on a structurally broken model (duplicate names, dangling joins,
 // unresolved measure/metric refs) — surfaces at agent boot and in `npm run smoke`.
 assertValidModel(model);
+
+/**
+ * The model the runtime actually uses = the built-in cubes/metrics plus any
+ * user-defined cubes persisted in `dex.db` (v0.7). User cubes are appended; a
+ * cube whose name collides with a built-in one, or that breaks validation, is
+ * skipped so a bad row can never take the whole model (or the agent) down.
+ */
+export async function loadMergedModel(): Promise<SemanticModel> {
+  let stored;
+  try {
+    stored = await listUserCubes();
+  } catch {
+    return model; // store unavailable → fall back to the built-in model
+  }
+  if (stored.length === 0) return model;
+
+  const builtinNames = new Set(model.cubes.map((c) => c.name));
+  const merged: SemanticModel = {
+    cubes: [...model.cubes],
+    metrics: [...model.metrics],
+  };
+  for (const { cube } of stored) {
+    if (builtinNames.has(cube.name)) continue; // never shadow a built-in cube
+    if (merged.cubes.some((c) => c.name === cube.name)) continue;
+    const candidate: SemanticModel = { cubes: [...merged.cubes, cube], metrics: merged.metrics };
+    if (validateModel(candidate).length === 0) merged.cubes.push(cube);
+  }
+  return merged;
+}
 
 /** The result a semantic query returns — the same shape `run_sql` returns, plus
  *  provenance the UI surfaces (the compiled SQL and whether it's endorsed). */
@@ -26,14 +57,17 @@ export type SemanticResult = QueryResult & {
   cubes: string[];
 };
 
-/** Compile a semantic query to SQL for the active dialect (no execution). */
+/** Compile a semantic query to SQL for the active dialect, over the built-in
+ *  model only (sync; used by `npm run smoke`). */
 export function compile(query: SemanticQuery): CompileResult {
   return compileSemanticQuery(query, getActiveProvider(), model);
 }
 
-/** Compile + guard + run a semantic query against the active connector. */
+/** Compile + guard + run a semantic query against the active connector. Uses the
+ *  merged model so user-defined cubes are queryable too. */
 export async function runSemanticQuery(query: SemanticQuery): Promise<SemanticResult> {
-  const compiled = compile(query);
+  const merged = await loadMergedModel();
+  const compiled = compileSemanticQuery(query, getActiveProvider(), merged);
   // The compiled SQL passes through the same read-only guard as hand-written SQL.
   assertReadOnly(compiled.sql);
   const result = await getConnector().runReadOnlySql(compiled.sql);
@@ -52,12 +86,12 @@ export async function runSemanticQuery(query: SemanticQuery): Promise<SemanticRe
 // Catalog + model summary (what the agent's discovery tools return)
 // ---------------------------------------------------------------------------
 
-export function listMetricsCatalog() {
-  const metrics = model.metrics.map((metric) => {
+export function listMetricsCatalog(m: SemanticModel = model) {
+  const metrics = m.metrics.map((metric) => {
     const [cubeName, measureName] = metric.measure.split('.');
-    const measure = model.cubes
+    const measure = m.cubes
       .find((c) => c.name === cubeName)
-      ?.measures.find((m) => m.name === measureName);
+      ?.measures.find((mm) => mm.name === measureName);
     return {
       name: metric.name,
       title: metric.title ?? metric.name,
@@ -70,22 +104,22 @@ export function listMetricsCatalog() {
   return { metrics };
 }
 
-export function describeModelSummary() {
+export function describeModelSummary(m: SemanticModel = model) {
   return {
     dialect: getActiveProvider(),
-    cubes: model.cubes.map((cube) => ({
+    cubes: m.cubes.map((cube) => ({
       name: cube.name,
       title: cube.title ?? cube.name,
       description: cube.description,
       endorsed: !!cube.endorsed,
-      measures: cube.measures.map((m) => ({
-        name: m.name,
-        ref: `${cube.name}.${m.name}`,
-        title: m.title ?? m.name,
-        type: m.type,
-        format: m.format ?? 'number',
-        description: m.description,
-        endorsed: !!m.endorsed,
+      measures: cube.measures.map((mm) => ({
+        name: mm.name,
+        ref: `${cube.name}.${mm.name}`,
+        title: mm.title ?? mm.name,
+        type: mm.type,
+        format: mm.format ?? 'number',
+        description: mm.description,
+        endorsed: !!mm.endorsed,
       })),
       dimensions: cube.dimensions.map((d) => ({
         name: d.name,
@@ -96,13 +130,23 @@ export function describeModelSummary() {
       })),
       joins: (cube.joins ?? []).map((j) => ({ to: j.to, relationship: j.relationship })),
     })),
-    metrics: model.metrics.map((m) => ({
-      name: m.name,
-      title: m.title ?? m.name,
-      description: m.description,
-      measure: m.measure,
-      filters: m.filters,
-      endorsed: !!m.endorsed,
+    metrics: m.metrics.map((mm) => ({
+      name: mm.name,
+      title: mm.title ?? mm.name,
+      description: mm.description,
+      measure: mm.measure,
+      filters: mm.filters,
+      endorsed: !!mm.endorsed,
     })),
   };
+}
+
+/** Async variants over the merged model — what the agent's tools call so user
+ *  cubes are visible to the agent, not just the UI. */
+export async function describeModelSummaryAsync() {
+  return describeModelSummary(await loadMergedModel());
+}
+
+export async function listMetricsCatalogAsync() {
+  return listMetricsCatalog(await loadMergedModel());
 }

@@ -1,6 +1,6 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { describeModelSummary } from '../db/semantic';
+import { describeModelSummaryAsync } from '../db/semantic';
 
 export const describeModelTool = createTool({
   id: 'describe_model',
@@ -14,5 +14,5 @@ export const describeModelTool = createTool({
     cubes: z.array(z.any()),
     metrics: z.array(z.any()),
   }),
-  execute: async () => describeModelSummary(),
+  execute: async () => describeModelSummaryAsync(),
 });

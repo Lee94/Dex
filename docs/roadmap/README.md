@@ -21,15 +21,17 @@ files in this folder hold the detail (goal, scope, technical approach, and a
 
 ## Timeline
 
-| Version                                  | Theme              | Status     | One-liner                                                                                                            |
-| ---------------------------------------- | ------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------- |
-| [v0.1.0](./v0.1.0-threads-mvp.md)        | Threads MVP        | ✅ Shipped | Agentic SQL analyst + Blueprint "Dex" thread UI wired to the live agent; eng pass.                                   |
-| [v0.2.0](./v0.2.0-persistence.md)        | Persistence        | ✅ Shipped | Conversation memory + saved/named threads that survive a refresh.                                                    |
-| [v0.3.0](./v0.3.0-live-warehouses.md)    | Live warehouses    | ✅ Shipped | Real Postgres connections behind a clean connector interface.                                                        |
-| [v0.4.0](./v0.4.0-semantic-layer.md)     | Semantic layer     | ✅ Shipped | A CubeJS-style model (cubes, measures, dimensions, joins) the agent queries for trusted, consistent metrics.         |
-| [v0.5.0](./v0.5.0-richer-results.md)     | Richer results     | 📋 Planned | Chart-type selection, time-series charts, and table/CSV export.                                                      |
-| [v1.0.0](./v1.0.0-quality-foundation.md) | Quality foundation | 📋 Planned | Automated tests (Vitest / RTL) + CI (GitHub Actions) — the prototype graduates into a real, tested 1.0 product.      |
-| [v2.0.0](./v2.0.0-notebook-editor.md)    | NotebookEditor     | 📋 Planned | The full cell-based notebook editor — Dex becomes a notebook, not just a thread chat; the first major leap past 1.0. |
+| Version                                  | Theme                  | Status     | One-liner                                                                                                               |
+| ---------------------------------------- | ---------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------- |
+| [v0.1.0](./v0.1.0-threads-mvp.md)        | Threads MVP            | ✅ Shipped | Agentic SQL analyst + Blueprint "Dex" thread UI wired to the live agent; eng pass.                                      |
+| [v0.2.0](./v0.2.0-persistence.md)        | Persistence            | ✅ Shipped | Conversation memory + saved/named threads that survive a refresh.                                                       |
+| [v0.3.0](./v0.3.0-live-warehouses.md)    | Live warehouses        | ✅ Shipped | Real Postgres connections behind a clean connector interface.                                                           |
+| [v0.4.0](./v0.4.0-semantic-layer.md)     | Semantic layer         | ✅ Shipped | A CubeJS-style model (cubes, measures, dimensions, joins) the agent queries for trusted, consistent metrics.            |
+| [v0.5.0](./v0.5.0-richer-results.md)     | Richer results         | 📋 Planned | Chart-type selection, time-series charts, and table/CSV export.                                                         |
+| [v0.6.0](./v0.6.0-data-sources.md)       | Data sources & catalog | ✅ Shipped | A Data browser: register connections, browse schema/tables/columns + real previews, explore the model, curate metadata. |
+| [v0.7.0](./v0.7.0-data-management.md)    | Data management        | ✅ Shipped | Delete connections, add/delete data models, and attach a database/table/model to a question from the composer's "+".    |
+| [v1.0.0](./v1.0.0-quality-foundation.md) | Quality foundation     | 📋 Planned | Automated tests (Vitest / RTL) + CI (GitHub Actions) — the prototype graduates into a real, tested 1.0 product.         |
+| [v2.0.0](./v2.0.0-notebook-editor.md)    | NotebookEditor         | 📋 Planned | The full cell-based notebook editor — Dex becomes a notebook, not just a thread chat; the first major leap past 1.0.    |
 
 ## How the milestones build on each other
 
@@ -37,9 +39,11 @@ files in this folder hold the detail (goal, scope, technical approach, and a
 v0.1  Threads MVP ───► v0.2  persistence (threads survive refresh)
                           └──► v0.3  live warehouses (real connections)
                                  └──► v0.4  semantic layer (CubeJS-style)
-                                        └──► v0.5  richer results (viz + export)
-                                               └──► v1.0  tests + CI (prototype → product)
-                                                      └──► v2.0  NotebookEditor
+                                        ├──► v0.5  richer results (viz + export)
+                                        └──► v0.6  data sources & catalog (browse + curate)
+                                               └──► v0.7  data management (delete sources, CRUD models, composer "+")
+                                                      └──► v1.0  tests + CI (prototype → product)
+                                                             └──► v2.0  NotebookEditor
 ```
 
 The plan leads with **features**, then hardens: **v0.2** makes it feel like a real

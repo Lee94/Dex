@@ -7,7 +7,19 @@ import {
   runReadOnlySql,
 } from './queries';
 import { PostgresConnector } from './connectors/postgres';
-import { compile, model, runSemanticQuery, validateModel } from './semantic';
+import {
+  compile,
+  createUserCube,
+  deleteUserCube,
+  describeModelSummaryAsync,
+  loadMergedModel,
+  model,
+  runSemanticQuery,
+  validateModel,
+} from './semantic';
+import { createConnectorFromConfig, getConnectorById } from './connector';
+import { WAREHOUSE_PATH } from './warehouse';
+import { getTableMetadata, upsertTableMetadata, deleteMetadataForDatasource } from './metadata';
 
 /**
  * Non-LLM smoke test: exercises the warehouse query helpers (the same logic the
@@ -151,6 +163,125 @@ async function main(): Promise<void> {
       monthlyByCountry.columns.includes('month') &&
       monthlyByCountry.rows.length > 0,
     { columns: monthlyByCountry.columns, rows: monthlyByCountry.rows.length },
+  );
+
+  // 5b. data-source module (v0.6) — connector factory, registry, metadata overlay
+  const factory = createConnectorFromConfig({
+    id: '__smoke__',
+    name: 'smoke sqlite',
+    type: 'sqlite',
+    filePath: WAREHOUSE_PATH,
+    createdAt: 0,
+  });
+  try {
+    const factoryTables = (await factory.listTables()).map((t) => t.name).sort();
+    check(
+      'createConnectorFromConfig(sqlite) lists the seeded tables',
+      JSON.stringify(factoryTables) ===
+        JSON.stringify(['customers', 'order_items', 'orders', 'products']),
+      factoryTables,
+    );
+  } finally {
+    await factory.close();
+  }
+
+  const builtin = await getConnectorById('builtin');
+  check(
+    "getConnectorById('builtin') matches the active connector",
+    builtin === getConnector() && builtin.dialect === getActiveProvider(),
+    { dialect: builtin.dialect },
+  );
+
+  // metadata overlay: upsert → read back → cleanup (uses a throwaway datasource id)
+  const SMOKE_DS = '__smoke__';
+  await deleteMetadataForDatasource(SMOKE_DS);
+  await upsertTableMetadata(SMOKE_DS, 'orders', {
+    description: 'Customer orders',
+    status: 'endorsed',
+    includedForAi: false,
+  });
+  const readBack = await getTableMetadata(SMOKE_DS, 'orders');
+  check(
+    'metadata upsert persists and reads back',
+    readBack.description === 'Customer orders' &&
+      readBack.status === 'endorsed' &&
+      readBack.includedForAi === false,
+    readBack,
+  );
+  // patch merge: changing one field keeps the others
+  await upsertTableMetadata(SMOKE_DS, 'orders', { description: 'Updated' });
+  const merged = await getTableMetadata(SMOKE_DS, 'orders');
+  check(
+    'metadata patch merges (status preserved)',
+    merged.description === 'Updated' && merged.status === 'endorsed',
+    merged,
+  );
+  await deleteMetadataForDatasource(SMOKE_DS);
+
+  // preview path: capped SELECT * through the read-only guard
+  const preview = await runReadOnlySql('SELECT * FROM orders LIMIT 5', 5);
+  check(
+    'preview-style capped query returns rows',
+    preview.rows.length === 5 && preview.columns.length > 0,
+    { rows: preview.rows.length, cols: preview.columns.length },
+  );
+
+  // 5c. user-defined semantic models (v0.7) — create → merge → query → delete
+  const SMOKE_CUBE = 'smoke_products';
+  await deleteUserCube(SMOKE_CUBE); // clean any leftover from a prior run
+  await createUserCube('products', {
+    name: SMOKE_CUBE,
+    title: 'Smoke products',
+    description: 'Throwaway user cube over products.',
+    sql: 'products',
+    endorsed: false,
+    measures: [
+      { name: 'product_total', title: 'Product total', type: 'count', format: 'integer' },
+      {
+        name: 'avg_price',
+        title: 'Average price',
+        type: 'avg',
+        sql: `${SMOKE_CUBE}.price`,
+        format: 'number',
+      },
+    ],
+    dimensions: [
+      { name: 'category', title: 'Category', type: 'categorical', sql: `${SMOKE_CUBE}.category` },
+    ],
+    joins: [],
+  });
+
+  const mergedModel = await loadMergedModel();
+  check(
+    'user cube appears in the merged model',
+    mergedModel.cubes.some((cc) => cc.name === SMOKE_CUBE),
+    mergedModel.cubes.map((cc) => cc.name),
+  );
+
+  const mergedSummary = await describeModelSummaryAsync();
+  check(
+    'describeModelSummaryAsync includes the user cube',
+    mergedSummary.cubes.some((cc) => cc.name === SMOKE_CUBE),
+  );
+
+  const userQuery = await runSemanticQuery({
+    measures: [`${SMOKE_CUBE}.avg_price`],
+    dimensions: [`${SMOKE_CUBE}.category`],
+  });
+  check(
+    'query_semantic runs against a user cube (avg price by category)',
+    userQuery.columns.includes('category') &&
+      userQuery.columns.includes('avg_price') &&
+      userQuery.rows.length === 3 &&
+      userQuery.endorsed === false,
+    userQuery.rows,
+  );
+
+  const deleted = await deleteUserCube(SMOKE_CUBE);
+  const afterDelete = await loadMergedModel();
+  check(
+    'deleting a user cube removes it from the merged model',
+    deleted && !afterDelete.cubes.some((cc) => cc.name === SMOKE_CUBE),
   );
 
   // 6. Postgres connector — only when a connection is configured; otherwise skip

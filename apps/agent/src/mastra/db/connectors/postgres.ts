@@ -46,27 +46,61 @@ function quoteIdent(name: string): string {
   return `"${name}"`;
 }
 
+/** Explicit connection config for a user-registered Postgres source (v0.6). */
+export interface PgConnectorOptions {
+  connectionString?: string;
+  host?: string;
+  port?: number;
+  database?: string;
+  user?: string;
+  password?: string;
+  schema?: string;
+  ssl?: boolean;
+}
+
 export class PostgresConnector implements Connector {
   readonly dialect = 'postgres' as const;
   readonly label: string;
   private pool: Pool;
   private schema: string;
 
-  constructor() {
-    const connectionString = env('DATABASE_URL') ?? env('PG_CONNECTION_STRING');
-    const ssl = env('PGSSL') === 'require' ? { rejectUnauthorized: false } : undefined;
-    this.pool = new Pool({
-      connectionString,
-      ssl,
-      // Bound how long we'll wait to even get a connection.
-      connectionTimeoutMillis: 8000,
-      max: 4,
-    });
-    this.schema = env('PGSCHEMA') || 'public';
-    const where = connectionString
-      ? connectionString.replace(/:[^:@/]*@/, ':****@')
-      : env('PGHOST');
-    this.label = `Postgres ${env('PGDATABASE') ?? ''} (${where ?? 'env'}, schema ${this.schema})`;
+  /** No arg → read connection from env (the agent's active source). `opts` →
+   *  an explicitly-configured source registered through the data-source UI. */
+  constructor(opts?: PgConnectorOptions) {
+    if (opts) {
+      const ssl = opts.ssl ? { rejectUnauthorized: false } : undefined;
+      this.pool = new Pool({
+        connectionString: opts.connectionString,
+        host: opts.host,
+        port: opts.port,
+        database: opts.database,
+        user: opts.user,
+        password: opts.password,
+        ssl,
+        connectionTimeoutMillis: 8000,
+        max: 4,
+      });
+      this.schema = opts.schema || 'public';
+      const where = opts.connectionString
+        ? opts.connectionString.replace(/:[^:@/]*@/, ':****@')
+        : (opts.host ?? 'config');
+      this.label = `Postgres ${opts.database ?? ''} (${where}, schema ${this.schema})`;
+    } else {
+      const connectionString = env('DATABASE_URL') ?? env('PG_CONNECTION_STRING');
+      const ssl = env('PGSSL') === 'require' ? { rejectUnauthorized: false } : undefined;
+      this.pool = new Pool({
+        connectionString,
+        ssl,
+        // Bound how long we'll wait to even get a connection.
+        connectionTimeoutMillis: 8000,
+        max: 4,
+      });
+      this.schema = env('PGSCHEMA') || 'public';
+      const where = connectionString
+        ? connectionString.replace(/:[^:@/]*@/, ':****@')
+        : env('PGHOST');
+      this.label = `Postgres ${env('PGDATABASE') ?? ''} (${where ?? 'env'}, schema ${this.schema})`;
+    }
   }
 
   /** Run `fn` inside a read-only transaction with a bounded statement timeout. */

@@ -1,3 +1,4 @@
+import { createClient, type Client } from '@libsql/client';
 import { warehouse, WAREHOUSE_PATH } from '../warehouse';
 import { assertReadOnly, IDENTIFIER } from '../guard';
 import {
@@ -11,9 +12,11 @@ import {
 } from '../types';
 
 /**
- * The bundled SQLite sample warehouse (`warehouse.db`) — the zero-setup default
- * connector. Read-only safety rests on `assertReadOnly` (single SELECT/WITH);
- * SQLite has no server-side role to drop to, so the guard is the gate.
+ * A SQLite warehouse connector. With no argument it binds the bundled sample
+ * (`warehouse.db`) — the zero-setup default. Pass a `filePath` (v0.6) to point a
+ * user-registered data source at another SQLite file. Read-only safety rests on
+ * `assertReadOnly` (single SELECT/WITH); SQLite has no server-side role to drop
+ * to, so the guard is the gate.
  */
 
 /** Turn a libsql result into plain objects keyed by column name. */
@@ -29,10 +32,22 @@ function toObjects(columns: string[], rows: unknown[][]): Row[] {
 
 export class SqliteConnector implements Connector {
   readonly dialect = 'sqlite' as const;
-  readonly label = `SQLite sample (${WAREHOUSE_PATH})`;
+  readonly label: string;
+  private client: Client;
+
+  /** No arg → the bundled sample. `filePath` → a user-registered SQLite file. */
+  constructor(filePath?: string) {
+    if (filePath) {
+      this.client = createClient({ url: `file:${filePath}` });
+      this.label = `SQLite (${filePath})`;
+    } else {
+      this.client = warehouse;
+      this.label = `SQLite sample (${WAREHOUSE_PATH})`;
+    }
+  }
 
   async listTables(): Promise<TableInfo[]> {
-    const res = await warehouse.execute(
+    const res = await this.client.execute(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
     );
     const names = res.rows.map((r) => String((r as unknown as unknown[])[0]));
@@ -40,7 +55,7 @@ export class SqliteConnector implements Connector {
     const tables: TableInfo[] = [];
     for (const name of names) {
       // name comes from sqlite_master, but quote defensively anyway.
-      const count = await warehouse.execute(`SELECT COUNT(*) AS n FROM "${name}"`);
+      const count = await this.client.execute(`SELECT COUNT(*) AS n FROM "${name}"`);
       tables.push({ name, rowCount: Number((count.rows[0] as unknown as unknown[])[0]) });
     }
     return tables;
@@ -50,7 +65,7 @@ export class SqliteConnector implements Connector {
     if (!IDENTIFIER.test(table)) {
       throw new Error(`Invalid table name: ${JSON.stringify(table)}`);
     }
-    const exists = await warehouse.execute({
+    const exists = await this.client.execute({
       sql: "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
       args: [table],
     });
@@ -58,7 +73,7 @@ export class SqliteConnector implements Connector {
       throw new Error(`Table not found: ${table}`);
     }
 
-    const info = await warehouse.execute(`PRAGMA table_info("${table}")`);
+    const info = await this.client.execute(`PRAGMA table_info("${table}")`);
     const infoRows = toObjects(info.columns, info.rows as unknown as unknown[][]);
     const columns: ColumnInfo[] = infoRows.map((o) => ({
       name: String(o.name),
@@ -67,7 +82,7 @@ export class SqliteConnector implements Connector {
       primaryKey: Number(o.pk) === 1,
     }));
 
-    const sample = await warehouse.execute(`SELECT * FROM "${table}" LIMIT 5`);
+    const sample = await this.client.execute(`SELECT * FROM "${table}" LIMIT 5`);
     const sampleRows = toObjects(sample.columns, sample.rows as unknown as unknown[][]);
 
     return { table, columns, sampleRows };
@@ -75,7 +90,7 @@ export class SqliteConnector implements Connector {
 
   async runReadOnlySql(sqlRaw: string, maxRows = DEFAULT_MAX_ROWS): Promise<QueryResult> {
     const sql = assertReadOnly(sqlRaw);
-    const res = await warehouse.execute(sql);
+    const res = await this.client.execute(sql);
     const columns = res.columns ?? [];
     const allRows = toObjects(columns, res.rows as unknown as unknown[][]);
     const rows = allRows.slice(0, maxRows);
@@ -88,6 +103,10 @@ export class SqliteConnector implements Connector {
   }
 
   async close(): Promise<void> {
-    // libsql file client is process-lifetime; nothing to release per-request.
+    // The shared sample client is process-lifetime; only release a client we
+    // opened for a user-registered source.
+    if (this.client !== warehouse) {
+      this.client.close();
+    }
   }
 }

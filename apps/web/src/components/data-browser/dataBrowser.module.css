@@ -1,0 +1,970 @@
+/* Data-source module (v0.6) — DataBrowser.dc.html, token-driven. */
+
+.root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--dex-surface);
+}
+
+/* ---- header ---- */
+.header {
+  flex: none;
+  padding: 26px 34px 0;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.logo {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--dex-logo-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-shadow: inset 0 0 0 1px var(--dex-logo-ring);
+}
+.title {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--dex-text);
+}
+
+/* ---- header tabs ---- */
+.tabs {
+  flex: none;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 14px 34px 0;
+  box-shadow: inset 0 -1px 0 0 var(--dex-line);
+}
+.tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--dex-text-muted);
+  padding: 0 10px 11px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color var(--dex-transition);
+}
+.tab:hover {
+  color: var(--dex-text);
+}
+.tabActive {
+  color: var(--dex-text);
+  font-weight: 600;
+  border-bottom-color: var(--dex-primary);
+}
+
+/* ---- body / two-pane ---- */
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+.left {
+  width: 320px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  box-shadow: inset -1px 0 0 0 var(--dex-line);
+  overflow: hidden;
+}
+.right {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+/* ---- source list ---- */
+.listScroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px 8px;
+}
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--dex-text-subtle);
+  padding: 0 10px 6px;
+}
+.sourceRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 9px 10px;
+  border-radius: 6px;
+  background: transparent;
+  width: 100%;
+  transition: background var(--dex-transition);
+}
+.sourceRow:hover {
+  background: var(--dex-hover);
+}
+.sourceRowActive,
+.sourceRowActive:hover {
+  background: var(--dex-selected-bg);
+}
+.sourceMainBtn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+.rowDelete {
+  flex: none;
+  opacity: 0;
+  transition: opacity var(--dex-transition);
+}
+.sourceRow:hover .rowDelete,
+.dmCard:hover .rowDelete {
+  opacity: 1;
+}
+.sourceIcon {
+  flex: none;
+  padding-top: 1px;
+}
+.sourceMain {
+  min-width: 0;
+  flex: 1;
+}
+.sourceNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sourceName {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--dex-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sourceSub {
+  font-size: 12px;
+  color: var(--dex-text-subtle);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agentTag {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dex-primary);
+  background: var(--dex-selected-bg);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.listFooter {
+  flex: none;
+  padding: 8px 16px;
+  display: flex;
+  box-shadow: inset 0 1px 0 0 var(--dex-line-soft);
+}
+
+/* ---- schema tree ---- */
+.treeTop {
+  flex: none;
+  padding: 12px 16px 6px;
+}
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--dex-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.backLink:hover {
+  color: var(--dex-text);
+}
+.treeSourceRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.treeSourceName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dex-text);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.searchWrap {
+  position: relative;
+  margin-top: 10px;
+}
+.searchIcon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.searchInput {
+  width: 100%;
+  height: 30px;
+  padding: 0 10px 0 30px;
+  border-radius: 6px;
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--dex-ring);
+  font-size: 13px;
+  color: var(--dex-text);
+  background: var(--dex-surface);
+  outline: none;
+}
+.searchInput:focus {
+  box-shadow: inset 0 0 0 1px var(--dex-primary);
+}
+.treeScroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 10px 12px;
+}
+.schemaRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  transition: background var(--dex-transition);
+}
+.schemaRow:hover {
+  background: var(--dex-hover);
+}
+.caret {
+  flex: none;
+  transition: transform var(--dex-transition);
+}
+.caretOpen {
+  transform: rotate(90deg);
+}
+.schemaName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dex-text-strong);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tableRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 29px;
+  padding: 0 8px 0 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  transition: background var(--dex-transition);
+}
+.tableRow:hover {
+  background: var(--dex-hover);
+}
+.tableRowActive,
+.tableRowActive:hover {
+  background: var(--dex-selected-bg);
+}
+.tableName {
+  font-size: 13px;
+  color: var(--dex-text);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tableCount {
+  font-size: 11.5px;
+  color: var(--dex-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.emptyTree {
+  font-size: 12.5px;
+  color: var(--dex-text-faint);
+  padding: 8px;
+}
+
+/* ---- right pane: empty ---- */
+.detailEmpty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--dex-text-subtle);
+}
+.detailEmptyTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dex-text-muted);
+}
+.detailEmptySub {
+  font-size: 13.5px;
+  color: var(--dex-text-subtle);
+}
+
+/* ---- right pane: detail ---- */
+.detailScroll {
+  padding: 24px 36px 60px;
+}
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--dex-text-muted);
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.crumb {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--dex-text-muted);
+  padding: 0;
+  font-size: 12.5px;
+}
+.crumb:hover {
+  color: var(--dex-text);
+}
+.crumbCurrent {
+  color: var(--dex-text);
+  font-weight: 600;
+}
+.detailHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.detailTitle {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--dex-text);
+}
+.kindBadge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dex-text-muted);
+  background: var(--dex-subtle-bg);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+.headerActions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+.descEditable {
+  margin: 8px 0 18px;
+  font-size: 13.5px;
+  color: var(--dex-text-muted);
+  cursor: text;
+  min-height: 20px;
+}
+.descPlaceholder {
+  color: var(--dex-text-faint);
+}
+.descInput {
+  width: 100%;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--dex-text);
+  border-radius: 6px;
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--dex-ring);
+  padding: 8px 10px;
+  resize: vertical;
+  outline: none;
+}
+.descInput:focus {
+  box-shadow: inset 0 0 0 1px var(--dex-primary);
+}
+
+/* meta chips (Status / Categories / AI usage) */
+.metaGrid {
+  display: flex;
+  gap: 28px;
+  padding: 14px 0 18px;
+  box-shadow: inset 0 -1px 0 0 var(--dex-line-soft);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.metaCol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.metaLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--dex-text-subtle);
+}
+.metaAdd {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 23px;
+  padding: 0 9px;
+  border-radius: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--dex-text-muted);
+  box-shadow: inset 0 0 0 1px var(--dex-ring);
+}
+.metaAdd:hover {
+  color: var(--dex-text);
+  background: var(--dex-hover);
+}
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toggle {
+  width: 30px;
+  height: 18px;
+  border-radius: 9px;
+  border: none;
+  cursor: pointer;
+  background: var(--dex-text-faintest);
+  position: relative;
+  transition: background var(--dex-transition);
+  flex: none;
+}
+.toggleOn {
+  background: var(--dex-primary);
+}
+.toggleKnob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--dex-surface);
+  transition: transform var(--dex-transition);
+}
+.toggleOn .toggleKnob {
+  transform: translateX(12px);
+}
+
+/* stat chips on a table */
+.statChips {
+  display: flex;
+  gap: 22px;
+  margin: 4px 0 16px;
+}
+.statChip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.statValue {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--dex-text);
+  font-variant-numeric: tabular-nums;
+}
+.statLabel {
+  font-size: 11px;
+  color: var(--dex-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* detail tabs (Columns / Preview) */
+.detailTabs {
+  display: flex;
+  gap: 4px;
+  box-shadow: inset 0 -1px 0 0 var(--dex-line);
+  margin-bottom: 2px;
+}
+.detailTab {
+  appearance: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--dex-text-muted);
+  padding: 7px 12px 9px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.detailTab:hover {
+  color: var(--dex-text);
+}
+.detailTabActive {
+  color: var(--dex-text);
+  font-weight: 600;
+  border-bottom-color: var(--dex-primary);
+}
+
+/* ---- columns table ---- */
+.colTable {
+  width: 100%;
+}
+.colHeadRow {
+  display: flex;
+  align-items: center;
+  padding: 10px 6px;
+  box-shadow: inset 0 -1px 0 0 var(--dex-line-soft);
+}
+.colHeadCell {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--dex-text-subtle);
+}
+.colRow {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 6px;
+  box-shadow: inset 0 -1px 0 0 var(--dex-line-faint);
+}
+.colNameCell {
+  flex: 1;
+  min-width: 140px;
+  padding-right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.colName {
+  font-size: 13.5px;
+  color: var(--dex-text);
+  font-family: var(--dex-mono);
+}
+.colTypeCell {
+  width: 160px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.typeDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.colType {
+  font-size: 12.5px;
+  color: var(--dex-text-muted);
+  font-family: var(--dex-mono);
+}
+.colDescCell {
+  flex: 1.4;
+  min-width: 120px;
+  font-size: 13px;
+  color: var(--dex-text-muted);
+}
+.colDescEmpty {
+  color: var(--dex-text-faint);
+  cursor: text;
+}
+.pkBadge {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--dex-pk);
+  box-shadow: inset 0 0 0 1px var(--dex-pk);
+  border-radius: 3px;
+  padding: 0 3px;
+  letter-spacing: 0.3px;
+}
+
+/* ---- data grid (preview) ---- */
+.gridWrap {
+  overflow: auto;
+  box-shadow: inset 0 0 0 1px var(--dex-line-soft);
+  border-radius: 6px;
+  margin-top: 12px;
+}
+.grid {
+  border-collapse: collapse;
+  font-size: 12.5px;
+  min-width: 100%;
+}
+.grid th,
+.grid td {
+  text-align: left;
+  padding: 6px 12px;
+  white-space: nowrap;
+  box-shadow:
+    inset 0 -1px 0 0 var(--dex-line-faint),
+    inset -1px 0 0 0 var(--dex-line-faint);
+}
+.grid th {
+  position: sticky;
+  top: 0;
+  background: var(--dex-subtle-bg);
+  color: var(--dex-text-muted);
+  font-weight: 600;
+  font-family: var(--dex-mono);
+  z-index: 1;
+}
+.grid td {
+  color: var(--dex-text);
+  font-family: var(--dex-mono);
+}
+.gridNum {
+  color: var(--dex-text-faint);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.gridCaption {
+  font-size: 12px;
+  color: var(--dex-text-subtle);
+  padding: 8px 2px 0;
+}
+
+/* ---- data models ---- */
+.dmGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+.dmCard {
+  position: relative;
+  text-align: left;
+  background: var(--dex-surface);
+  box-shadow: var(--dex-shadow-card);
+  border-radius: 8px;
+  padding: 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: box-shadow var(--dex-transition);
+  border: none;
+}
+.dmCardBtn {
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+.dmCardDelete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--dex-surface);
+}
+.dmCard:hover {
+  box-shadow:
+    0 0 0 1px var(--dex-ring),
+    0 2px 8px -2px rgba(0, 0, 0, 0.1);
+}
+.dmCardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dmCardName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dex-text);
+}
+.dmCardDesc {
+  font-size: 12.5px;
+  color: var(--dex-text-muted);
+  line-height: 1.4;
+}
+.dmCardMeta {
+  font-size: 11.5px;
+  color: var(--dex-text-subtle);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.demoBadge {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--dex-accent-fg);
+  background: var(--dex-accent-tint);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+/* model detail */
+.modelCols {
+  display: flex;
+  gap: 28px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.modelCol {
+  flex: 1;
+  min-width: 220px;
+}
+.modelColTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--dex-text-subtle);
+  margin-bottom: 8px;
+}
+.memberRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  box-shadow: inset 0 -1px 0 0 var(--dex-line-faint);
+}
+.memberName {
+  font-size: 13px;
+  color: var(--dex-text);
+  flex: 1;
+}
+.codeBadge {
+  font-size: 11px;
+  color: var(--dex-text-muted);
+  font-family: var(--dex-mono);
+  background: var(--dex-subtle-bg);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.joinsEmpty {
+  font-size: 13px;
+  color: var(--dex-text-faint);
+  padding: 12px 4px;
+}
+.segTabs {
+  display: inline-flex;
+  gap: 2px;
+  background: var(--dex-subtle-bg);
+  border-radius: 6px;
+  padding: 2px;
+  margin-bottom: 10px;
+}
+.segTab {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--dex-text-muted);
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+.segTabActive {
+  background: var(--dex-surface);
+  color: var(--dex-text);
+  font-weight: 600;
+  box-shadow: var(--dex-shadow-card);
+}
+
+/* ---- loading / error ---- */
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 16px;
+  color: var(--dex-text-subtle);
+}
+.spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--dex-line);
+  border-top-color: var(--dex-primary);
+  animation: dbspin 0.7s linear infinite;
+}
+@keyframes dbspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.errorText {
+  font-size: 13px;
+  color: var(--dex-danger-fg);
+}
+
+/* ---- add-connection dialog ---- */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 20, 24, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.dialog {
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  background: var(--dex-surface);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.4);
+  padding: 22px;
+}
+.dialogTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--dex-text);
+  margin: 0 0 16px;
+}
+.field {
+  margin-bottom: 12px;
+}
+.fieldLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dex-text-muted);
+  margin-bottom: 4px;
+}
+.input,
+.select {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--dex-ring);
+  font-size: 13px;
+  color: var(--dex-text);
+  background: var(--dex-surface);
+  outline: none;
+}
+.input:focus,
+.select:focus {
+  box-shadow: inset 0 0 0 1px var(--dex-primary);
+}
+.fieldRow {
+  display: flex;
+  gap: 10px;
+}
+.dialogError {
+  font-size: 12.5px;
+  color: var(--dex-danger-fg);
+  margin: 4px 0 12px;
+}
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* ---- new-model form ---- */
+.emptyHint {
+  font-size: 12.5px;
+  color: var(--dex-text-subtle);
+}
+.formSection {
+  margin-top: 14px;
+}
+.formSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.formSectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--dex-text-subtle);
+}
+.measureRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.measureRow .input,
+.measureRow .select {
+  height: 30px;
+}
+.dimList {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 190px;
+  overflow-y: auto;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--dex-line);
+  padding: 4px;
+}
+.dimRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  font-size: 13px;
+  color: var(--dex-text);
+  cursor: pointer;
+}
+.dimRow:hover {
+  background: var(--dex-hover);
+}
+.dimRowName {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

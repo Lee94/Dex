@@ -1,6 +1,6 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { listMetricsCatalog } from '../db/semantic';
+import { listMetricsCatalogAsync } from '../db/semantic';
 
 export const listMetricsTool = createTool({
   id: 'list_metrics',
@@ -21,5 +21,5 @@ export const listMetricsTool = createTool({
       }),
     ),
   }),
-  execute: async () => listMetricsCatalog(),
+  execute: async () => listMetricsCatalogAsync(),
 });

@@ -75,4 +75,17 @@
 
   /* ---- Motion ---- */
   --dex-transition: var(--bp-transition-duration); /* 100ms */
+
+  /* ---- Data-source module (v0.6) ---- */
+  --dex-logo-purple: #5850c4; /* Data browser cube mark */
+  --dex-logo-bg: #f1f0fb; /* cube mark disc */
+  --dex-logo-ring: rgba(88, 80, 196, 0.12);
+  --dex-conn-pg: #31648c; /* Postgres brand */
+  --dex-conn-sf: #29b5e8; /* Snowflake brand */
+  --dex-pk: #c79a1e; /* primary-key key icon (gold) */
+  /* column / dimension type dots */
+  --dex-type-text: var(--dex-primary); /* string  → blue */
+  --dex-type-number: var(--dex-success-fg); /* numeric → green */
+  --dex-type-date: var(--bp-palette-orange-2); /* date    → orange */
+  --dex-type-bool: var(--dex-accent); /* boolean → purple */
 }

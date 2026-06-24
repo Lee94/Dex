@@ -1,9 +1,0 @@
-/* Blueprint Design System — global entry point.
- * A recreation of Palantir's Blueprint design language (https://blueprintjs.com).
- * Consumers link this single file. It is a list of @imports only. */
-
-@import "tokens/palette.css";
-@import "tokens/colors.css";
-@import "tokens/typography.css";
-@import "tokens/spacing.css";
-@import "tokens/base.css";

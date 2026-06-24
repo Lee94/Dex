@@ -3,6 +3,8 @@ import { PinoLogger } from '@mastra/loggers';
 import { LibSQLStore } from '@mastra/libsql';
 
 import { analyst } from './agents/analyst';
+import { buildObservability } from './observability';
+import { dataSourceRoutes } from './server/routes';
 
 export const mastra = new Mastra({
   agents: { analyst },
@@ -14,8 +16,12 @@ export const mastra = new Mastra({
   }),
   logger: new PinoLogger({
     name: 'Mastra',
-    level: 'info',
+    level: (process.env.LOG_LEVEL?.trim() as 'debug' | 'info' | 'warn' | 'error') || 'info',
   }),
+  // AI tracing: every agent run / tool call / model interaction becomes a span,
+  // exported to mastra.db (browsable in Mastra Studio) and the terminal. Returns
+  // undefined when DEX_OBSERVABILITY=off. See observability.ts.
+  observability: buildObservability(),
   // Default CORS is already permissive ('*'), so the Vite web app can call the
   // dev server. Pin it explicitly here for clarity during local development.
   server: {
@@ -23,5 +29,8 @@ export const mastra = new Mastra({
       origin: '*',
       credentials: false,
     },
+    // v0.6 data-source module: read-only catalog browsing, metadata curation,
+    // and connection management — independent of the agent (see server/routes.ts).
+    apiRoutes: dataSourceRoutes,
   },
 });

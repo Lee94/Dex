@@ -13,6 +13,7 @@ export function IconButton({
   hover = 'strong',
   padding = 5,
   style,
+  className,
 }: {
   icon: string;
   size?: number;
@@ -22,11 +23,12 @@ export function IconButton({
   hover?: 'strong' | 'mid' | 'soft';
   padding?: number | string;
   style?: CSSProperties;
+  className?: string;
 }) {
   return (
     <button
       type="button"
-      className={`${styles.iconBtn} ${HOVER[hover]}`}
+      className={`${styles.iconBtn} ${HOVER[hover]}${className ? ` ${className}` : ''}`}
       title={title}
       aria-label={title}
       onClick={onClick}

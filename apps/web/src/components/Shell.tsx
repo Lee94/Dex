@@ -1,8 +1,14 @@
+import { lazy, Suspense } from 'react';
 import type { Thread } from '@/types';
 import { Placeholder } from '@/components/Placeholder';
 import { Sidebar, type View } from '@/components/Sidebar';
 import { ThreadsList } from '@/components/ThreadsList';
 import styles from './Shell.module.css';
+
+// Code-split the data-source module (v0.6) — loaded only when "Data" is opened.
+const DataBrowserView = lazy(() =>
+  import('@/components/data-browser/DataBrowserView').then((m) => ({ default: m.DataBrowserView })),
+);
 
 export function Shell({
   view,
@@ -54,6 +60,10 @@ export function Shell({
             onRename={onRenameThread}
             onDelete={onDeleteThread}
           />
+        ) : view === 'datasource' ? (
+          <Suspense fallback={null}>
+            <DataBrowserView />
+          </Suspense>
         ) : view === 'notebook' ? (
           <Placeholder
             icon="projects"

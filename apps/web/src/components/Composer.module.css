@@ -44,6 +44,130 @@
   align-items: center;
   justify-content: center;
 }
+.attach:hover {
+  background: var(--dex-hover-mid);
+}
+.attachActive {
+  background: var(--dex-selected-bg);
+  box-shadow: inset 0 0 0 1px var(--dex-primary);
+}
+
+/* ---- attachment chips ---- */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 6px 0 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dex-text-strong);
+  background: var(--dex-accent-tint);
+}
+.chipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 50%;
+}
+.chipRemove:hover {
+  background: var(--dex-hover-strong);
+}
+
+/* ---- context picker popover ---- */
+.attachWrap {
+  position: relative;
+  display: inline-flex;
+}
+.pickerBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+.picker {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 300px;
+  max-height: 360px;
+  overflow-y: auto;
+  background: var(--dex-surface);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.35);
+  padding: 8px;
+  z-index: 41;
+}
+.pickerSection {
+  padding: 4px 0;
+}
+.pickerSection + .pickerSection {
+  border-top: 1px solid var(--dex-line);
+  margin-top: 4px;
+}
+.pickerSectionTitle {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--dex-text-subtle);
+  padding: 4px 8px;
+}
+.pickerEmpty {
+  font-size: 12.5px;
+  color: var(--dex-text-subtle);
+  padding: 6px 8px;
+}
+.pickerItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--dex-text);
+  text-align: left;
+}
+.pickerItem:hover {
+  background: var(--dex-hover);
+}
+.pickerItemLabel {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pickerDsRow {
+  display: flex;
+  align-items: center;
+}
+.pickerCaret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px 2px 6px 6px;
+}
+.pickerTable {
+  padding-left: 30px;
+}
 
 .spacer {
   flex: 1;
