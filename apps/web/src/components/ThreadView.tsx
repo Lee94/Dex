@@ -9,6 +9,7 @@ import {
   type ToolStep,
 } from '@/types';
 import { Composer } from '@/components/Composer';
+import { Markdown } from '@/components/Markdown';
 import { ResultCard } from '@/components/ResultCard';
 import styles from './ThreadView.module.css';
 
@@ -210,8 +211,8 @@ function AssistantBlock({ msg }: { msg: AssistantMessage }) {
         </>
       )}
 
-      {/* assistant answer text */}
-      {msg.text ? <p className={styles.answerText}>{msg.text}</p> : null}
+      {/* assistant answer text (rendered as Markdown) */}
+      {msg.text ? <Markdown source={msg.text} className={styles.answerText} /> : null}
 
       {/* result cards (from run_sql or the semantic layer's query_semantic) */}
       {cards.map((s) => {

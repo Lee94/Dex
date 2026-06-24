@@ -205,12 +205,9 @@
   white-space: pre-wrap;
 }
 
+/* spacing only — typography lives in Markdown.module.css */
 .answerText {
   margin: 0 0 14px;
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--dex-text);
-  white-space: pre-wrap;
 }
 
 .error {
