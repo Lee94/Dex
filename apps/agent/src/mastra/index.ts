@@ -3,6 +3,8 @@ import { PinoLogger } from '@mastra/loggers';
 import { LibSQLStore } from '@mastra/libsql';
 
 import { analyst } from './agents/analyst';
+import { dataDiscoveryAgent } from './agents/discovery';
+import { visualizationAgent } from './agents/visualization';
 import { buildObservability } from './observability';
 import { dataSourceRoutes } from './server/routes';
 import { notebookRoutes } from './server/notebook-routes';
@@ -10,7 +12,11 @@ import { knowledgeRoutes } from './server/knowledge-routes';
 import { uploadRoutes } from './server/upload-routes';
 
 export const mastra = new Mastra({
-  agents: { analyst },
+  // `analyst` is the streamed entry point the web addresses. The v1.2 specialist
+  // sub-agents are registered so they get full Mastra context (logger/tracing),
+  // but they are internal — the web never addresses them; only the analyst
+  // delegates to them via its delegation tools.
+  agents: { analyst, dataDiscovery: dataDiscoveryAgent, visualization: visualizationAgent },
   // Mastra's own storage (conversation history / telemetry). This is a separate
   // file from the sample warehouse the analyst queries.
   storage: new LibSQLStore({
