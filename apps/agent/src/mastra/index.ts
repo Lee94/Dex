@@ -7,6 +7,7 @@ import { buildObservability } from './observability';
 import { dataSourceRoutes } from './server/routes';
 import { notebookRoutes } from './server/notebook-routes';
 import { knowledgeRoutes } from './server/knowledge-routes';
+import { uploadRoutes } from './server/upload-routes';
 
 export const mastra = new Mastra({
   agents: { analyst },
@@ -37,6 +38,6 @@ export const mastra = new Mastra({
     // path (see server/notebook-routes.ts). v0.9 knowledge module: guides /
     // memories / review-requests (see server/knowledge-routes.ts). All mount at
     // the server root.
-    apiRoutes: [...dataSourceRoutes, ...notebookRoutes, ...knowledgeRoutes],
+    apiRoutes: [...dataSourceRoutes, ...notebookRoutes, ...knowledgeRoutes, ...uploadRoutes],
   },
 });

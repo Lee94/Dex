@@ -45,7 +45,13 @@ export function Composer({
   };
 
   const iconFor = (a: Attachment) =>
-    a.kind === 'model' ? 'layers' : a.kind === 'table' ? 'table' : 'data';
+    a.kind === 'model'
+      ? 'layers'
+      : a.kind === 'table'
+        ? 'table'
+        : a.kind === 'file'
+          ? 'projects'
+          : 'data';
 
   return (
     <div className={styles.root}>

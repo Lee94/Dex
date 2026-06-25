@@ -27,6 +27,8 @@ import { currentDatetime } from '../tools/get-current-datetime';
 import { createGuide, deleteGuide, getGuide, listGuides, updateGuide } from './guides';
 import { deleteMemoriesForResource, deleteMemory, listMemories, saveMemory } from './memories';
 import { createReviewRequest, deleteReviewRequest, listReviewRequests } from './reviews';
+import { setWebProvider, webSearch, type WebProvider } from '../web';
+import { deleteUpload, readFileContents, saveUpload } from './uploads';
 import {
   appendCell,
   createNotebook,
@@ -384,6 +386,49 @@ async function main(): Promise<void> {
   );
   await deleteMemory(mem.id);
   check('a memory can be forgotten', (await listMemories(SMOKE_RES)).length === 0);
+
+  // 5b-4. external context (v1.1) — web via a mock provider + file reading.
+  const mockWeb: WebProvider = {
+    name: 'mock',
+    configured: true,
+    async search(query, limit) {
+      return Array.from({ length: limit }, (_, i) => ({
+        title: `R${i} ${query}`,
+        url: `https://example.com/${i}`,
+        snippet: 's',
+      }));
+    },
+    async extract(url) {
+      return { url, title: 'Example', content: 'body' };
+    },
+  };
+  setWebProvider(mockWeb);
+  try {
+    const search = await webSearch('benchmarks', 2);
+    check(
+      'search_web returns untrusted results from the provider',
+      search.configured === true && 'results' in search && search.results.length === 2,
+      search,
+    );
+  } finally {
+    setWebProvider(null);
+  }
+
+  const upText = await saveUpload({
+    filename: 'm.csv',
+    mimetype: 'text/csv',
+    contentBase64: Buffer.from('country,n\nUS,1\nUK,2', 'utf8').toString('base64'),
+  });
+  try {
+    const fc = await readFileContents(upText.id);
+    check(
+      'get_file_contents parses an uploaded CSV',
+      fc?.kind === 'csv' && fc.rowCount === 2 && fc.columns[0] === 'country',
+      fc,
+    );
+  } finally {
+    await deleteUpload(upText.id);
+  }
 
   // Review requests: suggest_review persists an open request.
   const review = await createReviewRequest({

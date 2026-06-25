@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import {
   fetchSchemaTree,
@@ -8,6 +8,7 @@ import {
   type SchemaNode,
   type SemanticModel,
 } from '@/lib/dataSources';
+import { listUploads, uploadFile, type Upload } from '@/lib/uploads';
 import type { Attachment } from '@/lib/attachments';
 import styles from './Composer.module.css';
 
@@ -29,22 +30,27 @@ export function ContextPicker({
 }) {
   const [sources, setSources] = useState<DataSource[]>([]);
   const [models, setModels] = useState<SemanticModel[]>([]);
+  const [uploads, setUploads] = useState<Upload[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [treeByConn, setTreeByConn] = useState<Record<string, SchemaNode[]>>({});
+  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let alive = true;
     void (async () => {
       try {
-        const [srcs, project] = await Promise.all([
+        const [srcs, project, ups] = await Promise.all([
           listDataSources(),
           fetchSemanticProject('dex').catch(() => null),
+          listUploads().catch(() => [] as Upload[]),
         ]);
         if (!alive) return;
         setSources(srcs);
         setModels(project?.models ?? []);
+        setUploads(ups);
       } catch (e) {
         if (alive) setError(errMsg(e));
       } finally {
@@ -55,6 +61,33 @@ export function ContextPicker({
       alive = false;
     };
   }, []);
+
+  const attachUpload = (u: Upload) =>
+    onToggle({
+      key: `file:${u.id}`,
+      kind: 'file',
+      label: u.filename,
+      ref: u.filename,
+      fileId: u.id,
+      mimetype: u.mimetype,
+    });
+
+  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-picking the same file
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const u = await uploadFile(file);
+      setUploads((prev) => [u, ...prev]);
+      attachUpload(u);
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const toggleExpand = async (source: DataSource) => {
     const open = !expanded[source.id];
@@ -189,6 +222,45 @@ export function ContextPicker({
                   </div>
                 );
               })}
+            </div>
+
+            <div className={styles.pickerSection}>
+              <div className={styles.pickerSectionTitle}>Files</div>
+              {uploads.map((u) => {
+                const key = `file:${u.id}`;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={styles.pickerItem}
+                    onClick={() => attachUpload(u)}
+                  >
+                    <Icon name="projects" size={13} color="var(--dex-icon-faint)" />
+                    <span className={styles.pickerItemLabel}>{u.filename}</span>
+                    {selected.has(key) ? (
+                      <Icon name="tickCircle" size={13} color="var(--dex-success-check)" />
+                    ) : null}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                className={styles.pickerItem}
+                disabled={uploading}
+                onClick={() => fileInput.current?.click()}
+              >
+                <Icon name="plus" size={13} color="var(--dex-accent)" />
+                <span className={styles.pickerItemLabel}>
+                  {uploading ? 'Uploading…' : 'Upload a file'}
+                </span>
+              </button>
+              <input
+                ref={fileInput}
+                type="file"
+                hidden
+                accept=".csv,.txt,.md,.json,.log,.tsv,text/*,image/*,application/json"
+                onChange={(e) => void onPickFile(e)}
+              />
             </div>
           </>
         )}
