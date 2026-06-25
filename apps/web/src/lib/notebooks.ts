@@ -29,6 +29,8 @@ export interface NotebookCell {
   outputName?: string;
   /** Run against another registered source; omitted = the builtin warehouse. */
   datasourceId?: string;
+  /** Optional visualization hint (chart type + x/y columns) for the result card. */
+  chart?: import('@/types').ChartHint;
 }
 
 export interface Notebook {

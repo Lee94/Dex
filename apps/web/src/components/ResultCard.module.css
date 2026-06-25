@@ -121,6 +121,36 @@
   color: var(--dex-text-subtle);
 }
 
+.axisPickers {
+  display: flex;
+  gap: 14px;
+  padding: 8px 18px;
+  background: var(--dex-app-bg);
+  box-shadow: 0 1px 0 0 var(--dex-line-faint);
+}
+.axisPicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--dex-text-faint);
+}
+.axisPicker select {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--dex-text-strong);
+  border: 1px solid var(--dex-ring-input);
+  border-radius: 5px;
+  padding: 3px 6px;
+  background: var(--dex-surface);
+  font-family: var(--dex-mono);
+}
+
 .svg {
   width: 100%;
   height: auto;

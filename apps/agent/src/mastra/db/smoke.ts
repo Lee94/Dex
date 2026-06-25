@@ -564,7 +564,12 @@ async function main(): Promise<void> {
 
   // 5d. notebooks (v2.0) — create → get → update (cells) → list → delete
   const createdNotebook = await createNotebook('Smoke notebook', [
-    { id: 'c1', kind: 'sql', source: 'SELECT 1 AS one' },
+    {
+      id: 'c1',
+      kind: 'sql',
+      source: 'SELECT 1 AS one',
+      chart: { type: 'line', x: 'trade_date', y: 'close_price' },
+    },
   ]);
   try {
     const fetchedNotebook = await getNotebook(createdNotebook.id);
@@ -574,6 +579,12 @@ async function main(): Promise<void> {
         fetchedNotebook?.cells.length === 1 &&
         fetchedNotebook?.cells[0]?.source === 'SELECT 1 AS one',
       fetchedNotebook,
+    );
+    check(
+      'a cell chart hint round-trips (v1.2 viz handoff)',
+      fetchedNotebook?.cells[0]?.chart?.type === 'line' &&
+        fetchedNotebook?.cells[0]?.chart?.y === 'close_price',
+      fetchedNotebook?.cells[0]?.chart,
     );
 
     const updatedNotebook = await updateNotebook(createdNotebook.id, {

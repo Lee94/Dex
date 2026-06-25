@@ -91,6 +91,49 @@ describe('inferChartShape', () => {
     expect(shape.chartable).toBe(false);
     expect(shape.defaultType).toBe('table');
   });
+
+  it('charts a WIDE temporal result as a line and picks x/y', () => {
+    // The stock-trace shape: trade_date + 4 numeric columns.
+    const r = result(
+      ['trade_date', 'close_price', 'change_pct', 'volume', 'amount'],
+      [
+        {
+          trade_date: '2025-06-22',
+          close_price: 27.54,
+          change_pct: 0.04,
+          volume: 22950,
+          amount: 1,
+        },
+        {
+          trade_date: '2025-06-23',
+          close_price: 27.86,
+          change_pct: 1.16,
+          volume: 29568,
+          amount: 2,
+        },
+      ],
+    );
+    const shape = inferChartShape(r);
+    expect(shape.chartable).toBe(true);
+    expect(shape.defaultType).toBe('line');
+    expect(shape.xKey).toBe('trade_date');
+    expect(shape.yKey).toBe('close_price');
+  });
+
+  it('keeps a wide categorical result a table by default but chartable', () => {
+    const r = result(
+      ['region', 'revenue', 'orders'],
+      [
+        { region: 'NA', revenue: 100, orders: 5 },
+        { region: 'EU', revenue: 80, orders: 4 },
+      ],
+    );
+    const shape = inferChartShape(r);
+    expect(shape.chartable).toBe(true);
+    expect(shape.defaultType).toBe('table');
+    expect(shape.xKey).toBe('region');
+    expect(shape.yKey).toBe('revenue');
+  });
 });
 
 describe('toCsv', () => {

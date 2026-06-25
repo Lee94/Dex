@@ -36,4 +36,22 @@ test('assertReadOnly rejects empty and comments-only input', () => {
   assert.throws(() => assertReadOnly(''));
   assert.throws(() => assertReadOnly('    '));
   assert.throws(() => assertReadOnly('-- just a comment'));
+  assert.throws(() => assertReadOnly('/* only a block comment */'));
+});
+
+test('assertReadOnly accepts SQL that starts with a comment', () => {
+  // Regression: a leading `-- …` line used to be rejected ("must start with SELECT").
+  assert.doesNotThrow(() =>
+    assertReadOnly('-- 计算收盘价趋势\nSELECT trade_date, close_price FROM q'),
+  );
+  assert.doesNotThrow(() => assertReadOnly('/* header */ WITH x AS (SELECT 1) SELECT * FROM x'));
+});
+
+test('assertReadOnly ignores keywords/semicolons inside comments', () => {
+  // "update"/";" living in a comment must not trip the guard.
+  assert.doesNotThrow(() => assertReadOnly('SELECT 1 -- todo: update this later; soon'));
+  // A `--` that lives inside a string literal is not treated as a comment.
+  assert.doesNotThrow(() => assertReadOnly("SELECT '--' AS dashes"));
+  // (Note: a DDL keyword inside a string literal is still conservatively rejected.)
+  assert.throws(() => assertReadOnly("SELECT 'drop' AS word"));
 });

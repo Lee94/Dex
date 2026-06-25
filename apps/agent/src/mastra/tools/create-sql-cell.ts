@@ -19,6 +19,7 @@ export const createSqlCellTool = createTool({
     `Create a durable, re-runnable SQL cell in this thread's shared notebook and run it, returning columns + rows and a cellId. ` +
     `Use this (NOT run_sql) for any query result the user should see or keep — then reference its output in your answer by putting [cell:<cellId>] on its own line where the table/chart should appear. ` +
     `Give a cell an \`outputName\` (snake_case) so a later cell can build on it with \`FROM <outputName>\` — prefer small chained cells over one giant query. Call read_cells first to see existing cells and their output names. ` +
+    `For a chartable result, pass a \`chart\` hint (type + x + y) so the card renders a chart instead of a table — REQUIRED when the result has more than two columns (e.g. a time series with extra columns). ` +
     `Only read-only SELECT / WITH … SELECT is allowed. Runs against the primary ${DIALECT} warehouse unless you pass a datasourceId. ${dialectHint()}`,
   inputSchema: z.object({
     sql: z
@@ -40,10 +41,25 @@ export const createSqlCellTool = createTool({
       .string()
       .optional()
       .describe("Short human label; used as the notebook's title when it's the first cell."),
+    chart: z
+      .object({
+        type: z.enum(['table', 'bar', 'line', 'area']).optional(),
+        x: z.string().optional().describe('Column for the x-axis / category.'),
+        y: z.string().optional().describe('Numeric column for the value / measure.'),
+      })
+      .optional()
+      .describe(
+        'Optional visualization hint applied to this result card. Set it for a chartable result — ' +
+          'e.g. a time series: { type: "line", x: "trade_date", y: "close_price" }. Needed when the ' +
+          'result has more than two columns, since the card otherwise defaults to a table.',
+      ),
   }),
   outputSchema: z.object({
     cellId: z.string(),
     outputName: z.string().nullable(),
+    chart: z
+      .object({ type: z.string().optional(), x: z.string().optional(), y: z.string().optional() })
+      .nullable(),
     columns: z.array(z.string()),
     rows: z.array(z.record(z.string(), z.any())),
     rowCount: z.number(),
@@ -54,12 +70,15 @@ export const createSqlCellTool = createTool({
     const datasourceId = input.datasourceId?.trim() || undefined;
     const connector = await getConnectorById(datasourceId ?? 'builtin');
     const cellId = randomUUID();
+    const chart =
+      input.chart && (input.chart.type || input.chart.x || input.chart.y) ? input.chart : undefined;
     const cell: NotebookCell = {
       id: cellId,
       kind: 'sql',
       source: input.sql,
       outputName: input.outputName?.trim() || undefined,
       datasourceId,
+      chart,
     };
 
     // With a thread we persist the cell into that thread's notebook and run it in
@@ -72,9 +91,9 @@ export const createSqlCellTool = createTool({
       });
       const composed = resolveChainedSql(notebook.cells, cellId);
       const result = await connector.runReadOnlySql(composed);
-      return { cellId, outputName: cell.outputName ?? null, ...result };
+      return { cellId, outputName: cell.outputName ?? null, chart: chart ?? null, ...result };
     }
     const result = await connector.runReadOnlySql(input.sql);
-    return { cellId, outputName: cell.outputName ?? null, ...result };
+    return { cellId, outputName: cell.outputName ?? null, chart: chart ?? null, ...result };
   },
 });

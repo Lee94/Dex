@@ -44,6 +44,39 @@ describe('ResultCard chart inference', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Table' }));
     expect(screen.getByRole('table')).toBeTruthy();
   });
+
+  it('charts a WIDE time-series result (5 cols) as a Line by default', () => {
+    // Regression for the stock trace: a 5-column trade_date series used to fall
+    // back to a table; it now defaults to a line and offers the chart toggle.
+    const wide = {
+      columns: ['trade_date', 'close_price', 'change_pct', 'volume', 'amount'],
+      rows: [
+        { trade_date: '2025-06-22', close_price: 27.5, change_pct: 0, volume: 22950, amount: 1 },
+        { trade_date: '2025-06-23', close_price: 27.9, change_pct: 1.1, volume: 29568, amount: 2 },
+        { trade_date: '2025-06-24', close_price: 28.1, change_pct: 1.0, volume: 36346, amount: 3 },
+      ],
+      rowCount: 3,
+      truncated: false,
+    };
+    render(<ResultCard result={wide} />);
+    expect(pressed('Line')).toBe(true);
+    expect(document.querySelector('svg')).toBeTruthy();
+  });
+
+  it('applies an agent chart hint on a wide result', () => {
+    const wide = {
+      columns: ['region', 'revenue', 'orders'],
+      rows: [
+        { region: 'NA', revenue: 100, orders: 5 },
+        { region: 'EU', revenue: 80, orders: 4 },
+      ],
+      rowCount: 2,
+      truncated: false,
+    };
+    // categorical-first wide table defaults to table; the hint forces a bar.
+    render(<ResultCard result={wide} chart={{ type: 'bar', x: 'region', y: 'orders' }} />);
+    expect(pressed('Bar')).toBe(true);
+  });
 });
 
 describe('ResultCard states', () => {

@@ -140,7 +140,12 @@ export function Cell({
               <span>{runState.errorText || 'Query failed.'}</span>
             </div>
           ) : runState.result ? (
-            <ResultCard result={runState.result} sql={cell.source} title={cell.outputName} />
+            <ResultCard
+              result={runState.result}
+              sql={cell.source}
+              title={cell.outputName}
+              chart={cell.chart}
+            />
           ) : null}
         </div>
       ) : null}

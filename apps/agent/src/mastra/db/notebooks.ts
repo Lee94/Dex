@@ -20,6 +20,13 @@ import { dexStore } from './store';
 
 export type CellKind = 'sql';
 
+/** A visualization hint for a cell's result card (chart type + x/y columns). */
+export interface CellChart {
+  type?: 'table' | 'bar' | 'line' | 'area';
+  x?: string;
+  y?: string;
+}
+
 export interface NotebookCell {
   id: string;
   kind: CellKind;
@@ -33,6 +40,8 @@ export interface NotebookCell {
   outputName?: string;
   /** Which data source to run against; omitted/undefined = the builtin warehouse. */
   datasourceId?: string;
+  /** Optional visualization hint surfaced by the result card (v1.2 viz handoff). */
+  chart?: CellChart;
 }
 
 export interface Notebook {
@@ -74,6 +83,19 @@ function ensureSchema(): Promise<void> {
 type Cell = unknown;
 
 /** A persisted cell, normalized — tolerant of older/partial JSON shapes. */
+function normalizeChart(raw: unknown): CellChart | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const c = raw as Record<string, unknown>;
+  const type = c.type;
+  const ok = type === 'table' || type === 'bar' || type === 'line' || type === 'area';
+  const chart: CellChart = {
+    type: ok ? (type as CellChart['type']) : undefined,
+    x: typeof c.x === 'string' ? c.x : undefined,
+    y: typeof c.y === 'string' ? c.y : undefined,
+  };
+  return chart.type || chart.x || chart.y ? chart : undefined;
+}
+
 function normalizeCell(raw: unknown): NotebookCell | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const c = raw as Record<string, unknown>;
@@ -84,6 +106,7 @@ function normalizeCell(raw: unknown): NotebookCell | null {
     source: typeof c.source === 'string' ? c.source : '',
     outputName: outputName || undefined,
     datasourceId: typeof c.datasourceId === 'string' ? c.datasourceId : undefined,
+    chart: normalizeChart(c.chart),
   };
 }
 

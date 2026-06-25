@@ -108,29 +108,47 @@ export function classifyColumns(result: SqlResult): ColumnType[] {
   return result.columns.map((c) => classifyColumn(result.rows.map((r) => r[c])));
 }
 
+/** A chart hint the agent can attach to a result/cell (see create_sql_cell). */
+export type ChartHint = { type?: ChartType; x?: string; y?: string };
+
 /**
- * Decide whether a result is chartable (2 cols, a category/time label + a
- * numeric value, a reasonable row count) and the chart type to default to —
- * a temporal first column reads best as a **line**, otherwise a **bar**.
+ * Decide whether a result is chartable and the chart type to default to. Unlike
+ * the original 2-column-only rule (v0.5), this also handles **wide** results
+ * (>2 columns): it picks an x axis (first temporal, else first categorical) and a
+ * y measure (first numeric column that isn't x). A temporal x reads best as a
+ * **line** (and tolerates many points); a categorical x as a **bar**. Wide tables
+ * with a categorical x stay a **table** by default but remain switchable.
  */
 export function inferChartShape(result: SqlResult): {
   chartable: boolean;
   defaultType: ChartType;
   columnTypes: ColumnType[];
+  xKey?: string;
+  yKey?: string;
 } {
   const columnTypes = classifyColumns(result);
+  const typeOf = (c: string): ColumnType => columnTypes[result.columns.indexOf(c)];
+
+  const xKey =
+    result.columns.find((c) => typeOf(c) === 'temporal') ??
+    result.columns.find((c) => typeOf(c) === 'categorical');
+  const yKey = result.columns.find((c) => typeOf(c) === 'numeric' && c !== xKey);
+  const xIsTemporal = !!xKey && typeOf(xKey) === 'temporal';
+
+  // A line over a time series tolerates many points; a bar of categories doesn't.
+  const cap = xIsTemporal ? 1000 : 60;
   const chartable =
-    result.columns.length === 2 &&
-    result.rows.length > 0 &&
-    result.rows.length <= 60 &&
-    columnTypes[1] === 'numeric' &&
-    (columnTypes[0] === 'categorical' || columnTypes[0] === 'temporal');
+    result.rows.length > 0 && result.rows.length <= cap && xKey !== undefined && yKey !== undefined;
+
   const defaultType: ChartType = !chartable
     ? 'table'
-    : columnTypes[0] === 'temporal'
+    : xIsTemporal
       ? 'line'
-      : 'bar';
-  return { chartable, defaultType, columnTypes };
+      : result.columns.length === 2
+        ? 'bar'
+        : 'table';
+
+  return { chartable, defaultType, columnTypes, xKey, yKey };
 }
 
 /** Serialize a result to CSV (RFC-4180 quoting), for download/clipboard export. */

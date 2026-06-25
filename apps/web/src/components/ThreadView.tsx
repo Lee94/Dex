@@ -5,6 +5,7 @@ import {
   isSqlResult,
   resultProvenance,
   type AssistantMessage,
+  type ChartHint,
   type Thread,
   type ToolStep,
 } from '@/types';
@@ -201,12 +202,38 @@ function cellIdOf(result: unknown): string | undefined {
   return undefined;
 }
 
+/** A `chart` hint the agent attached to create_sql_cell (or echoed on the result). */
+function chartHint(step: ToolStep): ChartHint | undefined {
+  const fromArgs = step.args.chart;
+  const fromResult =
+    typeof step.result === 'object' && step.result !== null
+      ? (step.result as { chart?: unknown }).chart
+      : undefined;
+  const raw = fromArgs ?? fromResult;
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const h = raw as Record<string, unknown>;
+  const type = h.type;
+  const ok = type === 'table' || type === 'bar' || type === 'line' || type === 'area';
+  return {
+    type: ok ? (type as ChartHint['type']) : undefined,
+    x: typeof h.x === 'string' ? h.x : undefined,
+    y: typeof h.y === 'string' ? h.y : undefined,
+  };
+}
+
 function cardFor(step: ToolStep, key: string) {
   const prov = resultProvenance(step.result);
   const sql = prov.sql ?? (typeof step.args.sql === 'string' ? step.args.sql : undefined);
   const title = typeof step.args.label === 'string' ? step.args.label : undefined;
   return (
-    <ResultCard key={key} result={step.result} sql={sql} endorsed={prov.endorsed} title={title} />
+    <ResultCard
+      key={key}
+      result={step.result}
+      sql={sql}
+      endorsed={prov.endorsed}
+      title={title}
+      chart={chartHint(step)}
+    />
   );
 }
 
