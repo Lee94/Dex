@@ -20,6 +20,11 @@ const KnowledgeView = lazy(() =>
   import('@/components/knowledge/KnowledgeView').then((m) => ({ default: m.KnowledgeView })),
 );
 
+// Code-split the tasks surface (v1.3) — loaded only when "Tasks" is opened.
+const TasksView = lazy(() =>
+  import('@/components/tasks/TasksView').then((m) => ({ default: m.TasksView })),
+);
+
 export function Shell({
   view,
   nav,
@@ -81,6 +86,10 @@ export function Shell({
         ) : view === 'knowledge' ? (
           <Suspense fallback={null}>
             <KnowledgeView />
+          </Suspense>
+        ) : view === 'tasks' ? (
+          <Suspense fallback={null}>
+            <TasksView />
           </Suspense>
         ) : (
           <Placeholder

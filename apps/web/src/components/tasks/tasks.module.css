@@ -1,0 +1,185 @@
+.view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--dex-app-bg);
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  background: var(--dex-surface);
+  box-shadow: var(--dex-divider-bottom-soft);
+}
+.headTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--dex-text-strong);
+}
+.headSub {
+  font-size: 12.5px;
+  color: var(--dex-text-muted);
+  flex: 1;
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 880px;
+  width: 100%;
+}
+
+.form {
+  border: 1px solid var(--dex-line);
+  border-radius: 10px;
+  background: var(--dex-surface);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.formTitle {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--dex-text-strong);
+}
+.row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 140px;
+}
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--dex-text-faint);
+}
+.input,
+.select {
+  font-size: 13px;
+  color: var(--dex-text-strong);
+  border: 1px solid var(--dex-ring-input);
+  border-radius: 6px;
+  padding: 7px 10px;
+  background: var(--dex-surface);
+  outline: none;
+}
+.input:focus,
+.select:focus {
+  border-color: var(--dex-primary);
+}
+.sqlInput {
+  font-family: var(--dex-mono);
+  font-size: 12.5px;
+  min-height: 64px;
+  resize: vertical;
+}
+.formActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hint {
+  font-size: 11.5px;
+  color: var(--dex-text-subtle);
+  font-family: var(--dex-mono);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.card {
+  border: 1px solid var(--dex-line);
+  border-radius: 10px;
+  background: var(--dex-surface);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cardTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cardName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dex-text-strong);
+  flex: 1;
+}
+.cron {
+  font-family: var(--dex-mono);
+  font-size: 12px;
+  color: var(--dex-text-muted);
+  background: var(--dex-subtle-bg);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+.sql {
+  font-family: var(--dex-mono);
+  font-size: 12px;
+  color: var(--dex-text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--dex-text-muted);
+}
+.runBtn,
+.toggle {
+  border: none;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--dex-ring-strong);
+  border-radius: var(--bp-border-radius);
+  height: 24px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dex-text-muted);
+  cursor: pointer;
+}
+.runBtn:hover,
+.toggle:hover {
+  background: var(--dex-subtle-bg);
+}
+.toggleOn {
+  color: var(--dex-success-fg);
+  box-shadow: inset 0 0 0 1px var(--dex-success);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: var(--dex-text-subtle);
+  font-size: 13px;
+  text-align: center;
+}
+.error {
+  color: var(--dex-danger);
+  font-size: 12.5px;
+}

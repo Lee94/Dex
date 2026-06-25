@@ -10,6 +10,8 @@ import { dataSourceRoutes } from './server/routes';
 import { notebookRoutes } from './server/notebook-routes';
 import { knowledgeRoutes } from './server/knowledge-routes';
 import { uploadRoutes } from './server/upload-routes';
+import { taskRoutes } from './server/task-routes';
+import { startScheduler } from './db/scheduler';
 
 export const mastra = new Mastra({
   // `analyst` is the streamed entry point the web addresses. The v1.2 specialist
@@ -44,6 +46,19 @@ export const mastra = new Mastra({
     // path (see server/notebook-routes.ts). v0.9 knowledge module: guides /
     // memories / review-requests (see server/knowledge-routes.ts). All mount at
     // the server root.
-    apiRoutes: [...dataSourceRoutes, ...notebookRoutes, ...knowledgeRoutes, ...uploadRoutes],
+    apiRoutes: [
+      ...dataSourceRoutes,
+      ...notebookRoutes,
+      ...knowledgeRoutes,
+      ...uploadRoutes,
+      ...taskRoutes,
+    ],
   },
 });
+
+// v1.3 scheduler: an in-process cron loop that re-runs due tasks (read-only) and
+// delivers/alerts. Gated by env so tests/CI (which don't import this module)
+// never start a background loop; set DEX_SCHEDULER=off to disable in dev too.
+if (process.env.DEX_SCHEDULER !== 'off') {
+  startScheduler();
+}

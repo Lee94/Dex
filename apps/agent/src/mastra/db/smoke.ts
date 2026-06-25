@@ -29,6 +29,11 @@ import { deleteMemoriesForResource, deleteMemory, listMemories, saveMemory } fro
 import { createReviewRequest, deleteReviewRequest, listReviewRequests } from './reviews';
 import { setWebProvider, webSearch, type WebProvider } from '../web';
 import { deleteUpload, readFileContents, saveUpload } from './uploads';
+import { createTask, deleteTask, getTask, updateTask } from './tasks';
+import { runTask } from './task-runner';
+import { setDeliverer } from './delivery';
+import { isValidCron } from './cron';
+import { deleteThreadSummary, getThreadSummary, upsertThreadSummary } from './thread-summaries';
 import {
   appendCell,
   createNotebook,
@@ -428,6 +433,55 @@ async function main(): Promise<void> {
     );
   } finally {
     await deleteUpload(upText.id);
+  }
+
+  // 5b-5. scheduling & alerts (v1.3) — task CRUD + read-only re-run + alert + recall.
+  check(
+    'isValidCron validates a 5-field expression',
+    isValidCron('0 9 * * 1-5') && !isValidCron('0 9 * *'),
+  );
+  const delivered: string[] = [];
+  setDeliverer({
+    async deliver(_d, message) {
+      delivered.push(message.text);
+    },
+  });
+  const task = await createTask({
+    name: 'Smoke product alert',
+    kind: 'sql',
+    sql: 'SELECT COUNT(*) AS n FROM products',
+    cron: '0 9 * * *',
+    alert: { op: 'gt', threshold: 0 },
+    delivery: { channel: 'webhook', url: 'https://example.com/hook' },
+  });
+  try {
+    const disabled = await updateTask(task.id, { enabled: false });
+    check('task enable/disable persists', disabled?.enabled === false, disabled);
+    const run = await runTask(task);
+    check(
+      'runTask re-runs read-only, fires the alert, and delivers',
+      run.status === 'alert' && run.alertFired && delivered.length === 1,
+      { status: run.status, value: run.value, delivered },
+    );
+    const after = await getTask(task.id);
+    check('the run is recorded on the task', after?.lastStatus === 'alert', after?.lastStatus);
+  } finally {
+    setDeliverer(null);
+    await deleteTask(task.id);
+  }
+  check('deleting a task removes it', (await getTask(task.id)) === null);
+
+  const SUMMARY_THREAD = '__smoke_thread__';
+  await upsertThreadSummary(SUMMARY_THREAD, { title: 'Smoke', summary: 'Recalled context.' });
+  try {
+    const recalled = await getThreadSummary(SUMMARY_THREAD);
+    check(
+      'read_past_thread_summary recalls a stored summary',
+      recalled?.summary === 'Recalled context.',
+      recalled,
+    );
+  } finally {
+    await deleteThreadSummary(SUMMARY_THREAD);
   }
 
   // Review requests: suggest_review persists an open request.
