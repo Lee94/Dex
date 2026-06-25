@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { analystAgent } from '@/lib/mastraClient';
+import { saveThreadSummary } from '@/lib/tasks';
 import {
   CREATOR,
   CREATOR_INITIAL,
@@ -209,6 +210,7 @@ export function useThreads() {
 
       // --- abortable streaming (soft stop) ---
       let aborted = false;
+      let answerText = ''; // accumulated for the recallable thread summary (v1.3)
       let cancelBody: (() => void) | undefined;
       stopRef.current = () => {
         aborted = true;
@@ -240,6 +242,7 @@ export function useThreads() {
             if (aborted) return;
             switch (chunk.type) {
               case 'text-delta':
+                answerText += chunk.payload.text;
                 patchAssistant(threadId, assistantId, (m) => ({
                   ...m,
                   text: m.text + chunk.payload.text,
@@ -310,6 +313,14 @@ export function useThreads() {
           // auto-title even if the memory option didn't seed it.
           if (isFirst && title) {
             void renameThreadApi(threadId, title).catch(() => {});
+          }
+          // Record a recallable one-line summary of this thread (v1.3). Best-effort.
+          if (answerText.trim()) {
+            void saveThreadSummary(
+              threadId,
+              title ?? trimmed,
+              answerText.trim().slice(0, 400),
+            ).catch(() => {});
           }
         }
       } catch (err) {

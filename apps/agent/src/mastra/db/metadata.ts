@@ -9,9 +9,9 @@ import { dexStore } from './store';
  * "Included for AI" flag. They are keyed by `(datasource_id, table[, column])`
  * so the overlay survives schema changes and is merged in at read time.
  *
- * NOTE: `includedForAi` is persisted and surfaced in the UI, but does not yet
- * gate what the agent sees — the agent's dialect/instructions are fixed at boot
- * (see the plan's constraints). Honoring it in the agent catalog is deferred.
+ * v0.8: the agent's discovery tools (`list_tables` / `describe_table`) now merge
+ * this overlay into their output — surfacing `description` + `endorsed` and
+ * honoring `includedForAi` (excluded tables/columns are hidden from the agent).
  */
 
 export interface Metadata {
@@ -158,6 +158,32 @@ export async function getColumnMetadataMap(
     map[String(row.column_name)] = rowToMetadata(row);
   }
   return map;
+}
+
+/**
+ * All column metadata for a datasource, as a nested `table -> column -> Metadata`
+ * map, in a single query. Powers the catalog-aware `list_tables` (v0.8) so it can
+ * attach descriptions / drop AI-excluded columns without N per-table round-trips.
+ */
+export async function getAllColumnMetadata(
+  datasourceId: string,
+): Promise<Record<string, Record<string, Metadata>>> {
+  await ensureSchema();
+  const res = await dexStore.execute({
+    sql: 'SELECT * FROM dex_column_metadata WHERE datasource_id = ?',
+    args: [datasourceId],
+  });
+  const map: Record<string, Record<string, Metadata>> = {};
+  for (const row of res.rows as unknown as Record<string, Cell>[]) {
+    const table = String(row.table_name);
+    (map[table] ??= {})[String(row.column_name)] = rowToMetadata(row);
+  }
+  return map;
+}
+
+/** Convenience: a metadata row counts as "endorsed" when its status says so. */
+export function isEndorsed(meta: Metadata | undefined): boolean {
+  return meta?.status === 'endorsed';
 }
 
 export async function upsertColumnMetadata(

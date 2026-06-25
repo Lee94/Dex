@@ -32,6 +32,7 @@ import {
   deleteUserCube,
 } from '../db/semantic';
 import type { Cube, Dimension, DimensionType, Measure, MeasureType } from '../db/semantic';
+import { fail } from './http';
 
 /**
  * Data-source module HTTP API (v0.6).
@@ -48,10 +49,6 @@ import type { Cube, Dimension, DimensionType, Measure, MeasureType } from '../db
 
 const PREVIEW_DEFAULT = 50;
 const PREVIEW_MAX = 200;
-
-function fail(message: string, status = 400) {
-  return { error: message, status };
-}
 
 /** The single schema "bucket" a connector exposes (it is scoped to one schema). */
 function schemaLabel(dialect: 'sqlite' | 'postgres', schema?: string): string {

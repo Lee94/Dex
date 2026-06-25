@@ -1,4 +1,4 @@
-import { config } from '@/config';
+import { apiFetch } from '@/lib/apiClient';
 
 /**
  * Data-source module client (v0.6).
@@ -7,29 +7,10 @@ import { config } from '@/config';
  * apps/agent/src/mastra/server/routes.ts) is a set of plain REST routes mounted
  * at the server root (NOT under `/api`, where the agent's own routes live).
  * MastraClient only speaks agent-stream + memory, so this module talks to those
- * routes with `fetch` directly — mirroring `lib/threads.ts`: stateless helpers
- * that return data or throw a clean Error; loading/caching belongs to the hook.
+ * routes via the shared `apiFetch` (lib/apiClient.ts) — mirroring
+ * `lib/threads.ts`: stateless helpers that return data or throw a clean Error;
+ * loading/caching belongs to the hook.
  */
-
-const BASE = config.mastraBaseUrl;
-
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
-    ...init,
-  });
-  if (!res.ok) {
-    let message = `Request failed (${res.status})`;
-    try {
-      const body = await res.json();
-      if (body?.error) message = body.error;
-    } catch {
-      /* non-JSON error body */
-    }
-    throw new Error(message);
-  }
-  return (await res.json()) as T;
-}
 
 // --- types (mirror the backend route payloads) ------------------------------
 

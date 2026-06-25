@@ -10,6 +10,21 @@ const DataBrowserView = lazy(() =>
   import('@/components/data-browser/DataBrowserView').then((m) => ({ default: m.DataBrowserView })),
 );
 
+// Code-split the notebook editor (v2.0) — loaded only when "Projects" is opened.
+const NotebookView = lazy(() =>
+  import('@/components/notebook/NotebookView').then((m) => ({ default: m.NotebookView })),
+);
+
+// Code-split the knowledge surface (v0.9) — loaded only when "Knowledge" is opened.
+const KnowledgeView = lazy(() =>
+  import('@/components/knowledge/KnowledgeView').then((m) => ({ default: m.KnowledgeView })),
+);
+
+// Code-split the tasks surface (v1.3) — loaded only when "Tasks" is opened.
+const TasksView = lazy(() =>
+  import('@/components/tasks/TasksView').then((m) => ({ default: m.TasksView })),
+);
+
 export function Shell({
   view,
   nav,
@@ -65,11 +80,17 @@ export function Shell({
             <DataBrowserView />
           </Suspense>
         ) : view === 'notebook' ? (
-          <Placeholder
-            icon="projects"
-            title="Projects"
-            subtitle="The notebook editor is coming soon."
-          />
+          <Suspense fallback={null}>
+            <NotebookView />
+          </Suspense>
+        ) : view === 'knowledge' ? (
+          <Suspense fallback={null}>
+            <KnowledgeView />
+          </Suspense>
+        ) : view === 'tasks' ? (
+          <Suspense fallback={null}>
+            <TasksView />
+          </Suspense>
         ) : (
           <Placeholder
             icon={otherIcon}

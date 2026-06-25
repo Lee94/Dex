@@ -9,10 +9,19 @@
  */
 
 import { getConnector } from './connector';
-import type { QueryResult, TableDescription, TableInfo } from './types';
+import type { QueryResult, TableColumns, TableDescription, TableInfo } from './types';
 
 // Re-export the shared types + the guard so existing imports keep working.
-export type { ColumnInfo, Connector, QueryResult, Row, TableDescription, TableInfo } from './types';
+export type {
+  ColumnInfo,
+  ColumnSummary,
+  Connector,
+  QueryResult,
+  Row,
+  TableColumns,
+  TableDescription,
+  TableInfo,
+} from './types';
 export { assertReadOnly, IDENTIFIER } from './guard';
 export { getActiveProvider, getConnector, dialectHint } from './connector';
 
@@ -24,6 +33,11 @@ export function listTables(): Promise<TableInfo[]> {
 /** Describe a single table: its columns plus a few sample rows. */
 export function describeTable(table: string): Promise<TableDescription> {
   return getConnector().describeTable(table);
+}
+
+/** Cheap bulk column listing for many tables (omit `tables` for all). */
+export function tableColumns(tables?: string[]): Promise<TableColumns[]> {
+  return getConnector().tableColumns(tables);
 }
 
 /** Run a validated read-only query and return columns + rows (capped). */

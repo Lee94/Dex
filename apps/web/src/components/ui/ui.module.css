@@ -113,6 +113,14 @@
   background: var(--dex-accent-tint);
   color: var(--dex-accent-fg);
 }
+.pillDanger {
+  height: 21px;
+  padding: 0 9px;
+  border-radius: 11px;
+  font-size: 11.5px;
+  background: var(--dex-danger-tint);
+  color: var(--dex-danger-fg);
+}
 
 /* ---- ConfirmDialog ---- */
 .confirmBackdrop {

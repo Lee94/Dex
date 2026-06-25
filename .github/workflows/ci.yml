@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/agent/package-lock.json
+            apps/web/package-lock.json
+
+      # The two apps are standalone (non-workspace) — install each separately.
+      - name: Install root tooling
+        run: npm ci --ignore-scripts
+      - name: Install agent
+        run: npm ci
+        working-directory: apps/agent
+      - name: Install web
+        run: npm ci
+        working-directory: apps/web
+
+      # Repo-wide checks.
+      - name: Format check
+        run: npm run format:check
+      - name: Typecheck (both apps)
+        run: npm run typecheck
+      - name: Lint (web)
+        run: npm run lint
+
+      # Agent: seed the sample warehouse, then LLM-free tests + the smoke script.
+      - name: Seed agent warehouse
+        run: npm run seed
+        working-directory: apps/agent
+      - name: Agent tests
+        run: npm test
+        working-directory: apps/agent
+      - name: Agent smoke
+        run: npm run smoke
+        working-directory: apps/agent
+
+      # Web: production build + unit tests.
+      - name: Web build
+        run: npm run build
+        working-directory: apps/web
+      - name: Web tests
+        run: npm test
+        working-directory: apps/web

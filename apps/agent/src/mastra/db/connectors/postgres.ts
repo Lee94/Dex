@@ -4,9 +4,11 @@ import { assertReadOnly, IDENTIFIER } from '../guard';
 import {
   DEFAULT_MAX_ROWS,
   type ColumnInfo,
+  type ColumnSummary,
   type Connector,
   type QueryResult,
   type Row,
+  type TableColumns,
   type TableDescription,
   type TableInfo,
 } from '../types';
@@ -195,6 +197,41 @@ export class PostgresConnector implements Connector {
       const sampleRows = sampleRes.rows as Row[];
 
       return { table, columns, sampleRows };
+    });
+  }
+
+  async tableColumns(tables?: string[]): Promise<TableColumns[]> {
+    return this.withReadOnly(async (client) => {
+      const params: unknown[] = [this.schema];
+      let filter = '';
+      if (tables && tables.length > 0) {
+        for (const t of tables) {
+          if (!IDENTIFIER.test(t)) throw new Error(`Invalid table name: ${JSON.stringify(t)}`);
+        }
+        params.push(tables);
+        filter = ' AND table_name = ANY($2)';
+      }
+      // One round trip for the whole schema (vs. a describeTable per table).
+      const res = await client.query<{
+        table_name: string;
+        column_name: string;
+        data_type: string;
+        is_nullable: string;
+      }>(
+        `SELECT table_name, column_name, data_type, is_nullable
+           FROM information_schema.columns
+          WHERE table_schema = $1${filter}
+          ORDER BY table_name, ordinal_position`,
+        params,
+      );
+
+      const byTable = new Map<string, ColumnSummary[]>();
+      for (const r of res.rows) {
+        const cols = byTable.get(r.table_name) ?? [];
+        cols.push({ name: r.column_name, type: r.data_type, notnull: r.is_nullable === 'NO' });
+        byTable.set(r.table_name, cols);
+      }
+      return [...byTable].map(([table, columns]) => ({ table, columns }));
     });
   }
 

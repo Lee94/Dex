@@ -28,6 +28,19 @@ export type TableDescription = {
   sampleRows: Row[];
 };
 
+/** A lightweight column (no nullability/PK detail) for schema overviews. */
+export type ColumnSummary = {
+  name: string;
+  type: string;
+  notnull: boolean;
+};
+
+/** One table's columns, as returned by the cheap bulk `tableColumns` path. */
+export type TableColumns = {
+  table: string;
+  columns: ColumnSummary[];
+};
+
 export type QueryResult = {
   columns: string[];
   rows: Row[];
@@ -50,6 +63,12 @@ export interface Connector {
   listTables(): Promise<TableInfo[]>;
   /** Describe one table: columns + a few sample rows. */
   describeTable(table: string): Promise<TableDescription>;
+  /**
+   * Columns for many tables at once (omit `tables` for every user table).
+   * Cheaper than describeTable — no sample rows, no PK lookup — so a single call
+   * can build a whole-warehouse schema overview.
+   */
+  tableColumns(tables?: string[]): Promise<TableColumns[]>;
   /** Run a validated, read-only query and return capped columns + rows. */
   runReadOnlySql(sql: string, maxRows?: number): Promise<QueryResult>;
   /** Release any pooled connections (no-op for SQLite). */

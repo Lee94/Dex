@@ -43,6 +43,29 @@
   max-width: 72%;
 }
 
+/* data-context chips parsed from the message preamble */
+.ctxChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+.ctxChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dex-text-strong);
+  background: var(--dex-accent-tint);
+}
+.userText {
+  white-space: pre-wrap;
+}
+
 /* ---- Header ---- */
 .header {
   height: 50px;

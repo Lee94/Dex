@@ -1,14 +1,27 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { getConnectorById } from '../db/connector';
+import { getColumnMetadataMap, getTableMetadata } from '../db/metadata';
+import { enrichTableDescription, type DescribedTable } from '../db/catalog';
 
 export const describeTableTool = createTool({
   id: 'describe_table',
   description:
-    "Inspect a table's columns (name, type, nullability, primary key) plus a few sample rows. Use this to understand a table's shape before writing SQL against it. " +
-    'Pass the same `datasourceId` you used with list_tables to inspect a table in another registered data source.',
+    "Inspect one or more tables in a single call — each table's columns (name, type, nullability, " +
+    'primary key) plus a few sample rows. Pass ALL the tables you need in `tables` at once rather ' +
+    'than calling this repeatedly. Use it when list_tables did not include columns, or when you ' +
+    'want sample rows / keys before writing SQL. ' +
+    'Columns carry curated catalog metadata when present (`description`, `endorsed`); AI-excluded ' +
+    'columns are omitted. ' +
+    'Pass the same `datasourceId` you used with list_tables to inspect tables in another registered data source.',
   inputSchema: z.object({
-    table: z.string().describe('Exact table name, as returned by list_tables'),
+    tables: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Exact table names, as returned by list_tables. Pass every table you need at once.',
+      ),
+    table: z.string().optional().describe('Deprecated single-table alias; prefer `tables`.'),
     datasourceId: z
       .string()
       .optional()
@@ -17,21 +30,52 @@ export const describeTableTool = createTool({
       ),
   }),
   outputSchema: z.object({
-    table: z.string(),
     dialect: z.string(),
-    columns: z.array(
+    tables: z.array(
       z.object({
-        name: z.string(),
-        type: z.string(),
-        notnull: z.boolean(),
-        primaryKey: z.boolean(),
+        table: z.string(),
+        description: z.string().optional(),
+        endorsed: z.boolean().optional(),
+        columns: z
+          .array(
+            z.object({
+              name: z.string(),
+              type: z.string(),
+              notnull: z.boolean(),
+              primaryKey: z.boolean(),
+              description: z.string().optional(),
+              endorsed: z.boolean().optional(),
+            }),
+          )
+          .optional(),
+        sampleRows: z.array(z.record(z.string(), z.any())).optional(),
+        error: z.string().optional(),
       }),
     ),
-    sampleRows: z.array(z.record(z.string(), z.any())),
   }),
   execute: async (input) => {
-    const connector = await getConnectorById(input.datasourceId ?? 'builtin');
-    const desc = await connector.describeTable(input.table);
-    return { ...desc, dialect: connector.dialect };
+    const names = input.tables ?? (input.table ? [input.table] : []);
+    if (names.length === 0) {
+      throw new Error('Provide one or more table names in `tables`.');
+    }
+    const dsId = input.datasourceId ?? 'builtin';
+    const connector = await getConnectorById(dsId);
+
+    const results: DescribedTable[] = [];
+    for (const name of names) {
+      try {
+        const [desc, tableMeta, colMeta] = await Promise.all([
+          connector.describeTable(name),
+          getTableMetadata(dsId, name),
+          getColumnMetadataMap(dsId, name),
+        ]);
+        // Merge the curated catalog overlay (descriptions/endorsed + AI-exclude).
+        results.push(enrichTableDescription(desc, tableMeta, colMeta));
+      } catch (err) {
+        // One bad table name shouldn't lose the others — report it inline.
+        results.push({ table: name, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    return { dialect: connector.dialect, tables: results };
   },
 });
