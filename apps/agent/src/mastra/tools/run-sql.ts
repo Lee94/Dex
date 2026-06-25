@@ -10,7 +10,7 @@ export const runSqlTool = createTool({
     `Run a single read-only SQL query (SELECT, or WITH ... SELECT) and get back columns + rows. ` +
     `By default it runs against the primary ${DIALECT} warehouse; when the question context names a specific data source by \`datasourceId\`, pass that id to run against THAT source (write SQL for the dialect reported by list_tables / describe_table for it). ` +
     'Write/DDL statements (INSERT/UPDATE/DELETE/DROP/...) are rejected. ' +
-    `Inspect the relevant tables with describe_table before querying. For the default warehouse: ${dialectHint()}`,
+    `Discover columns with list_tables (and describe_table for sample rows / keys) before querying; prefer one complete query over many exploratory ones. For the default warehouse: ${dialectHint()}`,
   inputSchema: z.object({
     sql: z
       .string()

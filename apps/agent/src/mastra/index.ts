@@ -5,6 +5,7 @@ import { LibSQLStore } from '@mastra/libsql';
 import { analyst } from './agents/analyst';
 import { buildObservability } from './observability';
 import { dataSourceRoutes } from './server/routes';
+import { notebookRoutes } from './server/notebook-routes';
 
 export const mastra = new Mastra({
   agents: { analyst },
@@ -31,6 +32,8 @@ export const mastra = new Mastra({
     },
     // v0.6 data-source module: read-only catalog browsing, metadata curation,
     // and connection management — independent of the agent (see server/routes.ts).
-    apiRoutes: dataSourceRoutes,
+    // v2.0 notebook module: notebook CRUD + a read-only /query/sql cell-execution
+    // path (see server/notebook-routes.ts). Both mount at the server root.
+    apiRoutes: [...dataSourceRoutes, ...notebookRoutes],
   },
 });

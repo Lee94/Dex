@@ -31,7 +31,12 @@ export type Attachment =
     }
   | { key: string; kind: 'model'; label: string; ref: string };
 
-/** Fold the attached context into a short preamble prepended to the question. */
+/** Leading sentinel of the context preamble — used both to build and to strip it. */
+export const CONTEXT_SENTINEL = 'Focus on the following data the user selected:';
+
+/** Fold the attached context into a short preamble prepended to the question.
+ *  The preamble is meant for the agent (and is stored in memory); the UI strips
+ *  it for display via {@link splitUserMessage}, so it never shows as raw text. */
 export function contextPrefix(attachments: Attachment[]): string {
   if (attachments.length === 0) return '';
   const lines = attachments.map((a) => {
@@ -47,5 +52,32 @@ export function contextPrefix(attachments: Attachment[]): string {
       ? `- Data source: "${a.label}" (the primary warehouse).`
       : `- Data source: "${a.label}" — query it by passing datasourceId "${a.sourceId}" (a ${a.dialect} database) to the SQL tools.`;
   });
-  return `Focus on the following data the user selected:\n${lines.join('\n')}\n\n`;
+  return `${CONTEXT_SENTINEL}\n${lines.join('\n')}\n\n`;
+}
+
+/** A context item recovered from a stored user message, for display as a chip. */
+export interface ContextChip {
+  /** "Data source" | "Table" | "Semantic model" */
+  kind: string;
+  label: string;
+}
+
+/**
+ * Split a stored user message into the data-context chips the user attached and
+ * the actual question body. Inverse of {@link contextPrefix}: when a message
+ * starts with the context preamble, the preamble (everything up to the first
+ * blank line) is parsed into chips and removed so the bubble shows only the
+ * question. Messages without a preamble pass through unchanged.
+ */
+export function splitUserMessage(text: string): { chips: ContextChip[]; body: string } {
+  if (!text.startsWith(CONTEXT_SENTINEL)) return { chips: [], body: text };
+  const sep = text.indexOf('\n\n');
+  const block = sep === -1 ? text : text.slice(0, sep);
+  const body = sep === -1 ? '' : text.slice(sep + 2);
+  const chips: ContextChip[] = [];
+  for (const line of block.split('\n')) {
+    const m = /^- ([^:]+): "([^"]+)"/.exec(line.trim());
+    if (m) chips.push({ kind: m[1].trim(), label: m[2] });
+  }
+  return { chips, body };
 }

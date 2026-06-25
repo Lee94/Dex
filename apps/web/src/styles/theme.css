@@ -13,6 +13,7 @@
   --dex-success-fg: var(--bp-palette-green-2); /* #1c6e42 */
   --dex-success-check: var(--bp-palette-green-4); /* #32a467 */
   --dex-success-tint: rgba(35, 133, 81, 0.12);
+  --dex-success-tint-hover: rgba(35, 133, 81, 0.18);
 
   --dex-danger: var(--bp-intent-danger-rest); /* #cd4246 */
   --dex-danger-fg: var(--bp-palette-red-2); /* #ac2f33 */

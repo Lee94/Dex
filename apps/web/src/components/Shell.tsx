@@ -10,6 +10,11 @@ const DataBrowserView = lazy(() =>
   import('@/components/data-browser/DataBrowserView').then((m) => ({ default: m.DataBrowserView })),
 );
 
+// Code-split the notebook editor (v2.0) — loaded only when "Projects" is opened.
+const NotebookView = lazy(() =>
+  import('@/components/notebook/NotebookView').then((m) => ({ default: m.NotebookView })),
+);
+
 export function Shell({
   view,
   nav,
@@ -65,11 +70,9 @@ export function Shell({
             <DataBrowserView />
           </Suspense>
         ) : view === 'notebook' ? (
-          <Placeholder
-            icon="projects"
-            title="Projects"
-            subtitle="The notebook editor is coming soon."
-          />
+          <Suspense fallback={null}>
+            <NotebookView />
+          </Suspense>
         ) : (
           <Placeholder
             icon={otherIcon}

@@ -4,9 +4,11 @@ import { assertReadOnly, IDENTIFIER } from '../guard';
 import {
   DEFAULT_MAX_ROWS,
   type ColumnInfo,
+  type ColumnSummary,
   type Connector,
   type QueryResult,
   type Row,
+  type TableColumns,
   type TableDescription,
   type TableInfo,
 } from '../types';
@@ -86,6 +88,25 @@ export class SqliteConnector implements Connector {
     const sampleRows = toObjects(sample.columns, sample.rows as unknown as unknown[][]);
 
     return { table, columns, sampleRows };
+  }
+
+  async tableColumns(tables?: string[]): Promise<TableColumns[]> {
+    const names = tables ?? (await this.listTables()).map((t) => t.name);
+    const out: TableColumns[] = [];
+    for (const name of names) {
+      if (!IDENTIFIER.test(name)) {
+        throw new Error(`Invalid table name: ${JSON.stringify(name)}`);
+      }
+      const info = await this.client.execute(`PRAGMA table_info("${name}")`);
+      const rows = toObjects(info.columns, info.rows as unknown as unknown[][]);
+      const columns: ColumnSummary[] = rows.map((o) => ({
+        name: String(o.name),
+        type: String(o.type),
+        notnull: Number(o.notnull) === 1,
+      }));
+      out.push({ table: name, columns });
+    }
+    return out;
   }
 
   async runReadOnlySql(sqlRaw: string, maxRows = DEFAULT_MAX_ROWS): Promise<QueryResult> {

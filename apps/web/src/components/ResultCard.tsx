@@ -22,10 +22,13 @@ export function ResultCard({
   result,
   sql,
   endorsed = false,
+  title,
 }: {
   result: unknown;
   sql?: string;
   endorsed?: boolean;
+  /** Header label; falls back to a derived "… by …" / "Query results". */
+  title?: string;
 }) {
   const [showSql, setShowSql] = useState(false);
 
@@ -50,7 +53,7 @@ export function ResultCard({
       {/* header */}
       <div className={styles.header}>
         <span className={styles.title}>
-          {isChartable ? `${columns[1]} by ${columns[0]}` : 'Query results'}
+          {title || (isChartable ? `${columns[1]} by ${columns[0]}` : 'Query results')}
         </span>
         {sql ? (
           <button

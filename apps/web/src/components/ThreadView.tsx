@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@/lib/icons';
 import { Button, IconButton } from '@/components/ui';
 import {
@@ -11,6 +11,7 @@ import {
 import { Composer } from '@/components/Composer';
 import { Markdown } from '@/components/Markdown';
 import { ResultCard } from '@/components/ResultCard';
+import { splitUserMessage } from '@/lib/attachments';
 import styles from './ThreadView.module.css';
 
 const EXAMPLES = [
@@ -25,12 +26,14 @@ export function ThreadView({
   onSend,
   onStop,
   onRetryLoad,
+  onOpenNotebook,
 }: {
   thread: Thread;
   onBack: () => void;
   onSend: (text: string) => void;
   onStop: () => void;
   onRetryLoad: () => void;
+  onOpenNotebook: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -46,7 +49,7 @@ export function ThreadView({
 
   return (
     <div className={styles.root}>
-      <Header title={thread.title} onBack={onBack} />
+      <Header title={thread.title} onBack={onBack} onOpenNotebook={onOpenNotebook} />
 
       <div ref={scrollRef} className={styles.scroll}>
         <div className={styles.page}>
@@ -65,9 +68,7 @@ export function ThreadView({
 
           {thread.messages.map((m) =>
             m.role === 'user' ? (
-              <div key={m.id} className={styles.userRow}>
-                <div className={styles.userBubble}>{m.text}</div>
-              </div>
+              <UserRow key={m.id} text={m.text} />
             ) : (
               <AssistantBlock key={m.id} msg={m} />
             ),
@@ -81,7 +82,15 @@ export function ThreadView({
   );
 }
 
-function Header({ title, onBack }: { title: string; onBack: () => void }) {
+function Header({
+  title,
+  onBack,
+  onOpenNotebook,
+}: {
+  title: string;
+  onBack: () => void;
+  onOpenNotebook: () => void;
+}) {
   return (
     <div className={styles.header}>
       <IconButton
@@ -113,9 +122,10 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
         icon="notebook"
         size={16}
         color="var(--dex-icon)"
-        title="Notebook view"
+        title="Open as notebook"
         hover="mid"
         padding={6}
+        onClick={onOpenNotebook}
       />
       <Button variant="ghost">
         <Icon name="share" size={14} color="var(--dex-icon)" />
@@ -169,9 +179,121 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
   );
 }
 
+// The agent references a cell with a bracketed tag whose prefix varies in
+// practice ([cell:<id>], [c:<id>], or just [<id>]). Match any bracketed token,
+// then pull out the id (the part after a ':' if present). It's an embed only
+// when that id is a real authored cell, so ordinary [text](link) markdown and
+// other brackets stay literal.
+const CELL_TAG = /\[([^\]\n]{6,})\]/g;
+
+function cellRefId(bracketContent: string, cellById: Map<string, ToolStep>): string | undefined {
+  const raw = bracketContent.trim();
+  const candidate = raw.includes(':') ? raw.slice(raw.lastIndexOf(':') + 1).trim() : raw;
+  return cellById.has(candidate) ? candidate : undefined;
+}
+
+/** Read a `create_sql_cell` result's cellId, if this step is one. */
+function cellIdOf(result: unknown): string | undefined {
+  if (typeof result === 'object' && result !== null) {
+    const id = (result as { cellId?: unknown }).cellId;
+    if (typeof id === 'string') return id;
+  }
+  return undefined;
+}
+
+function cardFor(step: ToolStep, key: string) {
+  const prov = resultProvenance(step.result);
+  const sql = prov.sql ?? (typeof step.args.sql === 'string' ? step.args.sql : undefined);
+  const title = typeof step.args.label === 'string' ? step.args.label : undefined;
+  return (
+    <ResultCard key={key} result={step.result} sql={sql} endorsed={prov.endorsed} title={title} />
+  );
+}
+
+function ctxIcon(kind: string): string {
+  if (/table/i.test(kind)) return 'table';
+  if (/model/i.test(kind)) return 'layers';
+  return 'data';
+}
+
+/** A user turn: data-context chips (parsed from the stored preamble) + question. */
+function UserRow({ text }: { text: string }) {
+  const { chips, body } = splitUserMessage(text);
+  return (
+    <div className={styles.userRow}>
+      <div className={styles.userBubble}>
+        {chips.length > 0 ? (
+          <div className={styles.ctxChips}>
+            {chips.map((c, i) => (
+              <span key={i} className={styles.ctxChip} title={`${c.kind}: ${c.label}`}>
+                <Icon name={ctxIcon(c.kind)} size={11} color="var(--dex-accent)" />
+                {c.label}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {body ? <span className={styles.userText}>{body}</span> : null}
+      </div>
+    </div>
+  );
+}
+
 function AssistantBlock({ msg }: { msg: AssistantMessage }) {
   const [open, setOpen] = useState(true);
-  const cards = msg.steps.filter((s) => isSqlResult(s.result));
+  // Authored SQL cells (create_sql_cell results), keyed by cellId.
+  const cellById = new Map<string, ToolStep>();
+  for (const s of msg.steps) {
+    const id = cellIdOf(s.result);
+    if (id) cellById.set(id, s);
+  }
+
+  // What may surface to the user: SQL cells and governed semantic results. A
+  // plain run_sql result is an internal scratchpad and is never shown.
+  const showable = msg.steps.filter((s) => {
+    if (!isSqlResult(s.result)) return false;
+    return Boolean(cellIdOf(s.result)) || resultProvenance(s.result).via === 'semantic';
+  });
+
+  // Which cells the answer embeds inline (any bracketed tag resolving to a cell).
+  const referenced = new Set<string>();
+  CELL_TAG.lastIndex = 0;
+  for (let m = CELL_TAG.exec(msg.text); m; m = CELL_TAG.exec(msg.text)) {
+    const id = cellRefId(m[1], cellById);
+    if (id) referenced.add(id);
+  }
+  const hasEmbeds = referenced.size > 0;
+
+  // Anything showable but not embedded inline is listed below the answer, so a
+  // SQL cell is always visible even when the agent didn't reference it.
+  const belowCards = showable.filter((s) => {
+    const id = cellIdOf(s.result);
+    return !(id && referenced.has(id));
+  });
+
+  const renderAnswer = () => {
+    if (!hasEmbeds) return <Markdown source={msg.text} className={styles.answerText} />;
+    const nodes: ReactNode[] = [];
+    let last = 0;
+    let m: RegExpExecArray | null;
+    let i = 0;
+    CELL_TAG.lastIndex = 0;
+    while ((m = CELL_TAG.exec(msg.text))) {
+      const id = cellRefId(m[1], cellById);
+      const step = id ? cellById.get(id) : undefined;
+      if (!step) continue; // not a real cell ref → leave it in the surrounding text
+      const before = msg.text.slice(last, m.index);
+      if (before.trim()) {
+        nodes.push(<Markdown key={`t${i}`} source={before} className={styles.answerText} />);
+      }
+      nodes.push(cardFor(step, `c${i}`));
+      last = m.index + m[0].length;
+      i++;
+    }
+    const tail = msg.text.slice(last);
+    if (tail.trim())
+      nodes.push(<Markdown key="tail" source={tail} className={styles.answerText} />);
+    return <>{nodes}</>;
+  };
 
   return (
     <div className={styles.assistant}>
@@ -211,17 +333,11 @@ function AssistantBlock({ msg }: { msg: AssistantMessage }) {
         </>
       )}
 
-      {/* assistant answer text (rendered as Markdown) */}
-      {msg.text ? <Markdown source={msg.text} className={styles.answerText} /> : null}
+      {/* assistant answer — with inline [cell:<id>] embeds (Hex visibility) */}
+      {msg.text ? renderAnswer() : null}
 
-      {/* result cards (from run_sql or the semantic layer's query_semantic) */}
-      {cards.map((s) => {
-        const prov = resultProvenance(s.result);
-        const sql = prov.sql ?? (typeof s.args.sql === 'string' ? s.args.sql : undefined);
-        return (
-          <ResultCard key={s.toolCallId} result={s.result} sql={sql} endorsed={prov.endorsed} />
-        );
-      })}
+      {/* governed/legacy result cards below the answer */}
+      {belowCards.map((s) => cardFor(s, s.toolCallId))}
 
       {/* error */}
       {msg.status === 'error' ? (

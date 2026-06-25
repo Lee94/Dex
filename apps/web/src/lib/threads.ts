@@ -95,11 +95,17 @@ export async function listThreads(): Promise<Thread[]> {
   return (res.threads ?? []).map((t) => threadFromSummary(t as ThreadSummaryRow));
 }
 
+// Effectively "all messages" in one page. `perPage: false` (fetch-all) is valid
+// in the client type but serializes to the string "false" over HTTP, which the
+// server validates as a number → NaN → 400; a large finite page avoids that.
+const MESSAGES_PER_PAGE = 1000;
+
 /** Load + reconstruct a thread's full conversation history. */
 export async function loadThreadMessages(threadId: string): Promise<ChatMessage[]> {
   const thread = mastra.getMemoryThread({ threadId, agentId: AGENT_ID });
   const res = await thread.listMessages({
-    perPage: false,
+    perPage: MESSAGES_PER_PAGE,
+    page: 0,
     orderBy: { field: 'createdAt', direction: 'ASC' },
   });
   return reconstructMessages(res.messages ?? []);

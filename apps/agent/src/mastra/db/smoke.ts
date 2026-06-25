@@ -5,6 +5,7 @@ import {
   getConnector,
   listTables,
   runReadOnlySql,
+  tableColumns,
 } from './queries';
 import { PostgresConnector } from './connectors/postgres';
 import {
@@ -20,6 +21,15 @@ import {
 import { createConnectorFromConfig, getConnectorById } from './connector';
 import { WAREHOUSE_PATH } from './warehouse';
 import { getTableMetadata, upsertTableMetadata, deleteMetadataForDatasource } from './metadata';
+import {
+  appendCell,
+  createNotebook,
+  deleteNotebook,
+  getNotebook,
+  listNotebooks,
+  updateNotebook,
+} from './notebooks';
+import { resolveChainedSql } from './notebook-exec';
 
 /**
  * Non-LLM smoke test: exercises the warehouse query helpers (the same logic the
@@ -63,6 +73,22 @@ async function main(): Promise<void> {
     colNames,
   );
   check('describe_table returns sample rows', desc.sampleRows.length > 0);
+
+  // 2b. tableColumns — cheap bulk schema (powers the enriched list_tables)
+  const allCols = await tableColumns();
+  const oiCols = allCols.find((t) => t.table === 'order_items')?.columns.map((c) => c.name) ?? [];
+  check(
+    'tableColumns() returns columns for every table in one call',
+    allCols.length === 4 &&
+      ['id', 'order_id', 'product_id', 'quantity', 'unit_price'].every((c) => oiCols.includes(c)),
+    { tables: allCols.length, order_items: oiCols },
+  );
+  const subset = await tableColumns(['products']);
+  check(
+    'tableColumns([table]) filters to the requested table',
+    subset.length === 1 && subset[0]?.table === 'products' && subset[0].columns.length > 0,
+    subset,
+  );
 
   // 3. run_sql — a realistic analytical query (top products by completed revenue)
   const topProducts = await runReadOnlySql(`
@@ -283,6 +309,138 @@ async function main(): Promise<void> {
     'deleting a user cube removes it from the merged model',
     deleted && !afterDelete.cubes.some((cc) => cc.name === SMOKE_CUBE),
   );
+
+  // 5d. notebooks (v2.0) — create → get → update (cells) → list → delete
+  const createdNotebook = await createNotebook('Smoke notebook', [
+    { id: 'c1', kind: 'sql', source: 'SELECT 1 AS one' },
+  ]);
+  try {
+    const fetchedNotebook = await getNotebook(createdNotebook.id);
+    check(
+      'notebook create + get round-trips one SQL cell',
+      fetchedNotebook?.title === 'Smoke notebook' &&
+        fetchedNotebook?.cells.length === 1 &&
+        fetchedNotebook?.cells[0]?.source === 'SELECT 1 AS one',
+      fetchedNotebook,
+    );
+
+    const updatedNotebook = await updateNotebook(createdNotebook.id, {
+      title: 'Smoke notebook (edited)',
+      cells: [
+        { id: 'c1', kind: 'sql', source: 'SELECT 2 AS two' },
+        { id: 'c2', kind: 'sql', source: 'SELECT COUNT(*) AS n FROM products' },
+      ],
+    });
+    check(
+      'notebook update replaces title + cells atomically',
+      updatedNotebook?.title === 'Smoke notebook (edited)' &&
+        updatedNotebook?.cells.length === 2 &&
+        updatedNotebook?.cells[1]?.source === 'SELECT COUNT(*) AS n FROM products',
+      updatedNotebook,
+    );
+
+    // A partial patch (title only) must leave the cells untouched.
+    const titleOnly = await updateNotebook(createdNotebook.id, {
+      title: 'Smoke notebook (retitled)',
+    });
+    check(
+      'notebook update with title-only patch preserves cells',
+      titleOnly?.title === 'Smoke notebook (retitled)' && titleOnly?.cells.length === 2,
+      titleOnly,
+    );
+
+    const notebookList = await listNotebooks();
+    const listedNotebook = notebookList.find((n) => n.id === createdNotebook.id);
+    check(
+      'listNotebooks returns a summary with the cell count',
+      listedNotebook?.cellCount === 2 && listedNotebook?.title === 'Smoke notebook (retitled)',
+      listedNotebook,
+    );
+
+    // A cell's SQL runs through the same read-only connector path the route uses.
+    const cellResult = await runReadOnlySql('SELECT COUNT(*) AS n FROM products');
+    check(
+      'notebook cell SQL executes via the read-only connector',
+      Number(cellResult.rows[0]?.n) > 0,
+      cellResult.rows,
+    );
+  } finally {
+    // Always clean up, even if an assertion above threw — keeps dex.db tidy.
+    await deleteNotebook(createdNotebook.id);
+  }
+  check(
+    'deleting a notebook removes it from the list',
+    !(await listNotebooks()).some((n) => n.id === createdNotebook.id),
+  );
+
+  // 5e. notebook cell chaining (v2.0) — outputName → CTE flattening + cycle guard
+  const chainCells = [
+    {
+      id: 'A',
+      kind: 'sql' as const,
+      source: 'SELECT category, price FROM products',
+      outputName: 'base_products',
+    },
+    {
+      id: 'B',
+      kind: 'sql' as const,
+      source: 'SELECT category, COUNT(*) AS n FROM base_products GROUP BY category',
+      outputName: 'by_cat',
+    },
+  ];
+  const composedChain = resolveChainedSql(chainCells, 'B');
+  check(
+    'resolveChainedSql inlines an upstream cell as a CTE',
+    /WITH\s+base_products\s+AS/i.test(composedChain),
+    composedChain,
+  );
+  const chainResult = await runReadOnlySql(composedChain);
+  check(
+    'chained cell SQL runs (count by category over an upstream cell)',
+    chainResult.columns.includes('category') &&
+      chainResult.columns.includes('n') &&
+      chainResult.rows.length === 3,
+    chainResult.rows,
+  );
+
+  let cycleRejected = false;
+  try {
+    resolveChainedSql(
+      [
+        { id: 'X', kind: 'sql', source: 'SELECT * FROM y_out', outputName: 'x_out' },
+        { id: 'Y', kind: 'sql', source: 'SELECT * FROM x_out', outputName: 'y_out' },
+      ],
+      'X',
+    );
+  } catch {
+    cycleRejected = true;
+  }
+  check('resolveChainedSql rejects a circular cell reference', cycleRejected);
+
+  // appendCell: create-on-first-append, then positioned insert
+  const SMOKE_NB = '__smoke_nb__';
+  await deleteNotebook(SMOKE_NB);
+  try {
+    await appendCell(
+      SMOKE_NB,
+      { id: 'n1', kind: 'sql', source: 'SELECT 1' },
+      { titleIfNew: 'Append test' },
+    );
+    const afterAppend = await appendCell(
+      SMOKE_NB,
+      { id: 'n2', kind: 'sql', source: 'SELECT 2' },
+      { afterCellId: 'n1' },
+    );
+    check(
+      'appendCell creates the notebook then appends in order',
+      afterAppend.cells.length === 2 &&
+        afterAppend.cells[0]?.id === 'n1' &&
+        afterAppend.cells[1]?.id === 'n2',
+      afterAppend.cells.map((cc) => cc.id),
+    );
+  } finally {
+    await deleteNotebook(SMOKE_NB);
+  }
 
   // 6. Postgres connector — only when a connection is configured; otherwise skip
   // so the SQLite path stays the no-setup default.
