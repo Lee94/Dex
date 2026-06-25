@@ -15,6 +15,11 @@ const NotebookView = lazy(() =>
   import('@/components/notebook/NotebookView').then((m) => ({ default: m.NotebookView })),
 );
 
+// Code-split the knowledge surface (v0.9) — loaded only when "Knowledge" is opened.
+const KnowledgeView = lazy(() =>
+  import('@/components/knowledge/KnowledgeView').then((m) => ({ default: m.KnowledgeView })),
+);
+
 export function Shell({
   view,
   nav,
@@ -72,6 +77,10 @@ export function Shell({
         ) : view === 'notebook' ? (
           <Suspense fallback={null}>
             <NotebookView />
+          </Suspense>
+        ) : view === 'knowledge' ? (
+          <Suspense fallback={null}>
+            <KnowledgeView />
           </Suspense>
         ) : (
           <Placeholder

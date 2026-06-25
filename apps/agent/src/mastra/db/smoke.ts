@@ -24,6 +24,9 @@ import { getTableMetadata, upsertTableMetadata, deleteMetadataForDatasource } fr
 import type { Metadata } from './metadata';
 import { enrichTableDescription, enrichTableListing } from './catalog';
 import { currentDatetime } from '../tools/get-current-datetime';
+import { createGuide, deleteGuide, getGuide, listGuides, updateGuide } from './guides';
+import { deleteMemoriesForResource, deleteMemory, listMemories, saveMemory } from './memories';
+import { createReviewRequest, deleteReviewRequest, listReviewRequests } from './reviews';
 import {
   appendCell,
   createNotebook,
@@ -330,6 +333,76 @@ async function main(): Promise<void> {
       fixed.iso === '2026-06-25T14:30:00.000Z' &&
       fixed.unixMs === Date.parse('2026-06-25T14:30:00.000Z'),
     fixed,
+  );
+
+  // 5b-3. knowledge & memory (v0.9) — guides + memories + review requests CRUD.
+  // The starter guide is seeded on first schema use.
+  const seededGuides = await listGuides();
+  check(
+    'a starter guide is seeded on a fresh dex.db',
+    seededGuides.some((g) => g.slug === 'revenue-definitions'),
+    seededGuides.map((g) => g.slug),
+  );
+
+  const guide = await createGuide({
+    title: 'Smoke guide — units',
+    content: 'Report revenue in **thousands** unless asked otherwise.',
+    tags: ['smoke', 'units'],
+  });
+  try {
+    const fetchedGuide = await getGuide(guide.slug);
+    check(
+      'read_guide fetches a guide by slug with its content',
+      fetchedGuide?.title === 'Smoke guide — units' && fetchedGuide.content.includes('thousands'),
+      fetchedGuide,
+    );
+    const editedGuide = await updateGuide(guide.id, { content: 'Report revenue in dollars.' });
+    check(
+      'a guide can be edited (content replaced)',
+      editedGuide?.content === 'Report revenue in dollars.' && editedGuide.slug === guide.slug,
+      editedGuide,
+    );
+  } finally {
+    await deleteGuide(guide.id);
+  }
+  check('deleting a guide removes it', (await getGuide(guide.slug)) === null);
+
+  // Memory: save → recall (the cross-thread persistence the agent reads) → dedupe → forget.
+  const SMOKE_RES = '__smoke_resource__';
+  await deleteMemoriesForResource(SMOKE_RES);
+  const mem = await saveMemory('Fiscal year starts in February.', SMOKE_RES);
+  const recalled = await listMemories(SMOKE_RES);
+  check(
+    'save_memory persists a preference that recalls across threads',
+    recalled.length === 1 && recalled[0]?.content === 'Fiscal year starts in February.',
+    recalled,
+  );
+  const dup = await saveMemory('Fiscal year starts in February.', SMOKE_RES);
+  check(
+    'save_memory is idempotent on identical content',
+    dup.id === mem.id && (await listMemories(SMOKE_RES)).length === 1,
+  );
+  await deleteMemory(mem.id);
+  check('a memory can be forgotten', (await listMemories(SMOKE_RES)).length === 0);
+
+  // Review requests: suggest_review persists an open request.
+  const review = await createReviewRequest({
+    question: 'Which revenue definition applies here?',
+    reason: 'Two plausible readings: gross vs. completed.',
+  });
+  try {
+    const reviews = await listReviewRequests();
+    check(
+      'suggest_review persists an open review request',
+      reviews.some((r) => r.id === review.id && r.status === 'open'),
+      review,
+    );
+  } finally {
+    await deleteReviewRequest(review.id);
+  }
+  check(
+    'a review request can be cleared',
+    !(await listReviewRequests()).some((r) => r.id === review.id),
   );
 
   // 5c. user-defined semantic models (v0.7) — create → merge → query → delete

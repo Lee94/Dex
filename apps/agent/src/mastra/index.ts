@@ -6,6 +6,7 @@ import { analyst } from './agents/analyst';
 import { buildObservability } from './observability';
 import { dataSourceRoutes } from './server/routes';
 import { notebookRoutes } from './server/notebook-routes';
+import { knowledgeRoutes } from './server/knowledge-routes';
 
 export const mastra = new Mastra({
   agents: { analyst },
@@ -33,7 +34,9 @@ export const mastra = new Mastra({
     // v0.6 data-source module: read-only catalog browsing, metadata curation,
     // and connection management — independent of the agent (see server/routes.ts).
     // v2.0 notebook module: notebook CRUD + a read-only /query/sql cell-execution
-    // path (see server/notebook-routes.ts). Both mount at the server root.
-    apiRoutes: [...dataSourceRoutes, ...notebookRoutes],
+    // path (see server/notebook-routes.ts). v0.9 knowledge module: guides /
+    // memories / review-requests (see server/knowledge-routes.ts). All mount at
+    // the server root.
+    apiRoutes: [...dataSourceRoutes, ...notebookRoutes, ...knowledgeRoutes],
   },
 });

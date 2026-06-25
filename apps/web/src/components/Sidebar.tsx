@@ -4,7 +4,7 @@ import { IconButton, Button, Pill } from '@/components/ui';
 import type { Thread } from '@/types';
 import styles from './Sidebar.module.css';
 
-export type View = 'threads' | 'thread' | 'notebook' | 'datasource' | 'other';
+export type View = 'threads' | 'thread' | 'notebook' | 'datasource' | 'knowledge' | 'other';
 
 // How many recent threads to surface in the sidebar.
 const MAX_RECENTS = 8;
@@ -18,7 +18,7 @@ const NAV_TOP: NavItem[] = [
 const NAV_MID: NavItem[] = [
   { key: 'tasks', label: 'Tasks', view: 'other' },
   { key: 'collections', label: 'Collections', view: 'other' },
-  { key: 'library', label: 'Library', view: 'other' },
+  { key: 'library', label: 'Knowledge', view: 'knowledge' },
 ];
 const NAV_MAIN: NavItem[] = [
   { key: 'threads', label: 'Threads', view: 'threads', beta: true },
