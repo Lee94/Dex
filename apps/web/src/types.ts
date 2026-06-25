@@ -71,6 +71,79 @@ export function isSqlResult(value: unknown): value is SqlResult {
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* v0.5 — column classification + chart-shape inference                        */
+/* -------------------------------------------------------------------------- */
+
+/** How a result column reads, used to pick a sensible default visualization. */
+export type ColumnType = 'temporal' | 'numeric' | 'categorical';
+
+/** The visualizations a result card can render. `table` is the universal one. */
+export type ChartType = 'table' | 'bar' | 'line' | 'area';
+
+/** Coerce a cell to a finite number, or null. Shared by the table + charts. */
+export function toNum(v: unknown): number | null {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) return Number(v);
+  return null;
+}
+
+/** A string that reads as a date/month/timestamp (e.g. `2024-01`, `2024-01-31`). */
+export function isTemporalValue(v: unknown): boolean {
+  if (typeof v !== 'string') return false;
+  return /^\d{4}-\d{2}(-\d{2}([ T]\d{2}:\d{2}(:\d{2})?)?)?$/.test(v.trim());
+}
+
+/** Classify one column from its values; numbers win over temporal-looking ints. */
+function classifyColumn(values: unknown[]): ColumnType {
+  const present = values.filter((v) => v !== null && v !== undefined && v !== '');
+  if (present.length === 0) return 'categorical';
+  if (present.every((v) => toNum(v) !== null)) return 'numeric';
+  if (present.every((v) => isTemporalValue(v))) return 'temporal';
+  return 'categorical';
+}
+
+/** Per-column types, in column order. */
+export function classifyColumns(result: SqlResult): ColumnType[] {
+  return result.columns.map((c) => classifyColumn(result.rows.map((r) => r[c])));
+}
+
+/**
+ * Decide whether a result is chartable (2 cols, a category/time label + a
+ * numeric value, a reasonable row count) and the chart type to default to —
+ * a temporal first column reads best as a **line**, otherwise a **bar**.
+ */
+export function inferChartShape(result: SqlResult): {
+  chartable: boolean;
+  defaultType: ChartType;
+  columnTypes: ColumnType[];
+} {
+  const columnTypes = classifyColumns(result);
+  const chartable =
+    result.columns.length === 2 &&
+    result.rows.length > 0 &&
+    result.rows.length <= 60 &&
+    columnTypes[1] === 'numeric' &&
+    (columnTypes[0] === 'categorical' || columnTypes[0] === 'temporal');
+  const defaultType: ChartType = !chartable
+    ? 'table'
+    : columnTypes[0] === 'temporal'
+      ? 'line'
+      : 'bar';
+  return { chartable, defaultType, columnTypes };
+}
+
+/** Serialize a result to CSV (RFC-4180 quoting), for download/clipboard export. */
+export function toCsv(result: SqlResult): string {
+  const esc = (v: unknown): string => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const head = result.columns.map(esc).join(',');
+  const body = result.rows.map((r) => result.columns.map((c) => esc(r[c])).join(','));
+  return [head, ...body].join('\n');
+}
+
 /**
  * Provenance a result may carry. The v0.4 semantic layer's `query_semantic`
  * returns the compiled `sql`, whether it came from an `endorsed` (trusted)
