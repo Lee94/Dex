@@ -9,6 +9,9 @@
     "start": "mastra start",
     "seed": "tsx src/mastra/db/seed.ts",
     "smoke": "tsx src/mastra/db/smoke.ts",
+    "pretest": "tsx src/mastra/db/seed.ts",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:watch": "node --import tsx --test --watch test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],

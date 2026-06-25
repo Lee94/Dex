@@ -2,6 +2,8 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 // https://vite.dev/config/
+// Vitest configuration lives in vitest.config.ts (kept separate so this file
+// stays pure Vite 8 — its rolldown types conflict with vitest's bundled Vite).
 export default defineConfig({
   plugins: [react()],
   resolve: {

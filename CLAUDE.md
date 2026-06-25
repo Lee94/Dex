@@ -17,13 +17,15 @@ Root (repo-wide):
 - `npm run format` / `npm run format:check` — Prettier.
 - `npm run typecheck` — typechecks both apps.
 - `npm run lint` — oxlint (web).
+- `npm test` — runs both apps' suites (agent `node:test`, then web Vitest). **CI** (`.github/workflows/ci.yml`) runs `format:check` + `typecheck` + `lint` + agent seed/tests/smoke + web build/tests on push + PR.
 - Git hooks (husky): **pre-commit** runs lint-staged (Prettier on staged files); **pre-push** runs `typecheck + lint`.
 
 `apps/agent` (Mastra backend):
 
 - `cp .env.example .env`, then set `ANTHROPIC_API_KEY` — required for the live LLM loop.
 - `npm run seed` — (re)creates the sample `warehouse.db`. **Must be run before the agent can answer anything.**
-- `npm run smoke` — exercises the SQL query layer/tools **without the LLM** (no API key needed). This is the closest thing to a test suite — run it after touching `db/` or `tools/`.
+- `npm run smoke` — exercises the SQL query layer/tools **without the LLM** (no API key needed). Quick manual data-layer check — run it after touching `db/` or `tools/`.
+- `npm test` — LLM-free `node:test` suites in `test/*.test.ts` (guard, connector, semantic compiler, catalog, knowledge/memory). `pretest` re-seeds `warehouse.db`. Run with `tsx` (no extra deps).
 - `npm run dev` — Mastra dev server + Studio at http://localhost:4111.
 - `npm run typecheck` (`tsc --noEmit`).
 
@@ -31,8 +33,9 @@ Root (repo-wide):
 
 - `npm run dev` — Vite at http://localhost:5173 (expects the agent on :4111; override with `VITE_MASTRA_URL`).
 - `npm run build` (`tsc -b && vite build`) · `npm run typecheck` (`tsc -b`) · `npm run lint` / `lint:fix` (oxlint).
+- `npm test` — **Vitest + React Testing Library** (jsdom). Config is in **`vitest.config.ts`** (separate from `vite.config.ts`, which is pinned to Vite 8 / rolldown types that clash with vitest's bundled Vite). Test files are `src/**/*.test.{ts,tsx}` — **excluded from the `tsc` build** (`tsconfig.app.json`), so they're run by Vitest (esbuild) but not typechecked.
 
-There is no unit-test framework yet. Verification = typecheck + build + lint + the agent's `npm run smoke`.
+Verification = `npm test` (both apps) + typecheck + build + lint + the agent's `npm run smoke`; CI enforces all of it (`.github/workflows/ci.yml`).
 
 ## Architecture
 

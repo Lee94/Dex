@@ -8,6 +8,7 @@
     "format:check": "prettier --check .",
     "lint": "npm run lint --prefix apps/web",
     "typecheck": "npm run typecheck --prefix apps/agent && npm run typecheck --prefix apps/web",
+    "test": "npm test --prefix apps/agent && npm test --prefix apps/web",
     "prepare": "husky"
   },
   "devDependencies": {
