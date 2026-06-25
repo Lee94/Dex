@@ -18,9 +18,12 @@ import {
   runSemanticQuery,
   validateModel,
 } from './semantic';
-import { createConnectorFromConfig, getConnectorById } from './connector';
+import { createConnectorFromConfig, getBuiltinDataSource, getConnectorById } from './connector';
 import { WAREHOUSE_PATH } from './warehouse';
 import { getTableMetadata, upsertTableMetadata, deleteMetadataForDatasource } from './metadata';
+import type { Metadata } from './metadata';
+import { enrichTableDescription, enrichTableListing } from './catalog';
+import { currentDatetime } from '../tools/get-current-datetime';
 import {
   appendCell,
   createNotebook,
@@ -250,6 +253,83 @@ async function main(): Promise<void> {
     'preview-style capped query returns rows',
     preview.rows.length === 5 && preview.columns.length > 0,
     { rows: preview.rows.length, cols: preview.columns.length },
+  );
+
+  // 5b-2. catalog-aware discovery (v0.8) — the pure enrichment over real
+  // connector output, driven by fabricated metadata (no DB writes needed).
+  const m = (p: Partial<Metadata>): Metadata => ({
+    description: null,
+    status: null,
+    categories: [],
+    includedForAi: true,
+    ...p,
+  });
+  const realTables = await listTables();
+  const realSchema = await tableColumns();
+  const tableMetaFix = {
+    orders: m({ description: 'Customer orders', status: 'endorsed' }),
+    order_items: m({ includedForAi: false }),
+  };
+  const columnMetaFix = {
+    orders: {
+      status: m({ description: 'Order lifecycle status' }),
+      id: m({ includedForAi: false }),
+    },
+  };
+  const enriched = enrichTableListing(realTables, realSchema, tableMetaFix, columnMetaFix);
+  const ordersEntry = enriched.find((t) => t.name === 'orders');
+  check(
+    'list_tables enrichment surfaces curated description + endorsed',
+    ordersEntry?.description === 'Customer orders' && ordersEntry?.endorsed === true,
+    ordersEntry,
+  );
+  check(
+    'list_tables enrichment omits an AI-excluded table',
+    !enriched.some((t) => t.name === 'order_items'),
+    enriched.map((t) => t.name),
+  );
+  check(
+    'list_tables enrichment omits an AI-excluded column',
+    !!ordersEntry && !(ordersEntry.columns ?? []).some((c) => c.name === 'id'),
+    ordersEntry?.columns?.map((c) => c.name),
+  );
+
+  const ordersDesc = await describeTable('orders');
+  const describedOrders = enrichTableDescription(
+    ordersDesc,
+    tableMetaFix.orders,
+    columnMetaFix.orders,
+  );
+  check(
+    'describe_table enrichment surfaces a curated column description',
+    (describedOrders.columns ?? []).find((c) => c.name === 'status')?.description ===
+      'Order lifecycle status',
+    describedOrders.columns,
+  );
+  const oiDesc = await describeTable('order_items');
+  const describedOi = enrichTableDescription(oiDesc, tableMetaFix.order_items, {});
+  check(
+    'describe_table enrichment blocks an AI-excluded table',
+    describedOi.error != null,
+    describedOi,
+  );
+
+  // list_datasources building block: the env source projected as `builtin`.
+  const builtinSource = getBuiltinDataSource();
+  check(
+    'getBuiltinDataSource reports the primary warehouse',
+    builtinSource.id === 'builtin' && builtinSource.isAgentSource && !!builtinSource.dialect,
+    builtinSource,
+  );
+
+  // get_current_datetime formatter is deterministic for a fixed instant.
+  const fixed = currentDatetime(new Date('2026-06-25T14:30:00.000Z'));
+  check(
+    'get_current_datetime formats a fixed instant',
+    /^\d{4}-\d{2}-\d{2}$/.test(fixed.date) &&
+      fixed.iso === '2026-06-25T14:30:00.000Z' &&
+      fixed.unixMs === Date.parse('2026-06-25T14:30:00.000Z'),
+    fixed,
   );
 
   // 5c. user-defined semantic models (v0.7) — create → merge → query → delete

@@ -1,6 +1,8 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { getConnectorById } from '../db/connector';
+import { getAllColumnMetadata, getAllTableMetadata } from '../db/metadata';
+import { enrichTableListing, visibleTables } from '../db/catalog';
 
 /**
  * For a warehouse with at most this many tables we attach each table's columns
@@ -17,6 +19,8 @@ export const listTablesTool = createTool({
     "For normal-sized warehouses it ALSO returns each table's columns (name + type), so you " +
     'can often write SQL directly without a separate describe_table call. Call this FIRST to ' +
     'discover what data is available. ' +
+    'Tables/columns carry curated catalog metadata when present: a `description` and an `endorsed` ' +
+    'flag (a data team vouched for it) — prefer endorsed, well-described data. ' +
     "By default it targets the primary warehouse; when the question context names a specific data source by `datasourceId`, pass that id to list THAT source's tables instead.",
   inputSchema: z.object({
     datasourceId: z
@@ -35,30 +39,49 @@ export const listTablesTool = createTool({
       z.object({
         name: z.string(),
         rowCount: z.number(),
-        columns: z.array(z.object({ name: z.string(), type: z.string() })).optional(),
+        description: z.string().optional(),
+        endorsed: z.boolean().optional(),
+        columns: z
+          .array(
+            z.object({
+              name: z.string(),
+              type: z.string(),
+              description: z.string().optional(),
+              endorsed: z.boolean().optional(),
+            }),
+          )
+          .optional(),
       }),
     ),
   }),
   execute: async (input) => {
-    const connector = await getConnectorById(input?.datasourceId ?? 'builtin');
-    const tables = await connector.listTables();
+    const dsId = input?.datasourceId ?? 'builtin';
+    const connector = await getConnectorById(dsId);
+    const [tables, tableMeta] = await Promise.all([
+      connector.listTables(),
+      getAllTableMetadata(dsId),
+    ]);
 
-    // Large warehouse: names + row counts only, to keep the payload bounded.
-    if (tables.length > ENRICH_TABLE_CAP) {
-      return { dialect: connector.dialect, columnsIncluded: false, tables };
+    // Large warehouse: names + row counts only (after the AI-excluded filter),
+    // to keep the payload bounded. The agent uses describe_table for columns.
+    if (visibleTables(tables, tableMeta).length > ENRICH_TABLE_CAP) {
+      return {
+        dialect: connector.dialect,
+        columnsIncluded: false,
+        tables: enrichTableListing(tables, null, tableMeta, {}),
+      };
     }
 
     // Small/normal warehouse: fold in each table's columns in one cheap bulk
     // call, so the agent can skip per-table describe_table round-trips.
-    const schema = await connector.tableColumns();
-    const byTable = new Map(schema.map((s) => [s.table, s.columns]));
+    const [schema, columnMeta] = await Promise.all([
+      connector.tableColumns(),
+      getAllColumnMetadata(dsId),
+    ]);
     return {
       dialect: connector.dialect,
       columnsIncluded: true,
-      tables: tables.map((t) => ({
-        ...t,
-        columns: (byTable.get(t.name) ?? []).map((c) => ({ name: c.name, type: c.type })),
-      })),
+      tables: enrichTableListing(tables, schema, tableMeta, columnMeta),
     };
   },
 });

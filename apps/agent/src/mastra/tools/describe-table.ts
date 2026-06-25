@@ -1,15 +1,8 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { getConnectorById } from '../db/connector';
-import type { TableDescription } from '../db/types';
-
-/** One table's detail, or an error if that single table couldn't be inspected. */
-type TableDetail = {
-  table: string;
-  columns?: TableDescription['columns'];
-  sampleRows?: TableDescription['sampleRows'];
-  error?: string;
-};
+import { getColumnMetadataMap, getTableMetadata } from '../db/metadata';
+import { enrichTableDescription, type DescribedTable } from '../db/catalog';
 
 export const describeTableTool = createTool({
   id: 'describe_table',
@@ -18,6 +11,8 @@ export const describeTableTool = createTool({
     'primary key) plus a few sample rows. Pass ALL the tables you need in `tables` at once rather ' +
     'than calling this repeatedly. Use it when list_tables did not include columns, or when you ' +
     'want sample rows / keys before writing SQL. ' +
+    'Columns carry curated catalog metadata when present (`description`, `endorsed`); AI-excluded ' +
+    'columns are omitted. ' +
     'Pass the same `datasourceId` you used with list_tables to inspect tables in another registered data source.',
   inputSchema: z.object({
     tables: z
@@ -39,6 +34,8 @@ export const describeTableTool = createTool({
     tables: z.array(
       z.object({
         table: z.string(),
+        description: z.string().optional(),
+        endorsed: z.boolean().optional(),
         columns: z
           .array(
             z.object({
@@ -46,6 +43,8 @@ export const describeTableTool = createTool({
               type: z.string(),
               notnull: z.boolean(),
               primaryKey: z.boolean(),
+              description: z.string().optional(),
+              endorsed: z.boolean().optional(),
             }),
           )
           .optional(),
@@ -59,13 +58,19 @@ export const describeTableTool = createTool({
     if (names.length === 0) {
       throw new Error('Provide one or more table names in `tables`.');
     }
-    const connector = await getConnectorById(input.datasourceId ?? 'builtin');
+    const dsId = input.datasourceId ?? 'builtin';
+    const connector = await getConnectorById(dsId);
 
-    const results: TableDetail[] = [];
+    const results: DescribedTable[] = [];
     for (const name of names) {
       try {
-        const desc = await connector.describeTable(name);
-        results.push({ table: desc.table, columns: desc.columns, sampleRows: desc.sampleRows });
+        const [desc, tableMeta, colMeta] = await Promise.all([
+          connector.describeTable(name),
+          getTableMetadata(dsId, name),
+          getColumnMetadataMap(dsId, name),
+        ]);
+        // Merge the curated catalog overlay (descriptions/endorsed + AI-exclude).
+        results.push(enrichTableDescription(desc, tableMeta, colMeta));
       } catch (err) {
         // One bad table name shouldn't lose the others — report it inline.
         results.push({ table: name, error: err instanceof Error ? err.message : String(err) });
