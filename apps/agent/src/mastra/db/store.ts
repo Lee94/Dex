@@ -19,4 +19,13 @@ const dbPath = process.env.DEX_DB?.trim() || path.join(path.dirname(WAREHOUSE_PA
 
 export const dexStore = createClient({ url: `file:${dbPath}` });
 
+// Every Dex store module (datasources / metadata / semantic / guides / memories
+// / tasks / projects …) shares this one SQLite file, and in production the
+// scheduler + request handlers write it concurrently. Set a busy timeout so a
+// writer waits for the lock instead of failing fast with SQLITE_BUSY — most
+// visible when `npm test` runs each test file in its own process against the
+// same dex.db. libsql serializes statements on the file connection, so this
+// applies before the first query each process issues.
+void dexStore.execute('PRAGMA busy_timeout = 5000').catch(() => {});
+
 export const DEX_DB_PATH = dbPath;

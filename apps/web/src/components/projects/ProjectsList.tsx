@@ -1,6 +1,7 @@
 import { Icon } from '@/lib/icons';
 import { Button } from '@/components/ui';
 import { relativeTime } from '@/lib/threads';
+import { useT } from '@/i18n';
 import type { Project } from '@/lib/projects';
 import styles from './project.module.css';
 
@@ -23,38 +24,37 @@ export function ProjectsList({
   onNew: () => void;
   onRetry: () => void;
 }) {
+  const t = useT();
   return (
     <div className={styles.page}>
       <div className={styles.inner}>
         <div className={styles.header}>
           <div className={styles.headerText}>
-            <h1 className={styles.title}>Projects</h1>
-            <div className={styles.subtitle}>
-              Group related threads and give them shared context.
-            </div>
+            <h1 className={styles.title}>{t.projects.title}</h1>
+            <div className={styles.subtitle}>{t.projects.subtitle}</div>
           </div>
           <Button variant="green" onClick={onNew}>
             <Icon name="plus" size={14} color="currentColor" />
-            New project
+            {t.projects.newProject}
           </Button>
         </div>
 
         {loading ? (
-          <div className={styles.state}>Loading projects…</div>
+          <div className={styles.state}>{t.projects.loading}</div>
         ) : error ? (
           <div className={styles.state}>
-            <span>Couldn’t load projects. {error}</span>
+            <span>{t.projects.loadFailed(error)}</span>
             <Button variant="ghost" onClick={onRetry}>
-              Retry
+              {t.common.retry}
             </Button>
           </div>
         ) : projects.length === 0 ? (
           <div className={styles.state}>
             <Icon name="projects" size={26} color="var(--dex-text-faintest)" />
-            <span>No projects yet. Create one to group threads and share context.</span>
+            <span>{t.projects.emptyList}</span>
             <Button variant="green" onClick={onNew}>
               <Icon name="plus" size={14} color="currentColor" />
-              New project
+              {t.projects.newProject}
             </Button>
           </div>
         ) : (
@@ -65,8 +65,10 @@ export function ProjectsList({
                   <Icon name="projects" size={15} color="var(--dex-accent)" />
                   <span className={styles.cardName}>{p.name}</span>
                 </div>
-                <div className={styles.cardDesc}>{p.description || 'No description'}</div>
-                <div className={styles.cardFoot}>Updated {relativeTime(p.updatedAt)}</div>
+                <div className={styles.cardDesc}>{p.description || t.projects.noDescription}</div>
+                <div className={styles.cardFoot}>
+                  {t.projects.updated(relativeTime(p.updatedAt))}
+                </div>
               </button>
             ))}
           </div>

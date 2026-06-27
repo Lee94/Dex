@@ -7,13 +7,14 @@ import { SchemaTree } from './SchemaTree';
 import { Detail } from './Detail';
 import { DataModelsPanel } from './DataModelsPanel';
 import { AddConnectionDialog } from './AddConnectionDialog';
+import { useT, type Dict } from '@/i18n';
 import styles from './dataBrowser.module.css';
 
-const TABS: { key: HeaderTab; label: string }[] = [
-  { key: 'recommended', label: 'Recommended' },
-  { key: 'warehouse', label: 'Warehouse' },
-  { key: 'datamodels', label: 'Data models' },
-  { key: 'curation', label: 'Curation' },
+const TABS: { key: HeaderTab; label: keyof Dict['dataBrowser']['tabs'] }[] = [
+  { key: 'recommended', label: 'recommended' },
+  { key: 'warehouse', label: 'warehouse' },
+  { key: 'datamodels', label: 'dataModels' },
+  { key: 'curation', label: 'curation' },
 ];
 
 /**
@@ -27,6 +28,7 @@ export function DataBrowserView() {
   const db = useDataBrowser();
   const { connId, table } = useParams<{ connId?: string; table?: string }>();
   const navigate = useNavigate();
+  const tr = useT();
   const [addOpen, setAddOpen] = useState(false);
 
   // Pull the selection + its stable handles out of the per-render `db` object so
@@ -82,18 +84,18 @@ export function DataBrowserView() {
         <span className={styles.logo}>
           <CubeMark />
         </span>
-        <h1 className={styles.title}>Data browser</h1>
+        <h1 className={styles.title}>{tr.dataBrowser.title}</h1>
       </div>
 
       <div className={styles.tabs}>
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <button
-            key={t.key}
+            key={tab.key}
             type="button"
-            className={`${styles.tab} ${nav.headerTab === t.key ? styles.tabActive : ''}`}
-            onClick={() => nav.pickHeader(t.key)}
+            className={`${styles.tab} ${nav.headerTab === tab.key ? styles.tabActive : ''}`}
+            onClick={() => nav.pickHeader(tab.key)}
           >
-            {t.label}
+            {tr.dataBrowser.tabs[tab.label]}
           </button>
         ))}
       </div>
@@ -118,8 +120,12 @@ export function DataBrowserView() {
       ) : (
         <Placeholder
           icon={nav.headerTab === 'recommended' ? 'dashboard' : 'tickCircle'}
-          title={nav.headerTab === 'recommended' ? 'Recommended' : 'Curation'}
-          subtitle="Nothing here yet."
+          title={
+            nav.headerTab === 'recommended'
+              ? tr.dataBrowser.tabs.recommended
+              : tr.dataBrowser.tabs.curation
+          }
+          subtitle={tr.common.nothingHere}
         />
       )}
 

@@ -26,12 +26,28 @@ import {
 } from '../db/metadata';
 import {
   describeModelSummary,
-  loadMergedModel,
-  listUserCubes,
-  createUserCube,
-  deleteUserCube,
+  model,
+  listStoredModels,
+  getStoredModelByName,
+  createModel,
+  saveDraft,
+  publishModel,
+  discardDraft,
+  deleteModel,
+  statusOf,
+  parseCubeYaml,
+  cubeToYaml,
+  assertColumnsExist,
 } from '../db/semantic';
-import type { Cube, Dimension, DimensionType, Measure, MeasureType } from '../db/semantic';
+import type {
+  Cube,
+  CubeYamlError,
+  Dimension,
+  DimensionType,
+  Measure,
+  MeasureType,
+  ModelStatus,
+} from '../db/semantic';
 import { fail } from './http';
 
 /**
@@ -58,26 +74,42 @@ function schemaLabel(dialect: 'sqlite' | 'postgres', schema?: string): string {
 
 // --- semantic projection ----------------------------------------------------
 
+/** Project one cube (built-in or a user model's current view) to the shape the
+ *  Data Models UI consumes. */
+function projectCube(
+  cube: ReturnType<typeof describeModelSummary>['cubes'][number],
+  opts: { builtin: boolean; status: ModelStatus; baseTable: string },
+) {
+  return {
+    id: cube.name,
+    name: cube.title,
+    description: cube.description ?? null,
+    endorsed: cube.endorsed,
+    builtin: opts.builtin,
+    status: opts.status,
+    baseTable: opts.baseTable,
+    measures: cube.measures.map((m) => ({ code: m.ref, name: m.title, endorsed: m.endorsed })),
+    dimensions: cube.dimensions.map((d) => ({ name: d.title, type: d.type })),
+    joins: cube.joins,
+  };
+}
+
 async function semanticProjects() {
-  const merged = await loadMergedModel();
-  const summary = describeModelSummary(merged);
-  const userByName = new Map((await listUserCubes()).map((u) => [u.cube.name, u]));
   const builtin = getBuiltinDataSource();
-  const models = summary.cubes.map((cube) => {
-    const user = userByName.get(cube.name);
-    return {
-      id: cube.name,
-      name: cube.title,
-      description: cube.description ?? null,
-      endorsed: cube.endorsed,
-      // User-added cubes are deletable; built-in ones are not.
-      builtin: !user,
-      baseTable: user?.baseTable ?? cube.name,
-      measures: cube.measures.map((m) => ({ code: m.ref, name: m.title, endorsed: m.endorsed })),
-      dimensions: cube.dimensions.map((d) => ({ name: d.title, type: d.type })),
-      joins: cube.joins,
-    };
+  // Built-in cubes are always published + endorsed.
+  const builtinSummary = describeModelSummary(model);
+  const builtinModels = builtinSummary.cubes.map((cube) =>
+    projectCube(cube, { builtin: true, status: 'published', baseTable: cube.name }),
+  );
+  // User models — projected from the draft??published view, carrying their status
+  // (so the UI can show drafts that the agent can't yet see).
+  const stored = await listStoredModels();
+  const userModels = stored.map((m) => {
+    const view = (m.draft ?? m.published)!; // at least one is non-null (rowToStored guarantees it)
+    const [summary] = describeModelSummary({ cubes: [view], metrics: [] }).cubes;
+    return projectCube(summary, { builtin: false, status: statusOf(m), baseTable: m.baseTable });
   });
+  const models = [...builtinModels, ...userModels];
   const project = {
     id: 'dex',
     name: 'Dex semantic model',
@@ -85,10 +117,22 @@ async function semanticProjects() {
     description: 'Governed metrics, cubes, measures and dimensions (v0.4 semantic layer).',
     source: { name: builtin.name, kind: builtin.dialect },
     modelCount: models.length,
-    metrics: summary.metrics,
+    metrics: builtinSummary.metrics,
     models,
   };
-  return { project, summary };
+  return { project };
+}
+
+/** Throw if `name` collides with a built-in cube or any stored model
+ *  (drafts included). `exceptName` skips the model being renamed. */
+async function assertNameAvailable(name: string, exceptName?: string): Promise<void> {
+  if (model.cubes.some((c) => c.name === name)) {
+    throw new Error(`A model named "${name}" already exists`);
+  }
+  const stored = await listStoredModels();
+  if (stored.some((m) => m.name === name && m.name !== exceptName)) {
+    throw new Error(`A model named "${name}" already exists`);
+  }
 }
 
 // --- user-defined model construction ----------------------------------------
@@ -175,6 +219,59 @@ function buildUserCube(input: NewModelInput, columnNames: Set<string>): { cube: 
     joins: [],
   };
   return { cube };
+}
+
+/** Body for create/patch — a GUI payload or (v3.1) a raw YAML cube. */
+type ModelBody = NewModelInput & { source?: 'gui' | 'yaml'; yaml?: string };
+
+/** Carries structured YAML parse errors (with line/col) so the client can place
+ *  Monaco markers, not just show a flat message. */
+class ModelYamlError extends Error {
+  constructor(public yamlErrors: CubeYamlError[]) {
+    super(yamlErrors.map((e) => e.message).join('\n') || 'Invalid model YAML.');
+    this.name = 'ModelYamlError';
+  }
+}
+
+/** True if the body carries a model definition (vs. a status-only patch). */
+function hasBodyDefinition(body: ModelBody): boolean {
+  return Array.isArray(body.measures) || (body.source === 'yaml' && typeof body.yaml === 'string');
+}
+
+/**
+ * Resolve a validated `Cube` from a create/patch body, GUI or YAML. Both paths
+ * verify the base table exists in the built-in warehouse and that referenced
+ * columns are real; throws a human-readable error (or `ModelYamlError`) otherwise.
+ */
+async function resolveCubeFromBody(
+  body: ModelBody,
+  fallbackTable?: string,
+): Promise<{ cube: Cube }> {
+  if (body.source === 'yaml') {
+    const { cube, errors } = parseCubeYaml(body.yaml ?? '');
+    if (errors.length > 0 || !cube) throw new ModelYamlError(errors);
+    const connector = await getConnectorById('builtin');
+    const desc = await connector.describeTable(cube.sql); // base table must exist
+    assertColumnsExist(cube, new Set(desc.columns.map((col) => col.name)));
+    return { cube };
+  }
+  const table = body.table?.trim() || fallbackTable || '';
+  if (!IDENTIFIER.test(table)) throw new Error('A valid base table is required');
+  const connector = await getConnectorById('builtin');
+  const desc = await connector.describeTable(table);
+  const columnNames = new Set(desc.columns.map((col) => col.name));
+  return buildUserCube({ ...body, table }, columnNames);
+}
+
+/** Map an error from the create/patch flow to a JSON response body + status,
+ *  preserving structured YAML errors. */
+function modelErrorResponse(err: unknown): { body: Record<string, unknown>; status: 400 | 409 } {
+  if (err instanceof ModelYamlError) {
+    return { body: { error: err.message, status: 400, yamlErrors: err.yamlErrors }, status: 400 };
+  }
+  const msg = err instanceof Error ? err.message : String(err);
+  const status: 400 | 409 = /already exists/.test(msg) ? 409 : 400;
+  return { body: { error: msg, status }, status };
 }
 
 // ---------------------------------------------------------------------------
@@ -414,8 +511,14 @@ export const dataSourceRoutes = [
       if (c.req.param('projectId') !== 'dex') return c.json(fail('Project not found', 404), 404);
       const modelId = c.req.param('modelId');
       const { project } = await semanticProjects();
-      const model = project.models.find((m) => m.id === modelId);
-      if (!model) return c.json(fail('Model not found', 404), 404);
+      const found = project.models.find((m) => m.id === modelId);
+      if (!found) return c.json(fail('Model not found', 404), 404);
+      // Raw cube definition + its YAML, for the editor to seed from. Built-ins
+      // resolve to their typed cube (read-only display).
+      const stored = await getStoredModelByName(modelId);
+      const builtinCube = model.cubes.find((cb) => cb.name === modelId) ?? null;
+      const cube = stored ? (stored.draft ?? stored.published) : builtinCube;
+      const yaml = cube ? cubeToYaml(cube) : null;
       // Best-effort preview of the cube's base table (built-in cube names map to
       // tables; user cubes carry their `baseTable`); guarded + capped, empty on
       // any mismatch.
@@ -425,7 +528,7 @@ export const dataSourceRoutes = [
         rowCount: 0,
         truncated: false,
       };
-      const baseTable = model.baseTable ?? model.id;
+      const baseTable = found.baseTable ?? found.id;
       if (IDENTIFIER.test(baseTable)) {
         try {
           const connector = await getConnectorById('builtin');
@@ -434,7 +537,7 @@ export const dataSourceRoutes = [
           /* leave preview empty */
         }
       }
-      return c.json({ model: { ...model, preview } });
+      return c.json({ model: { ...found, preview, cube, yaml } });
     },
   }),
 
@@ -444,31 +547,69 @@ export const dataSourceRoutes = [
     requiresAuth: false,
     handler: async (c) => {
       if (c.req.param('projectId') !== 'dex') return c.json(fail('Project not found', 404), 404);
-      const body = (await c.req.json().catch(() => ({}))) as NewModelInput;
-      const table = body.table?.trim() ?? '';
-      if (!IDENTIFIER.test(table)) return c.json(fail('A valid base table is required'), 400);
-
+      const body = (await c.req.json().catch(() => ({}))) as NewModelInput & { publish?: boolean };
       try {
-        // The base table must exist in the agent's (builtin) warehouse, since
-        // compiled semantic SQL runs against that connector.
-        const connector = await getConnectorById('builtin');
-        const desc = await connector.describeTable(table);
-        const columnNames = new Set(desc.columns.map((col) => col.name));
-
-        const { cube } = buildUserCube(body, columnNames);
-
-        // Reject a name that collides with any existing cube (built-in or user).
-        const merged = await loadMergedModel();
-        if (merged.cubes.some((existing) => existing.name === cube.name)) {
-          return c.json(fail(`A model named "${cube.name}" already exists`, 409), 409);
-        }
-
-        await createUserCube(table, cube);
+        const { cube } = await resolveCubeFromBody(body);
+        // Reject a name that collides with any existing cube (built-in, published, or draft).
+        await assertNameAvailable(cube.name);
+        // New models are drafts by default — invisible to the agent until published.
+        await createModel(cube, body.publish === true);
         const { project } = await semanticProjects();
         const created = project.models.find((m) => m.id === cube.name);
         return c.json({ model: created }, 201);
       } catch (err) {
-        return c.json(fail(err instanceof Error ? err.message : String(err)), 400);
+        const { body: errBody, status } = modelErrorResponse(err);
+        return c.json(errBody, status);
+      }
+    },
+  }),
+
+  // --- edit / publish / discard a user-defined model ------------------------
+  registerApiRoute('/semantic/projects/:projectId/models/:modelId', {
+    method: 'PATCH',
+    requiresAuth: false,
+    handler: async (c) => {
+      if (c.req.param('projectId') !== 'dex') return c.json(fail('Project not found', 404), 404);
+      const modelId = c.req.param('modelId');
+      const body = (await c.req.json().catch(() => ({}))) as NewModelInput & {
+        action?: 'save' | 'publish' | 'discard';
+      };
+      const action = body.action ?? 'save';
+
+      // Built-in models are read-only.
+      if (model.cubes.some((cb) => cb.name === modelId)) {
+        return c.json(fail('Built-in models are read-only', 404), 404);
+      }
+      const existing = await getStoredModelByName(modelId);
+      if (!existing) return c.json(fail('Model not found', 404), 404);
+
+      try {
+        if (action === 'discard') {
+          const result = await discardDraft(modelId);
+          if (!result) return c.json({ model: null }); // never-published model removed
+          const { project } = await semanticProjects();
+          return c.json({ model: project.models.find((m) => m.id === result.name) ?? null });
+        }
+
+        // Build a cube from the body when a definition is supplied; otherwise
+        // act on the existing draft (e.g. publish a pending draft as-is).
+        let cube: Cube | undefined;
+        if (hasBodyDefinition(body)) {
+          ({ cube } = await resolveCubeFromBody(body, existing.baseTable));
+          if (cube.name !== modelId) await assertNameAvailable(cube.name, modelId);
+        }
+
+        const updated =
+          action === 'publish'
+            ? await publishModel(modelId, cube)
+            : await saveDraft(modelId, cube ?? existing.draft ?? existing.published!);
+        const { project } = await semanticProjects();
+        return c.json({
+          model: updated ? (project.models.find((m) => m.id === updated.name) ?? null) : null,
+        });
+      } catch (err) {
+        const { body: errBody, status } = modelErrorResponse(err);
+        return c.json(errBody, status);
       }
     },
   }),
@@ -480,7 +621,7 @@ export const dataSourceRoutes = [
     handler: async (c) => {
       if (c.req.param('projectId') !== 'dex') return c.json(fail('Project not found', 404), 404);
       const modelId = c.req.param('modelId');
-      const removed = await deleteUserCube(modelId);
+      const removed = await deleteModel(modelId);
       if (!removed) {
         return c.json(
           fail('Model not found, or it is a built-in model that cannot be deleted', 404),

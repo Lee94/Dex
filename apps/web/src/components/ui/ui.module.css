@@ -121,6 +121,22 @@
   background: var(--dex-danger-tint);
   color: var(--dex-danger-fg);
 }
+.pillDraft {
+  height: 21px;
+  padding: 0 9px;
+  border-radius: 11px;
+  font-size: 11.5px;
+  background: var(--dex-subtle-bg);
+  color: var(--dex-text-muted);
+}
+.pillPublished {
+  height: 21px;
+  padding: 0 9px;
+  border-radius: 11px;
+  font-size: 11.5px;
+  background: var(--dex-success-tint);
+  color: var(--dex-success-fg);
+}
 
 /* ---- ConfirmDialog ---- */
 .confirmBackdrop {

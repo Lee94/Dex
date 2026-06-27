@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Button } from './Button';
+import { useT } from '@/i18n';
 import styles from './ui.module.css';
 
 /**
@@ -10,7 +11,7 @@ import styles from './ui.module.css';
 export function ConfirmDialog({
   title,
   message,
-  confirmLabel = 'Delete',
+  confirmLabel,
   onConfirm,
   onClose,
 }: {
@@ -20,6 +21,7 @@ export function ConfirmDialog({
   onConfirm: () => void | Promise<void>;
   onClose: () => void;
 }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,10 +45,10 @@ export function ConfirmDialog({
         {error ? <div className={styles.confirmError}>{error}</div> : null}
         <div className={styles.confirmActions}>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button variant="danger" onClick={() => void confirm()} disabled={busy}>
-            {busy ? 'Working…' : confirmLabel}
+            {busy ? t.common.working : (confirmLabel ?? t.common.delete)}
           </Button>
         </div>
       </div>

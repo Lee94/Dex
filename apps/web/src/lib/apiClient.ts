@@ -9,6 +9,20 @@ import { config } from '@/config';
  */
 const BASE = config.mastraBaseUrl;
 
+/** Error thrown on a non-2xx response. Carries the parsed JSON body (`info`) so
+ *  callers can read structured fields (e.g. a model save's `yamlErrors`) beyond
+ *  the flat message. Extends Error, so existing `e.message` callers are unaffected. */
+export class ApiError extends Error {
+  status: number;
+  info?: unknown;
+  constructor(message: string, status: number, info?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.info = info;
+  }
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
@@ -16,13 +30,16 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   });
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
+    let info: unknown;
     try {
-      const body = await res.json();
-      if (body?.error) message = body.error;
+      info = await res.json();
+      if (info && typeof info === 'object' && 'error' in info) {
+        message = String((info as { error: unknown }).error);
+      }
     } catch {
       /* non-JSON error body */
     }
-    throw new Error(message);
+    throw new ApiError(message, res.status, info);
   }
   return (await res.json()) as T;
 }

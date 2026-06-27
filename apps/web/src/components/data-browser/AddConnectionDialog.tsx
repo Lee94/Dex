@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { type ConnectorKind, type NewConnectionInput } from '@/lib/dataSources';
+import { useT } from '@/i18n';
 import styles from './dataBrowser.module.css';
 
 /** Modal for registering a new read-only data source (Postgres / SQLite). */
@@ -23,11 +24,12 @@ export function AddConnectionDialog({
   const [filePath, setFilePath] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
 
   const submit = async () => {
     setError(null);
     if (!name.trim()) {
-      setError('Give the connection a name.');
+      setError(t.addConnection.errNeedName);
       return;
     }
     const input: NewConnectionInput =
@@ -58,20 +60,20 @@ export function AddConnectionDialog({
   return (
     <div className={styles.backdrop} onClick={onClose}>
       <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
-        <h2 className={styles.dialogTitle}>Add data connection</h2>
+        <h2 className={styles.dialogTitle}>{t.addConnection.title}</h2>
 
         <div className={styles.field}>
-          <label className={styles.fieldLabel}>Name</label>
+          <label className={styles.fieldLabel}>{t.addConnection.name}</label>
           <input
             className={styles.input}
             value={name}
-            placeholder="Production warehouse"
+            placeholder={t.addConnection.namePh}
             onChange={(e) => setName(e.target.value)}
           />
         </div>
 
         <div className={styles.field}>
-          <label className={styles.fieldLabel}>Type</label>
+          <label className={styles.fieldLabel}>{t.addConnection.type}</label>
           <select
             className={styles.select}
             value={type}
@@ -84,11 +86,11 @@ export function AddConnectionDialog({
 
         {type === 'sqlite' ? (
           <div className={styles.field}>
-            <label className={styles.fieldLabel}>File path</label>
+            <label className={styles.fieldLabel}>{t.addConnection.filePath}</label>
             <input
               className={styles.input}
               value={filePath}
-              placeholder="/path/to/warehouse.db"
+              placeholder={t.addConnection.filePathPh}
               onChange={(e) => setFilePath(e.target.value)}
             />
           </div>
@@ -96,16 +98,16 @@ export function AddConnectionDialog({
           <>
             <div className={styles.fieldRow}>
               <div className={styles.field} style={{ flex: 2 }}>
-                <label className={styles.fieldLabel}>Host</label>
+                <label className={styles.fieldLabel}>{t.addConnection.host}</label>
                 <input
                   className={styles.input}
                   value={host}
-                  placeholder="db.example.com"
+                  placeholder={t.addConnection.hostPh}
                   onChange={(e) => setHost(e.target.value)}
                 />
               </div>
               <div className={styles.field} style={{ flex: 1 }}>
-                <label className={styles.fieldLabel}>Port</label>
+                <label className={styles.fieldLabel}>{t.addConnection.port}</label>
                 <input
                   className={styles.input}
                   value={port}
@@ -114,26 +116,26 @@ export function AddConnectionDialog({
               </div>
             </div>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Database</label>
+              <label className={styles.fieldLabel}>{t.addConnection.database}</label>
               <input
                 className={styles.input}
                 value={database}
-                placeholder="analytics"
+                placeholder={t.addConnection.databasePh}
                 onChange={(e) => setDatabase(e.target.value)}
               />
             </div>
             <div className={styles.fieldRow}>
               <div className={styles.field} style={{ flex: 1 }}>
-                <label className={styles.fieldLabel}>User</label>
+                <label className={styles.fieldLabel}>{t.addConnection.user}</label>
                 <input
                   className={styles.input}
                   value={user}
-                  placeholder="readonly"
+                  placeholder={t.addConnection.userPh}
                   onChange={(e) => setUser(e.target.value)}
                 />
               </div>
               <div className={styles.field} style={{ flex: 1 }}>
-                <label className={styles.fieldLabel}>Password</label>
+                <label className={styles.fieldLabel}>{t.addConnection.password}</label>
                 <input
                   className={styles.input}
                   type="password"
@@ -144,7 +146,7 @@ export function AddConnectionDialog({
             </div>
             <div className={styles.fieldRow}>
               <div className={styles.field} style={{ flex: 1 }}>
-                <label className={styles.fieldLabel}>Schema</label>
+                <label className={styles.fieldLabel}>{t.addConnection.schema}</label>
                 <input
                   className={styles.input}
                   value={schema}
@@ -160,7 +162,7 @@ export function AddConnectionDialog({
                   style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}
                 >
                   <input type="checkbox" checked={ssl} onChange={(e) => setSsl(e.target.checked)} />
-                  Require TLS
+                  {t.addConnection.requireTls}
                 </label>
               </div>
             </div>
@@ -171,10 +173,10 @@ export function AddConnectionDialog({
 
         <div className={styles.dialogActions}>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button variant="green" onClick={() => void submit()} disabled={busy}>
-            {busy ? 'Connecting…' : 'Test & add'}
+            {busy ? t.addConnection.connecting : t.addConnection.testAdd}
           </Button>
         </div>
       </div>

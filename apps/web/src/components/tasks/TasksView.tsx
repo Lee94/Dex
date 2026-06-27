@@ -11,6 +11,7 @@ import {
   runTaskNow,
   updateTask,
 } from '@/lib/tasks';
+import { useT, useLocale } from '@/i18n';
 import styles from './tasks.module.css';
 
 const STATUS_TONE: Record<string, 'success' | 'danger' | 'beta'> = {
@@ -26,6 +27,7 @@ const STATUS_TONE: Record<string, 'success' | 'danger' | 'beta'> = {
  * read-only path server-side.
  */
 export function TasksView() {
+  const t = useT();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,10 +48,8 @@ export function TasksView() {
     <div className={styles.view}>
       <div className={styles.header}>
         <Icon name="tasks" size={18} color="var(--dex-primary)" />
-        <span className={styles.headTitle}>Tasks</span>
-        <span className={styles.headSub}>
-          Re-run a read-only query on a schedule — alert on a threshold, deliver a summary.
-        </span>
+        <span className={styles.headTitle}>{t.tasks.title}</span>
+        <span className={styles.headSub}>{t.tasks.subtitle}</span>
       </div>
       <div className={styles.body}>
         <NewTaskForm onCreated={refresh} />
@@ -57,12 +57,12 @@ export function TasksView() {
         {tasks.length === 0 ? (
           <div className={styles.empty}>
             <Icon name="tasks" size={22} color="var(--dex-icon-faint)" />
-            <span>No scheduled tasks yet. Create one above.</span>
+            <span>{t.tasks.empty}</span>
           </div>
         ) : (
           <div className={styles.list}>
-            {tasks.map((t) => (
-              <TaskCard key={t.id} task={t} onChanged={refresh} />
+            {tasks.map((tk) => (
+              <TaskCard key={tk.id} task={tk} onChanged={refresh} />
             ))}
           </div>
         )}
@@ -72,6 +72,7 @@ export function TasksView() {
 }
 
 function NewTaskForm({ onCreated }: { onCreated: () => Promise<void> }) {
+  const t = useT();
   const [name, setName] = useState('');
   const [cron, setCron] = useState('0 9 * * 1-5');
   const [sql, setSql] = useState('');
@@ -109,19 +110,19 @@ function NewTaskForm({ onCreated }: { onCreated: () => Promise<void> }) {
 
   return (
     <div className={styles.form}>
-      <span className={styles.formTitle}>New scheduled task</span>
+      <span className={styles.formTitle}>{t.tasks.formTitle}</span>
       <div className={styles.row}>
         <div className={styles.field} style={{ flex: 2 }}>
-          <span className={styles.fieldLabel}>Name</span>
+          <span className={styles.fieldLabel}>{t.tasks.name}</span>
           <input
             className={styles.input}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Daily completed revenue"
+            placeholder={t.tasks.namePh}
           />
         </div>
         <div className={styles.field}>
-          <span className={styles.fieldLabel}>Cron</span>
+          <span className={styles.fieldLabel}>{t.tasks.cron}</span>
           <input
             className={styles.input}
             value={cron}
@@ -131,7 +132,7 @@ function NewTaskForm({ onCreated }: { onCreated: () => Promise<void> }) {
         </div>
       </div>
       <div className={styles.field}>
-        <span className={styles.fieldLabel}>Read-only SQL</span>
+        <span className={styles.fieldLabel}>{t.tasks.sqlLabel}</span>
         <textarea
           className={`${styles.input} ${styles.sqlInput}`}
           value={sql}
@@ -141,22 +142,22 @@ function NewTaskForm({ onCreated }: { onCreated: () => Promise<void> }) {
       </div>
       <div className={styles.row}>
         <div className={styles.field}>
-          <span className={styles.fieldLabel}>Alert</span>
+          <span className={styles.fieldLabel}>{t.tasks.alert}</span>
           <select
             className={styles.select}
             value={op}
             onChange={(e) => setOp(e.target.value as AlertOp | '')}
           >
-            <option value="">No alert</option>
-            <option value="gt">value &gt; threshold</option>
-            <option value="lt">value &lt; threshold</option>
-            <option value="ne">value ≠ threshold</option>
-            <option value="changed">value changed</option>
+            <option value="">{t.tasks.alertNone}</option>
+            <option value="gt">{t.tasks.alertGt}</option>
+            <option value="lt">{t.tasks.alertLt}</option>
+            <option value="ne">{t.tasks.alertNe}</option>
+            <option value="changed">{t.tasks.alertChanged}</option>
           </select>
         </div>
         {op && op !== 'changed' ? (
           <div className={styles.field}>
-            <span className={styles.fieldLabel}>Threshold</span>
+            <span className={styles.fieldLabel}>{t.tasks.threshold}</span>
             <input
               className={styles.input}
               value={threshold}
@@ -166,20 +167,20 @@ function NewTaskForm({ onCreated }: { onCreated: () => Promise<void> }) {
           </div>
         ) : null}
         <div className={styles.field}>
-          <span className={styles.fieldLabel}>Deliver to</span>
+          <span className={styles.fieldLabel}>{t.tasks.deliverTo}</span>
           <select
             className={styles.select}
             value={channel}
             onChange={(e) => setChannel(e.target.value as DeliveryChannel)}
           >
-            <option value="none">Don't deliver</option>
-            <option value="slack">Slack webhook</option>
-            <option value="webhook">Generic webhook</option>
+            <option value="none">{t.tasks.deliverNone}</option>
+            <option value="slack">{t.tasks.deliverSlack}</option>
+            <option value="webhook">{t.tasks.deliverWebhook}</option>
           </select>
         </div>
         {channel !== 'none' ? (
           <div className={styles.field} style={{ flex: 2 }}>
-            <span className={styles.fieldLabel}>Webhook URL</span>
+            <span className={styles.fieldLabel}>{t.tasks.webhookUrl}</span>
             <input
               className={styles.input}
               value={url}
@@ -196,15 +197,17 @@ function NewTaskForm({ onCreated }: { onCreated: () => Promise<void> }) {
           onClick={() => void submit()}
           disabled={busy || !name.trim() || !sql.trim()}
         >
-          {busy ? 'Creating…' : 'Schedule task'}
+          {busy ? t.tasks.creating : t.tasks.scheduleTask}
         </Button>
-        <span className={styles.hint}>cron: minute hour day month weekday</span>
+        <span className={styles.hint}>{t.tasks.cronHint}</span>
       </div>
     </div>
   );
 }
 
 function TaskCard({ task, onChanged }: { task: Task; onChanged: () => Promise<void> }) {
+  const t = useT();
+  const [locale] = useLocale();
   const [running, setRunning] = useState(false);
 
   const toggle = async () => {
@@ -225,7 +228,9 @@ function TaskCard({ task, onChanged }: { task: Task; onChanged: () => Promise<vo
     await onChanged();
   };
 
-  const lastRun = task.lastRunAt ? new Date(task.lastRunAt).toLocaleString() : 'never';
+  const lastRun = task.lastRunAt
+    ? new Date(task.lastRunAt).toLocaleString(locale === 'zh-CN' ? 'zh-CN' : 'en-US')
+    : t.tasks.never;
 
   return (
     <div className={styles.card}>
@@ -233,34 +238,40 @@ function TaskCard({ task, onChanged }: { task: Task; onChanged: () => Promise<vo
         <span className={styles.cardName}>{task.name}</span>
         <span className={styles.cron}>{task.cron}</span>
         {task.lastStatus ? (
-          <Pill tone={STATUS_TONE[task.lastStatus] ?? 'beta'}>{task.lastStatus}</Pill>
+          <Pill tone={STATUS_TONE[task.lastStatus] ?? 'beta'}>
+            {t.tasks.status[task.lastStatus as keyof typeof t.tasks.status] ?? task.lastStatus}
+          </Pill>
         ) : null}
         <button
           className={`${styles.toggle}${task.enabled ? ` ${styles.toggleOn}` : ''}`}
           onClick={() => void toggle()}
         >
-          {task.enabled ? 'Enabled' : 'Disabled'}
+          {task.enabled ? t.tasks.enabled : t.tasks.disabled}
         </button>
         <button className={styles.runBtn} onClick={() => void run()} disabled={running}>
-          {running ? 'Running…' : 'Run now'}
+          {running ? t.tasks.running : t.tasks.runNow}
         </button>
         <IconButton
           icon="trash"
           size={14}
           color="var(--dex-icon)"
-          title="Delete task"
+          title={t.tasks.deleteTask}
           hover="mid"
           onClick={() => void remove()}
         />
       </div>
       {task.sql ? <div className={styles.sql}>{task.sql}</div> : null}
       <div className={styles.meta}>
-        <span>Last run: {lastRun}</span>
-        {task.lastValue != null ? <span>Value: {task.lastValue.toLocaleString()}</span> : null}
+        <span>{t.tasks.lastRun(lastRun)}</span>
+        {task.lastValue != null ? (
+          <span>{t.tasks.value(task.lastValue.toLocaleString())}</span>
+        ) : null}
         {task.alert ? (
           <span>
-            Alert: {task.alert.op}
-            {task.alert.threshold != null ? ` ${task.alert.threshold}` : ''}
+            {t.tasks.alertMeta(
+              task.alert.op,
+              task.alert.threshold != null ? ` ${task.alert.threshold}` : '',
+            )}
           </span>
         ) : null}
         {task.delivery.channel !== 'none' ? <span>→ {task.delivery.channel}</span> : null}

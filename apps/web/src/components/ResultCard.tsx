@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { IconButton, Pill } from '@/components/ui';
 import { isSqlResult, toCsv, toNum } from '@/types';
+import { useT } from '@/i18n';
 import styles from './ResultCard.module.css';
 
 function fmt(v: unknown): string {
@@ -57,6 +58,7 @@ export function ResultCard({
   /** Header label; falls back to "Query results". */
   title?: string;
 }) {
+  const t = useT();
   const [showSql, setShowSql] = useState(false);
   const [copied, setCopied] = useState<'' | 'csv' | 'sql'>('');
 
@@ -76,12 +78,12 @@ export function ResultCard({
     <div className={styles.card}>
       {/* header */}
       <div className={styles.header}>
-        <span className={styles.title}>{title || 'Query results'}</span>
+        <span className={styles.title}>{title || t.resultCard.title}</span>
 
         {sql ? (
           <button
             className={`${styles.toolBtn}${showSql ? ` ${styles.toolOn}` : ''}`}
-            title="Toggle SQL"
+            title={t.resultCard.toggleSql}
             onClick={() => setShowSql((s) => !s)}
           >
             SQL
@@ -91,7 +93,7 @@ export function ResultCard({
         {!isEmpty ? (
           <button
             className={styles.toolBtn}
-            title="Download as CSV"
+            title={t.resultCard.downloadCsv}
             onClick={() => downloadFile(toCsv(result), 'dex-result.csv', 'text/csv;charset=utf-8')}
           >
             CSV
@@ -101,14 +103,20 @@ export function ResultCard({
         {!isEmpty ? (
           <button
             className={styles.toolBtn}
-            title="Copy table to clipboard"
+            title={t.resultCard.copyTable}
             onClick={() => void copyText(toCsv(result)).then(() => flash('csv'))}
           >
-            {copied === 'csv' ? 'Copied' : 'Copy'}
+            {copied === 'csv' ? t.resultCard.copied : t.resultCard.copy}
           </button>
         ) : null}
 
-        <IconButton icon="maximize" size={14} color="var(--dex-icon)" title="Expand" hover="mid" />
+        <IconButton
+          icon="maximize"
+          size={14}
+          color="var(--dex-icon)"
+          title={t.resultCard.expand}
+          hover="mid"
+        />
       </div>
 
       {sql && showSql ? (
@@ -116,10 +124,10 @@ export function ResultCard({
           <pre className={styles.sqlPre}>{sql}</pre>
           <button
             className={styles.toolBtn}
-            title="Copy SQL"
+            title={t.resultCard.copySql}
             onClick={() => void copyText(sql).then(() => flash('sql'))}
           >
-            {copied === 'sql' ? 'Copied' : 'Copy SQL'}
+            {copied === 'sql' ? t.resultCard.copied : t.resultCard.copySql}
           </button>
         </div>
       ) : null}
@@ -128,7 +136,7 @@ export function ResultCard({
       {isEmpty ? (
         <div className={styles.empty}>
           <Icon name="collections" size={20} color="var(--dex-icon-faint)" />
-          <span>No rows returned.</span>
+          <span>{t.resultCard.noRows}</span>
         </div>
       ) : (
         <DataTable columns={columns} rows={rows} />
@@ -138,18 +146,17 @@ export function ResultCard({
       <div className={styles.footer}>
         <span className={styles.rowCount}>
           <Icon name="collections" size={13} color="var(--dex-icon-subtle)" />
-          {rowCount.toLocaleString()} {rowCount === 1 ? 'row' : 'rows'}
-          {truncated ? ' (showing first 1,000)' : ''}
+          {t.resultCard.rowCount(rowCount, truncated)}
         </span>
         {endorsed ? (
           <Pill tone="endorsed">
             <Icon name="tickCircle" size={12} color="currentColor" />
-            Trusted definition
+            {t.resultCard.trustedDefinition}
           </Pill>
         ) : null}
         <Pill tone="success">
           <Icon name="tickCircle" size={12} color="currentColor" />
-          Read-only
+          {t.resultCard.readOnly}
         </Pill>
       </div>
     </div>

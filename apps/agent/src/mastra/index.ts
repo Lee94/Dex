@@ -5,6 +5,7 @@ import { LibSQLStore } from '@mastra/libsql';
 import { analyst } from './agents/analyst';
 import { dataDiscoveryAgent } from './agents/discovery';
 import { visualizationAgent } from './agents/visualization';
+import { semanticModelAgent } from './agents/semantic-model';
 import { buildObservability } from './observability';
 import { dataSourceRoutes } from './server/routes';
 import { knowledgeRoutes } from './server/knowledge-routes';
@@ -15,10 +16,16 @@ import { startScheduler } from './db/scheduler';
 
 export const mastra = new Mastra({
   // `analyst` is the streamed entry point the web addresses. The v1.2 specialist
-  // sub-agents are registered so they get full Mastra context (logger/tracing),
-  // but they are internal — the web never addresses them; only the analyst
-  // delegates to them via its delegation tools.
-  agents: { analyst, dataDiscovery: dataDiscoveryAgent, visualization: visualizationAgent },
+  // sub-agents (dataDiscovery / visualization) are registered for full Mastra
+  // context (logger/tracing) but are internal — only the analyst delegates to
+  // them. `semanticModel` (v3.1) is also web-addressed directly: it backs the
+  // data-model editor's assistant panel, separate from the analyst stream.
+  agents: {
+    analyst,
+    dataDiscovery: dataDiscoveryAgent,
+    visualization: visualizationAgent,
+    semanticModel: semanticModelAgent,
+  },
   // Mastra's own storage (conversation history / telemetry). This is a separate
   // file from the sample warehouse the analyst queries.
   storage: new LibSQLStore({

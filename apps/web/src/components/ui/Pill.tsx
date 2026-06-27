@@ -5,7 +5,7 @@ export function Pill({
   tone = 'success',
   children,
 }: {
-  tone?: 'success' | 'beta' | 'endorsed' | 'danger';
+  tone?: 'success' | 'beta' | 'endorsed' | 'danger' | 'draft' | 'published';
   children: ReactNode;
 }) {
   const toneClass =
@@ -15,6 +15,10 @@ export function Pill({
         ? styles.pillEndorsed
         : tone === 'danger'
           ? styles.pillDanger
-          : styles.pillSuccess;
+          : tone === 'draft'
+            ? styles.pillDraft
+            : tone === 'published'
+              ? styles.pillPublished
+              : styles.pillSuccess;
   return <span className={`${styles.pill} ${toneClass}`}>{children}</span>;
 }

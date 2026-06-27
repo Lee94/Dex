@@ -16,16 +16,11 @@ import { Composer } from '@/components/Composer';
 import { Markdown } from '@/components/Markdown';
 import { ResultCard } from '@/components/ResultCard';
 import { splitUserMessage, type ProjectContext } from '@/lib/attachments';
+import { useT, type Dict } from '@/i18n';
 import styles from './ThreadView.module.css';
 
 // The vinci chart stack is heavy — only pull it in when a thread embeds a chart.
 const ThreadChart = lazy(() => import('./thread/ThreadChart'));
-
-const EXAMPLES = [
-  'Top 5 products by revenue',
-  'Monthly revenue trend this year',
-  'Which customers have spent the most?',
-];
 
 export function ThreadView({
   thread,
@@ -96,13 +91,14 @@ export function ThreadView({
 }
 
 function Header({ title, onBack }: { title: string; onBack: () => void }) {
+  const t = useT();
   return (
     <div className={styles.header}>
       <IconButton
         icon="menu"
         size={17}
         color="var(--dex-text-strong)"
-        title="Back"
+        title={t.thread.back}
         onClick={onBack}
         hover="strong"
       />
@@ -119,53 +115,53 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
         icon="translate"
         size={16}
         color="var(--dex-icon)"
-        title="Translate"
+        title={t.thread.translate}
         hover="mid"
         padding={6}
       />
       <Button variant="ghost">
         <Icon name="share" size={14} color="var(--dex-icon)" />
-        Share
+        {t.thread.share}
       </Button>
     </div>
   );
 }
 
 function LoadingConversation() {
+  const t = useT();
   return (
     <div className={styles.loadState}>
       <span className={styles.loadSpinner} />
-      <span className={styles.loadText}>Loading conversation…</span>
+      <span className={styles.loadText}>{t.thread.loadingConversation}</span>
     </div>
   );
 }
 
 function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const t = useT();
   return (
     <div className={styles.loadState}>
       <Icon name="help" size={22} color="var(--dex-danger)" />
-      <div className={styles.loadText}>Couldn’t load this conversation.</div>
+      <div className={styles.loadText}>{t.thread.loadFailed}</div>
       <div className={styles.loadSubtext}>{message}</div>
       <Button variant="ghost" onClick={onRetry} style={{ marginTop: 4 }}>
-        Retry
+        {t.common.retry}
       </Button>
     </div>
   );
 }
 
 function EmptyState({ onPick }: { onPick: (text: string) => void }) {
+  const t = useT();
   return (
     <div className={styles.empty}>
       <div className={styles.emptyMark}>
         <Icon name="components" size={24} color="#fff" />
       </div>
-      <div className={styles.emptyTitle}>Ask a question about your data</div>
-      <div className={styles.emptyBody}>
-        Dex explores the warehouse — listing tables, inspecting schemas, and writing SQL — and shows
-        its work as it goes.
-      </div>
+      <div className={styles.emptyTitle}>{t.thread.emptyTitle}</div>
+      <div className={styles.emptyBody}>{t.thread.emptyBody}</div>
       <div className={styles.examples}>
-        {EXAMPLES.map((ex) => (
+        {t.thread.examples.map((ex) => (
           <button key={ex} className={styles.exampleChip} onClick={() => onPick(ex)}>
             {ex}
           </button>
@@ -212,8 +208,9 @@ function cardFor(step: ToolStep, key: string) {
  * (the vinci DSL) rides on the delegation tool result — there is no notebook.
  */
 function VizCard({ viz, source }: { viz: VizCellRef; source?: SqlResult }) {
+  const t = useT();
   return (
-    <Suspense fallback={<div className={styles.answerText}>Loading chart…</div>}>
+    <Suspense fallback={<div className={styles.answerText}>{t.thread.loadingChart}</div>}>
       <ThreadChart dsl={viz.dsl} source={source} label={viz.label} />
     </Suspense>
   );
@@ -249,6 +246,7 @@ function UserRow({ text }: { text: string }) {
 }
 
 function AssistantBlock({ msg }: { msg: AssistantMessage }) {
+  const t = useT();
   const [open, setOpen] = useState(true);
   // Shown SQL/semantic results (ShowSql / ShowSemanticTable), keyed by their id.
   const cellById = new Map<string, ToolStep>();
@@ -347,7 +345,7 @@ function AssistantBlock({ msg }: { msg: AssistantMessage }) {
               style={{ transform: `rotate(${open ? 90 : 0}deg)`, transition: 'transform .1s' }}
             />
             <span className={styles.thinkingToggleLabel}>
-              {msg.status === 'streaming' ? 'Working for ' : 'Worked for '}
+              {msg.status === 'streaming' ? t.thread.workingFor : t.thread.workedFor}
               <ElapsedLabel startedAt={msg.startedAt} finishedAt={msg.finishedAt} />
             </span>
           </div>
@@ -359,7 +357,7 @@ function AssistantBlock({ msg }: { msg: AssistantMessage }) {
               {msg.status === 'streaming' && msg.steps.every((s) => s.status !== 'running') && (
                 <StepRow
                   step={{ toolCallId: '_thinking', toolName: '', args: {}, status: 'running' }}
-                  labelOverride="Thinking…"
+                  labelOverride={t.thread.thinking}
                 />
               )}
               {msg.reasoning ? <div className={styles.reasoning}>{msg.reasoning}</div> : null}
@@ -393,10 +391,8 @@ function AssistantBlock({ msg }: { msg: AssistantMessage }) {
             style={{ flex: 'none', marginTop: 1 }}
           />
           <span>
-            {msg.errorText || 'Something went wrong.'}
-            {/api key|401|unauthor/i.test(msg.errorText || '')
-              ? ' — set ANTHROPIC_API_KEY in apps/agent/.env and restart the agent.'
-              : ''}
+            {msg.errorText || t.thread.somethingWrong}
+            {/api key|401|unauthor/i.test(msg.errorText || '') ? t.thread.apiKeyHint : ''}
           </span>
         </div>
       ) : null}
@@ -405,6 +401,7 @@ function AssistantBlock({ msg }: { msg: AssistantMessage }) {
 }
 
 function StepRow({ step, labelOverride }: { step: ToolStep; labelOverride?: string }) {
+  const t = useT();
   return (
     <div className={styles.step}>
       {step.status === 'running' ? (
@@ -414,49 +411,25 @@ function StepRow({ step, labelOverride }: { step: ToolStep; labelOverride?: stri
       ) : (
         <Icon name="tickCircle" size={12} color="var(--dex-success-check)" />
       )}
-      <span>{labelOverride ?? stepLabel(step)}</span>
+      <span>{labelOverride ?? stepLabel(step, t)}</span>
     </div>
   );
 }
 
-// Friendly timeline labels for the Hex-named tools (the user sees these, never the
-// tool name). Falls back to a humanized tool name for anything unmapped.
-const STEP_LABELS: Record<string, string> = {
-  GetCurrentDateTime: 'Checked the current date',
-  ListDataConnections: 'Listed data connections',
-  FindTableSchemas: 'Searched for tables',
-  ViewTables: 'Inspected table schemas',
-  RunSQL: 'Ran a SQL query',
-  ShowSql: 'Built a result table',
-  FindSemanticColumns: 'Searched the semantic layer',
-  InspectSemanticData: 'Inspected semantic data',
-  ShowSemanticTable: 'Built a semantic table',
-  ReadGuide: 'Consulted the guides',
-  SaveMemory: 'Saved a preference',
-  SuggestReview: 'Flagged for review',
-  SearchWeb: 'Searched the web',
-  ExtractWeb: 'Read a web page',
-  GetFileContents: 'Read an attached file',
-  SearchTools: 'Looked up its tools',
-  DelegateToDataDiscoveryAgent: 'Delegated data discovery',
-  DelegateToVisualizationAgent: 'Created a visualization',
-  CreateTask: 'Scheduled a task',
-  ViewTask: 'Reviewed scheduled tasks',
-  ReadPastThreadSummary: 'Recalled past work',
-};
-
-function stepLabel(step: ToolStep): string {
-  const mapped = STEP_LABELS[step.toolName];
+// Friendly timeline label for a tool step (the user sees these, never the tool
+// name). Falls back to a humanized tool name for anything unmapped.
+function stepLabel(step: ToolStep, t: Dict): string {
+  const mapped = t.steps[step.toolName as keyof Dict['steps']];
   if (mapped) return mapped;
   const args = step.args || {};
-  if (typeof args.sql === 'string') return 'Ran a SQL query';
-  if (Array.isArray(args.tableRefs)) return 'Inspected table schemas';
+  if (typeof args.sql === 'string') return t.steps.ranSql;
+  if (Array.isArray(args.tableRefs)) return t.steps.inspectedSchemas;
   // Humanize an unmapped PascalCase tool name ("FooBar" → "Foo bar").
   if (step.toolName) {
     const words = step.toolName.replace(/([a-z])([A-Z])/g, '$1 $2');
     return words.charAt(0).toUpperCase() + words.slice(1).toLowerCase();
   }
-  return 'Working';
+  return t.steps.working;
 }
 
 function Spinner() {
@@ -464,20 +437,21 @@ function Spinner() {
 }
 
 function ElapsedLabel({ startedAt, finishedAt }: { startedAt: number; finishedAt?: number }) {
+  const t = useT();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (finishedAt) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
   }, [finishedAt]);
   const end = finishedAt ?? now;
   const secs = Math.max(0, Math.round((end - startedAt) / 1000));
-  return <>{formatDuration(secs)}</>;
+  return <>{formatDuration(secs, t)}</>;
 }
 
-function formatDuration(s: number): string {
-  if (s < 60) return `${s} second${s === 1 ? '' : 's'}`;
+function formatDuration(s: number, t: Dict): string {
+  if (s < 60) return t.duration.seconds(s);
   const m = Math.floor(s / 60);
   const r = s % 60;
-  return `${m} minute${m === 1 ? '' : 's'} ${r} second${r === 1 ? '' : 's'}`;
+  return t.duration.minutesSeconds(m, r);
 }

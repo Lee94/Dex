@@ -4,7 +4,7 @@ import type { QueryResult } from '../types';
 import { compileSemanticQuery } from './compile';
 import { model } from './model';
 import { assertValidModel, validateModel } from './validate';
-import { listUserCubes } from './store';
+import { listStoredModels } from './store';
 import type { CompileResult, SemanticModel, SemanticQuery } from './types';
 
 export { model } from './model';
@@ -12,6 +12,7 @@ export { compileSemanticQuery } from './compile';
 export { validateModel, assertValidModel } from './validate';
 export * from './types';
 export * from './store';
+export * from './yaml';
 
 // Fail fast on a structurally broken model (duplicate names, dangling joins,
 // unresolved measure/metric refs) — surfaces at agent boot and in `npm run smoke`.
@@ -19,14 +20,16 @@ assertValidModel(model);
 
 /**
  * The model the runtime actually uses = the built-in cubes/metrics plus any
- * user-defined cubes persisted in `dex.db` (v0.7). User cubes are appended; a
- * cube whose name collides with a built-in one, or that breaks validation, is
- * skipped so a bad row can never take the whole model (or the agent) down.
+ * user-defined cubes persisted in `dex.db` (v0.7; versioned drafts v3.1). Only
+ * each model's **published** version is merged — drafts are invisible to the
+ * agent. A cube whose name collides with a built-in one, or that breaks
+ * validation, is skipped so a bad row can never take the whole model (or the
+ * agent) down.
  */
 export async function loadMergedModel(): Promise<SemanticModel> {
   let stored;
   try {
-    stored = await listUserCubes();
+    stored = await listStoredModels();
   } catch {
     return model; // store unavailable → fall back to the built-in model
   }
@@ -37,7 +40,9 @@ export async function loadMergedModel(): Promise<SemanticModel> {
     cubes: [...model.cubes],
     metrics: [...model.metrics],
   };
-  for (const { cube } of stored) {
+  for (const m of stored) {
+    const cube = m.published; // the agent only ever sees the published version
+    if (!cube) continue; // draft / never-published → invisible to the agent
     if (builtinNames.has(cube.name)) continue; // never shadow a built-in cube
     if (merged.cubes.some((c) => c.name === cube.name)) continue;
     const candidate: SemanticModel = { cubes: [...merged.cubes, cube], metrics: merged.metrics };

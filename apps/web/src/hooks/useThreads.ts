@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { analystAgent } from '@/lib/mastraClient';
+import { getDict } from '@/i18n/store';
 import { saveThreadSummary } from '@/lib/tasks';
 import {
   CREATOR,
@@ -91,9 +92,9 @@ export function useThreads() {
     const now = Date.now();
     const thread: Thread = {
       id,
-      title: 'New thread',
+      title: getDict().threadsList.defaultTitle,
       projectId,
-      updated: 'just now',
+      updated: relativeTime(now),
       updatedAt: now,
       creator: CREATOR,
       initial: CREATOR_INITIAL,
@@ -169,7 +170,7 @@ export function useThreads() {
       patchThread(threadId, (t) => ({
         ...t,
         title: isFirst ? title! : t.title,
-        updated: 'just now',
+        updated: relativeTime(Date.now()),
         updatedAt: Date.now(),
         messages: [...t.messages, userMsg, assistantMsg],
       }));

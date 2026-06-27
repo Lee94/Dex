@@ -10,8 +10,9 @@ import {
 import { PostgresConnector } from './connectors/postgres';
 import {
   compile,
-  createUserCube,
-  deleteUserCube,
+  createModel,
+  deleteModel,
+  publishModel,
   describeModelSummaryAsync,
   loadMergedModel,
   model,
@@ -497,28 +498,31 @@ async function main(): Promise<void> {
 
   // 5c. user-defined semantic models (v0.7) — create → merge → query → delete
   const SMOKE_CUBE = 'smoke_products';
-  await deleteUserCube(SMOKE_CUBE); // clean any leftover from a prior run
-  await createUserCube('products', {
-    name: SMOKE_CUBE,
-    title: 'Smoke products',
-    description: 'Throwaway user cube over products.',
-    sql: 'products',
-    endorsed: false,
-    measures: [
-      { name: 'product_total', title: 'Product total', type: 'count', format: 'integer' },
-      {
-        name: 'avg_price',
-        title: 'Average price',
-        type: 'avg',
-        sql: `${SMOKE_CUBE}.price`,
-        format: 'number',
-      },
-    ],
-    dimensions: [
-      { name: 'category', title: 'Category', type: 'categorical', sql: `${SMOKE_CUBE}.category` },
-    ],
-    joins: [],
-  });
+  await deleteModel(SMOKE_CUBE); // clean any leftover from a prior run
+  await createModel(
+    {
+      name: SMOKE_CUBE,
+      title: 'Smoke products',
+      description: 'Throwaway user cube over products.',
+      sql: 'products',
+      endorsed: false,
+      measures: [
+        { name: 'product_total', title: 'Product total', type: 'count', format: 'integer' },
+        {
+          name: 'avg_price',
+          title: 'Average price',
+          type: 'avg',
+          sql: `${SMOKE_CUBE}.price`,
+          format: 'number',
+        },
+      ],
+      dimensions: [
+        { name: 'category', title: 'Category', type: 'categorical', sql: `${SMOKE_CUBE}.category` },
+      ],
+      joins: [],
+    },
+    true, // publish immediately so it's visible to the agent
+  );
 
   const mergedModel = await loadMergedModel();
   check(
@@ -546,7 +550,30 @@ async function main(): Promise<void> {
     userQuery.rows,
   );
 
-  const deleted = await deleteUserCube(SMOKE_CUBE);
+  // versioned drafts (v3.1): a draft stays invisible to the agent until published
+  const SMOKE_DRAFT = 'smoke_draft';
+  await deleteModel(SMOKE_DRAFT); // clean any leftover from a prior run
+  await createModel({
+    name: SMOKE_DRAFT,
+    title: 'Smoke draft',
+    sql: 'products',
+    endorsed: false,
+    measures: [{ name: 'n', title: 'Rows', type: 'count', format: 'integer' }],
+    dimensions: [],
+    joins: [],
+  }); // publish defaults to false → draft
+  check(
+    'a draft model is hidden from the merged model',
+    !(await loadMergedModel()).cubes.some((cc) => cc.name === SMOKE_DRAFT),
+  );
+  await publishModel(SMOKE_DRAFT);
+  check(
+    'publishing a draft makes it visible to the agent',
+    (await loadMergedModel()).cubes.some((cc) => cc.name === SMOKE_DRAFT),
+  );
+  await deleteModel(SMOKE_DRAFT);
+
+  const deleted = await deleteModel(SMOKE_CUBE);
   const afterDelete = await loadMergedModel();
   check(
     'deleting a user cube removes it from the merged model',

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Icon } from '@/lib/icons';
 import { Avatar, Button, IconButton } from '@/components/ui';
+import { relativeTime } from '@/lib/threads';
+import { useT } from '@/i18n';
 import type { Thread } from '@/types';
 import styles from './ThreadsList.module.css';
 
@@ -23,29 +25,30 @@ export function ThreadsList({
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
 }) {
+  const t = useT();
   return (
     <div className={styles.root}>
       <div className={styles.head}>
         <div className={styles.icon}>
           <Icon name="threads" size={18} color="var(--dex-accent)" />
         </div>
-        <h1 className={styles.title}>Threads</h1>
+        <h1 className={styles.title}>{t.threadsList.title}</h1>
         <Button variant="green" onClick={onNewThread} style={{ gap: 7 }}>
           <Icon name="plus" size={13} color="#fff" />
-          New thread
+          {t.threadsList.newThread}
         </Button>
       </div>
 
       <div className={styles.body}>
         <div className={styles.colsHead}>
           <div className={styles.colHead} style={{ flex: 1 }}>
-            Title
+            {t.threadsList.colTitle}
           </div>
           <div className={styles.colHead} style={{ width: 180 }}>
-            Last Updated
+            {t.threadsList.colUpdated}
           </div>
           <div className={styles.colHead} style={{ width: 240 }}>
-            Creator
+            {t.threadsList.colCreator}
           </div>
           <div style={{ width: 36 }} />
         </div>
@@ -57,13 +60,13 @@ export function ThreadsList({
         ) : threads.length === 0 ? (
           <EmptyState onNewThread={onNewThread} />
         ) : (
-          threads.map((t) => (
+          threads.map((thr) => (
             <ThreadRow
-              key={t.id}
-              thread={t}
-              onOpen={() => onOpenThread(t.id)}
-              onRename={(title) => onRename(t.id, title)}
-              onDelete={() => onDelete(t.id)}
+              key={thr.id}
+              thread={thr}
+              onOpen={() => onOpenThread(thr.id)}
+              onRename={(title) => onRename(thr.id, title)}
+              onDelete={() => onDelete(thr.id)}
             />
           ))
         )}
@@ -85,6 +88,7 @@ function ThreadRow({
   onRename: (title: string) => void;
   onDelete: () => void;
 }) {
+  const t = useT();
   const [mode, setMode] = useState<RowMode>('view');
   const [menuOpen, setMenuOpen] = useState(false);
   const [draft, setDraft] = useState(thread.title);
@@ -116,14 +120,16 @@ function ThreadRow({
     return (
       <div className={`${styles.row} ${styles.rowConfirm}`}>
         <span className={styles.confirmText}>
-          Delete <strong>“{thread.title}”</strong>? This can’t be undone.
+          {t.threadsList.deleteConfirmBefore}
+          <strong>“{thread.title}”</strong>
+          {t.threadsList.deleteConfirmAfter}
         </span>
         <span style={{ flex: 1 }} />
         <Button variant="ghost" onClick={() => setMode('view')}>
-          Cancel
+          {t.common.cancel}
         </Button>
         <Button variant="danger" onClick={onDelete}>
-          Delete
+          {t.common.delete}
         </Button>
       </div>
     );
@@ -152,7 +158,9 @@ function ThreadRow({
           thread.title
         )}
       </div>
-      <div className={styles.rowUpdated}>{thread.updated}</div>
+      <div className={styles.rowUpdated}>
+        {thread.updatedAt != null ? relativeTime(thread.updatedAt) : thread.updated}
+      </div>
       <div className={styles.rowCreator}>
         <Avatar initial={thread.initial} size={22} fontSize={10} />
         <span className={styles.creatorName}>{thread.creator}</span>
@@ -163,7 +171,7 @@ function ThreadRow({
           icon="more"
           size={15}
           color="var(--dex-icon)"
-          title="Thread actions"
+          title={t.threadsList.actions}
           hover="mid"
           padding={6}
           onClick={() => setMenuOpen((o) => !o)}
@@ -181,7 +189,7 @@ function ThreadRow({
                 }}
               >
                 <Icon name="bookmark" size={13} color="var(--dex-icon)" />
-                Rename
+                {t.threadsList.rename}
               </button>
               <button
                 className={`${styles.menuItem} ${styles.menuItemDanger}`}
@@ -191,7 +199,7 @@ function ThreadRow({
                 }}
               >
                 <Icon name="trash" size={13} color="var(--dex-danger)" />
-                Delete
+                {t.threadsList.delete}
               </button>
             </div>
           </>
@@ -202,42 +210,43 @@ function ThreadRow({
 }
 
 function LoadingState() {
+  const t = useT();
   return (
     <div className={styles.state}>
       <span className={styles.spinner} />
-      <span className={styles.stateText}>Loading threads…</span>
+      <span className={styles.stateText}>{t.threadsList.loading}</span>
     </div>
   );
 }
 
 function EmptyState({ onNewThread }: { onNewThread: () => void }) {
+  const t = useT();
   return (
     <div className={styles.state}>
       <div className={styles.stateIcon}>
         <Icon name="threads" size={22} color="var(--dex-accent)" />
       </div>
-      <div className={styles.stateTitle}>No threads yet</div>
-      <div className={styles.stateText}>
-        Start a thread and ask a question about your data — it’ll be saved here.
-      </div>
+      <div className={styles.stateTitle}>{t.threadsList.emptyTitle}</div>
+      <div className={styles.stateText}>{t.threadsList.emptyBody}</div>
       <Button variant="green" onClick={onNewThread} style={{ gap: 7, marginTop: 4 }}>
         <Icon name="plus" size={13} color="#fff" />
-        New thread
+        {t.threadsList.newThread}
       </Button>
     </div>
   );
 }
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const t = useT();
   return (
     <div className={styles.state}>
       <div className={`${styles.stateIcon} ${styles.stateIconError}`}>
         <Icon name="help" size={22} color="var(--dex-danger)" />
       </div>
-      <div className={styles.stateTitle}>Couldn’t load threads</div>
+      <div className={styles.stateTitle}>{t.threadsList.loadFailed}</div>
       <div className={styles.stateText}>{message}</div>
       <Button variant="ghost" onClick={onRetry} style={{ marginTop: 4 }}>
-        Retry
+        {t.common.retry}
       </Button>
     </div>
   );

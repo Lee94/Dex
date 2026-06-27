@@ -1,4 +1,5 @@
 import { mastra } from '@/lib/mastraClient';
+import { getDict, getLocale } from '@/i18n/store';
 import type { AssistantMessage, ChatMessage, Thread, ToolStep } from '@/types';
 
 /**
@@ -43,20 +44,21 @@ function toMs(date: unknown): number {
 
 /** "just now" / "2 hrs ago" / a date — the relative label the lists show. */
 export function relativeTime(at: number): string {
+  const time = getDict().time;
   const sec = Math.max(0, Math.round((Date.now() - at) / 1000));
-  if (sec < 45) return 'just now';
+  if (sec < 45) return time.justNow;
   const min = Math.round(sec / 60);
-  if (min < 60) return `${min} min${min === 1 ? '' : 's'} ago`;
+  if (min < 60) return time.minsAgo(min);
   const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr} hr${hr === 1 ? '' : 's'} ago`;
+  if (hr < 24) return time.hrsAgo(hr);
   const day = Math.round(hr / 24);
-  if (day < 30) return `${day} day${day === 1 ? '' : 's'} ago`;
-  return new Date(at).toLocaleDateString();
+  if (day < 30) return time.daysAgo(day);
+  return new Date(at).toLocaleDateString(getLocale() === 'zh-CN' ? 'zh-CN' : 'en-US');
 }
 
 export function titleFromText(text: string): string {
   const t = text.trim().replace(/\s+/g, ' ');
-  return t.length > 48 ? `${t.slice(0, 48)}…` : t || 'New thread';
+  return t.length > 48 ? `${t.slice(0, 48)}…` : t || getDict().threadsList.defaultTitle;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,7 +83,7 @@ function threadFromSummary(row: ThreadSummaryRow): Thread {
   const updatedAt = toMs(row.updatedAt ?? row.createdAt);
   return {
     id: row.id,
-    title: row.title || 'Untitled thread',
+    title: row.title || getDict().threadsList.untitledThread,
     projectId: projectIdOf(row.metadata),
     updated: relativeTime(updatedAt),
     updatedAt,

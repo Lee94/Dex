@@ -16,6 +16,7 @@ import {
   listReviews,
   updateGuide,
 } from '@/lib/knowledge';
+import { useT } from '@/i18n';
 import styles from './knowledge.module.css';
 
 type Tab = 'guides' | 'memory' | 'reviews';
@@ -29,24 +30,23 @@ type Draft = { id: string | null; title: string; content: string; tags: string }
  * data-team **review requests** it raised. Reachable from the sidebar "Library".
  */
 export function KnowledgeView() {
+  const t = useT();
   const [tab, setTab] = useState<Tab>('guides');
   return (
     <div className={styles.view}>
       <div className={styles.header}>
         <Icon name="library" size={18} color="var(--dex-primary)" />
-        <span className={styles.headTitle}>Knowledge</span>
-        <span className={styles.headSub}>
-          What the analyst reads and remembers — guides, saved preferences, and review requests.
-        </span>
+        <span className={styles.headTitle}>{t.knowledge.title}</span>
+        <span className={styles.headSub}>{t.knowledge.subtitle}</span>
       </div>
       <div className={styles.tabs}>
-        {(['guides', 'memory', 'reviews'] as Tab[]).map((t) => (
+        {(['guides', 'memory', 'reviews'] as Tab[]).map((tabKey) => (
           <button
-            key={t}
-            className={`${styles.tab}${tab === t ? ` ${styles.tabOn}` : ''}`}
-            onClick={() => setTab(t)}
+            key={tabKey}
+            className={`${styles.tab}${tab === tabKey ? ` ${styles.tabOn}` : ''}`}
+            onClick={() => setTab(tabKey)}
           >
-            {t === 'guides' ? 'Guides' : t === 'memory' ? 'Memory' : 'Reviews'}
+            {t.knowledge.tabs[tabKey]}
           </button>
         ))}
       </div>
@@ -60,6 +60,7 @@ export function KnowledgeView() {
 // --- guides -----------------------------------------------------------------
 
 function GuidesPane() {
+  const t = useT();
   const [guides, setGuides] = useState<GuideSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -102,7 +103,7 @@ function GuidesPane() {
     if (!draft) return;
     const tags = draft.tags
       .split(',')
-      .map((t) => t.trim())
+      .map((tag) => tag.trim())
       .filter(Boolean);
     setSaving(true);
     setError(null);
@@ -133,12 +134,12 @@ function GuidesPane() {
         <div className={styles.newBtnRow}>
           <Button variant="green" onClick={newGuide} style={{ width: '100%' }}>
             <Icon name="plus" size={13} color="var(--dex-on-primary)" />
-            New guide
+            {t.knowledge.newGuide}
           </Button>
         </div>
         {error ? <div className={styles.error}>{error}</div> : null}
         {guides.length === 0 && !error ? (
-          <div className={styles.empty}>No guides yet.</div>
+          <div className={styles.empty}>{t.knowledge.noGuides}</div>
         ) : (
           guides.map((g) => (
             <button
@@ -150,9 +151,9 @@ function GuidesPane() {
               {g.excerpt ? <span className={styles.cardExcerpt}>{g.excerpt}</span> : null}
               {g.tags.length ? (
                 <span className={styles.tagRow}>
-                  {g.tags.map((t) => (
-                    <span key={t} className={styles.tag}>
-                      {t}
+                  {g.tags.map((tag) => (
+                    <span key={tag} className={styles.tag}>
+                      {tag}
                     </span>
                   ))}
                 </span>
@@ -167,7 +168,7 @@ function GuidesPane() {
           <div className={styles.editorHead}>
             <input
               className={styles.titleInput}
-              placeholder="Guide title"
+              placeholder={t.knowledge.guideTitlePh}
               value={draft.title}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
             />
@@ -176,7 +177,7 @@ function GuidesPane() {
                 icon="trash"
                 size={15}
                 color="var(--dex-icon)"
-                title="Delete guide"
+                title={t.knowledge.deleteGuide}
                 hover="mid"
                 onClick={() => setConfirmDelete(true)}
               />
@@ -184,25 +185,25 @@ function GuidesPane() {
           </div>
 
           <div className={styles.field}>
-            <span className={styles.fieldLabel}>Tags (comma-separated)</span>
+            <span className={styles.fieldLabel}>{t.knowledge.tagsLabel}</span>
             <input
               className={styles.input}
-              placeholder="definitions, revenue"
+              placeholder={t.knowledge.tagsPh}
               value={draft.tags}
               onChange={(e) => setDraft({ ...draft, tags: e.target.value })}
             />
           </div>
 
           <div className={styles.field}>
-            <span className={styles.fieldLabel}>Content (Markdown)</span>
+            <span className={styles.fieldLabel}>{t.knowledge.contentLabel}</span>
             {showPreview ? (
               <div className={styles.preview}>
-                <Markdown source={draft.content || '_Nothing to preview yet._'} />
+                <Markdown source={draft.content || t.knowledge.nothingToPreview} />
               </div>
             ) : (
               <textarea
                 className={styles.textarea}
-                placeholder="Define a metric, term, or approved query pattern…"
+                placeholder={t.knowledge.contentPh}
                 value={draft.content}
                 onChange={(e) => setDraft({ ...draft, content: e.target.value })}
               />
@@ -217,23 +218,27 @@ function GuidesPane() {
               onClick={() => void save()}
               disabled={saving || !draft.title.trim()}
             >
-              {saving ? 'Saving…' : draft.id ? 'Save changes' : 'Create guide'}
+              {saving
+                ? t.knowledge.saving
+                : draft.id
+                  ? t.knowledge.saveChanges
+                  : t.knowledge.createGuide}
             </Button>
             <Button variant="ghost" onClick={() => setShowPreview((p) => !p)}>
-              {showPreview ? 'Edit' : 'Preview'}
+              {showPreview ? t.knowledge.edit : t.knowledge.preview}
             </Button>
             <span className={styles.spacer} />
-            {saved ? <span className={styles.savedNote}>Saved</span> : null}
+            {saved ? <span className={styles.savedNote}>{t.knowledge.saved}</span> : null}
           </div>
         </div>
       ) : (
-        <div className={styles.placeholder}>Select a guide, or create a new one.</div>
+        <div className={styles.placeholder}>{t.knowledge.selectGuide}</div>
       )}
 
       {confirmDelete ? (
         <ConfirmDialog
-          title="Delete guide?"
-          message="The analyst will no longer read this guide. This can't be undone."
+          title={t.knowledge.deleteGuideTitle}
+          message={t.knowledge.deleteGuideMessage}
           onConfirm={remove}
           onClose={() => setConfirmDelete(false)}
         />
@@ -245,6 +250,7 @@ function GuidesPane() {
 // --- memory -----------------------------------------------------------------
 
 function MemoryPane() {
+  const t = useT();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -271,10 +277,7 @@ function MemoryPane() {
     return (
       <div className={styles.empty}>
         <Icon name="bookmark" size={22} color="var(--dex-icon-faint)" />
-        <span>
-          Nothing remembered yet. When you tell the analyst a durable preference, it saves it here
-          and honors it across threads.
-        </span>
+        <span>{t.knowledge.memoryEmpty}</span>
       </div>
     );
   }
@@ -290,7 +293,7 @@ function MemoryPane() {
             icon="trash"
             size={14}
             color="var(--dex-icon)"
-            title="Forget this"
+            title={t.knowledge.forgetThis}
             hover="mid"
             onClick={() => void forget(m.id)}
           />
@@ -303,6 +306,7 @@ function MemoryPane() {
 // --- reviews ----------------------------------------------------------------
 
 function ReviewsPane() {
+  const t = useT();
   const [reviews, setReviews] = useState<ReviewRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -329,9 +333,7 @@ function ReviewsPane() {
     return (
       <div className={styles.empty}>
         <Icon name="warning" size={22} color="var(--dex-icon-faint)" />
-        <span>
-          No open review requests. The analyst flags an answer here when it&apos;s unsure.
-        </span>
+        <span>{t.knowledge.reviewsEmpty}</span>
       </div>
     );
   }
@@ -344,12 +346,14 @@ function ReviewsPane() {
             <span className={styles.rowText}>{r.question}</span>
             <span className={styles.rowMeta}>{r.reason}</span>
           </div>
-          <Pill tone={r.status === 'open' ? 'beta' : 'success'}>{r.status}</Pill>
+          <Pill tone={r.status === 'open' ? 'beta' : 'success'}>
+            {r.status === 'open' ? t.knowledge.statusOpen : r.status}
+          </Pill>
           <IconButton
             icon="cross"
             size={14}
             color="var(--dex-icon)"
-            title="Clear request"
+            title={t.knowledge.clearRequest}
             hover="mid"
             onClick={() => void clear(r.id)}
           />

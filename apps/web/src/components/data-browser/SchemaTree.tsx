@@ -3,17 +3,19 @@ import { IconButton } from '@/components/ui/IconButton';
 import { Button } from '@/components/ui/Button';
 import { fmtCount, kindColorVar } from '@/lib/dataSources';
 import type { DataBrowserState } from '@/hooks/useDataBrowser';
+import { useT } from '@/i18n';
 import styles from './dataBrowser.module.css';
 
 /** Left pane level 2: the drilled-in schema/table tree for the selected source. */
 export function SchemaTree({ db }: { db: DataBrowserState }) {
+  const t = useT();
   const source = db.selectedSource;
   return (
     <>
       <div className={styles.treeTop}>
         <button type="button" className={styles.backLink} onClick={db.backToSources}>
           <Icon name="chevronLeft" size={12} />
-          All sources
+          {t.schemaTree.allSources}
         </button>
         <div className={styles.treeSourceRow}>
           <Icon name="data" size={16} color={kindColorVar(source?.dialect ?? 'sqlite')} />
@@ -21,14 +23,14 @@ export function SchemaTree({ db }: { db: DataBrowserState }) {
           <IconButton
             icon="refresh"
             size={14}
-            title="Refresh metadata"
+            title={t.schemaTree.refreshMetadata}
             hover="mid"
             onClick={db.refresh}
           />
           <IconButton
             icon="minus"
             size={14}
-            title="Collapse all"
+            title={t.schemaTree.collapseAll}
             hover="mid"
             onClick={db.collapseAll}
           />
@@ -39,7 +41,7 @@ export function SchemaTree({ db }: { db: DataBrowserState }) {
           </span>
           <input
             className={styles.searchInput}
-            placeholder="Search tables..."
+            placeholder={t.schemaTree.searchTables}
             value={db.search}
             onChange={(e) => db.setSearch(e.target.value)}
           />
@@ -56,11 +58,11 @@ export function SchemaTree({ db }: { db: DataBrowserState }) {
             <Icon name="warning" size={18} color="var(--dex-danger-fg)" />
             <div className={styles.errorText}>{db.treeError}</div>
             <Button variant="ghost" onClick={db.refresh}>
-              Retry
+              {t.common.retry}
             </Button>
           </div>
         ) : db.noResults ? (
-          <div className={styles.emptyTree}>No schemas or tables match.</div>
+          <div className={styles.emptyTree}>{t.schemaTree.noMatch}</div>
         ) : (
           db.visibleSchemas.map((schema) => {
             const open = db.expanded(schema.id);
@@ -81,21 +83,21 @@ export function SchemaTree({ db }: { db: DataBrowserState }) {
                   ) : null}
                 </button>
                 {open
-                  ? schema.tables.map((t) => {
-                      const active = db.selectedTable === t.name;
+                  ? schema.tables.map((tbl) => {
+                      const active = db.selectedTable === tbl.name;
                       return (
                         <button
-                          key={t.id}
+                          key={tbl.id}
                           type="button"
                           className={`${styles.tableRow} ${active ? styles.tableRowActive : ''}`}
-                          onClick={() => db.selectTable(t.name)}
+                          onClick={() => db.selectTable(tbl.name)}
                         >
                           <Icon name="table" size={13} color="var(--dex-icon-faint)" />
-                          <span className={styles.tableName}>{t.name}</span>
-                          {t.endorsed ? (
+                          <span className={styles.tableName}>{tbl.name}</span>
+                          {tbl.endorsed ? (
                             <Icon name="tickCircle" size={12} color="var(--dex-success-check)" />
                           ) : null}
-                          <span className={styles.tableCount}>{fmtCount(t.rowCount)}</span>
+                          <span className={styles.tableCount}>{fmtCount(tbl.rowCount)}</span>
                         </button>
                       );
                     })

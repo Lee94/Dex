@@ -10,6 +10,7 @@ import {
 } from '@/lib/dataSources';
 import { listUploads, uploadFile, type Upload } from '@/lib/uploads';
 import type { Attachment } from '@/lib/attachments';
+import { useT } from '@/i18n';
 import styles from './Composer.module.css';
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -37,6 +38,7 @@ export function ContextPicker({
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [treeByConn, setTreeByConn] = useState<Record<string, SchemaNode[]>>({});
   const fileInput = useRef<HTMLInputElement>(null);
+  const t = useT();
 
   useEffect(() => {
     let alive = true;
@@ -107,15 +109,15 @@ export function ContextPicker({
       <div className={styles.pickerBackdrop} onClick={onClose} />
       <div className={styles.picker} onClick={(e) => e.stopPropagation()}>
         {loading ? (
-          <div className={styles.pickerEmpty}>Loading…</div>
+          <div className={styles.pickerEmpty}>{t.contextPicker.loading}</div>
         ) : error ? (
           <div className={styles.pickerEmpty}>{error}</div>
         ) : (
           <>
             <div className={styles.pickerSection}>
-              <div className={styles.pickerSectionTitle}>Data models</div>
+              <div className={styles.pickerSectionTitle}>{t.contextPicker.dataModels}</div>
               {models.length === 0 ? (
-                <div className={styles.pickerEmpty}>No models yet.</div>
+                <div className={styles.pickerEmpty}>{t.contextPicker.noModels}</div>
               ) : (
                 models.map((m) => {
                   const key = `model:${m.id}`;
@@ -138,7 +140,7 @@ export function ContextPicker({
             </div>
 
             <div className={styles.pickerSection}>
-              <div className={styles.pickerSectionTitle}>Databases & tables</div>
+              <div className={styles.pickerSectionTitle}>{t.contextPicker.databasesTables}</div>
               {sources.map((s) => {
                 const dsKey = `ds:${s.id}`;
                 const open = !!expanded[s.id];
@@ -150,7 +152,7 @@ export function ContextPicker({
                         type="button"
                         className={styles.pickerCaret}
                         onClick={() => void toggleExpand(s)}
-                        title={open ? 'Collapse' : 'Expand'}
+                        title={open ? t.contextPicker.collapse : t.contextPicker.expand}
                       >
                         <Icon
                           name="chevronRight"
@@ -186,8 +188,8 @@ export function ContextPicker({
                       </button>
                     </div>
                     {open
-                      ? tables.map((t) => {
-                          const tKey = `table:${s.id}:${t.name}`;
+                      ? tables.map((tbl) => {
+                          const tKey = `table:${s.id}:${tbl.name}`;
                           return (
                             <button
                               key={tKey}
@@ -197,8 +199,8 @@ export function ContextPicker({
                                 onToggle({
                                   key: tKey,
                                   kind: 'table',
-                                  label: t.name,
-                                  ref: t.name,
+                                  label: tbl.name,
+                                  ref: tbl.name,
                                   source: s.name,
                                   sourceId: s.id,
                                   dialect: s.dialect,
@@ -207,7 +209,7 @@ export function ContextPicker({
                               }
                             >
                               <Icon name="table" size={13} color="var(--dex-icon-faint)" />
-                              <span className={styles.pickerItemLabel}>{t.name}</span>
+                              <span className={styles.pickerItemLabel}>{tbl.name}</span>
                               {selected.has(tKey) ? (
                                 <Icon
                                   name="tickCircle"
@@ -225,7 +227,7 @@ export function ContextPicker({
             </div>
 
             <div className={styles.pickerSection}>
-              <div className={styles.pickerSectionTitle}>Files</div>
+              <div className={styles.pickerSectionTitle}>{t.contextPicker.files}</div>
               {uploads.map((u) => {
                 const key = `file:${u.id}`;
                 return (
@@ -251,7 +253,7 @@ export function ContextPicker({
               >
                 <Icon name="plus" size={13} color="var(--dex-accent)" />
                 <span className={styles.pickerItemLabel}>
-                  {uploading ? 'Uploading…' : 'Upload a file'}
+                  {uploading ? t.contextPicker.uploading : t.contextPicker.uploadFile}
                 </span>
               </button>
               <input

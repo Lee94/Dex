@@ -1,24 +1,39 @@
 import { useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { Button, IconButton, Pill, ConfirmDialog } from '@/components/ui';
-import { typeColorVar, type SemanticModel } from '@/lib/dataSources';
+import { typeColorVar, type ModelStatus, type SemanticModel } from '@/lib/dataSources';
 import type { DataBrowserState } from '@/hooks/useDataBrowser';
 import { DataGrid } from './Detail';
-import { AddModelDialog } from './AddModelDialog';
+import { ModelEditor } from './model-editor/ModelEditor';
+import { useT } from '@/i18n';
 import styles from './dataBrowser.module.css';
 
-/** Data Models tab: semantic projects → models → measures/dimensions/joins. */
+/** Data Models tab: semantic projects → models → measures/dimensions/joins,
+ *  plus the full-screen model editor (create / draft / publish). */
 export function DataModelsPanel({ db }: { db: DataBrowserState }) {
+  if (db.editorModel) return <ModelEditor db={db} />;
   if (db.modelDetail) return <ModelDetail db={db} />;
   if (db.projectDetail) return <ProjectDetail db={db} />;
   return <ProjectList db={db} />;
 }
 
+/** Draft / unpublished-changes badge (published models show no badge). */
+function StatusBadge({ status, builtin }: { status?: ModelStatus; builtin?: boolean }) {
+  const t = useT();
+  if (builtin || !status || status === 'published') return null;
+  return (
+    <Pill tone="draft">
+      {status === 'draft_pending' ? t.modelEditor.draftPending : t.modelEditor.draft}
+    </Pill>
+  );
+}
+
 function ProjectList({ db }: { db: DataBrowserState }) {
+  const t = useT();
   return (
     <div className={styles.detailScroll}>
       <div className={styles.detailHeaderRow}>
-        <span className={styles.detailTitle}>Semantic projects</span>
+        <span className={styles.detailTitle}>{t.dataModels.semanticProjects}</span>
       </div>
       {db.projectsLoading ? (
         <div className={styles.center}>
@@ -41,12 +56,14 @@ function ProjectList({ db }: { db: DataBrowserState }) {
               <div className={styles.dmCardHead}>
                 <Icon name="layers" size={16} color="var(--dex-accent)" />
                 <span className={styles.dmCardName}>{p.name}</span>
-                {p.demo ? <span className={styles.demoBadge}>DEMO</span> : null}
+                {p.demo ? <span className={styles.demoBadge}>{t.dataModels.demo}</span> : null}
               </div>
               {p.description ? <div className={styles.dmCardDesc}>{p.description}</div> : null}
               <div className={styles.dmCardMeta}>
                 <Icon name="data" size={12} color="var(--dex-icon-faint)" />
-                {p.source.name} · {p.modelCount} model{p.modelCount === 1 ? '' : 's'}
+                <span className={styles.dmCardMetaText}>
+                  {p.source.name} · {t.dataModels.modelCount(p.modelCount)}
+                </span>
               </div>
             </button>
           ))}
@@ -57,14 +74,14 @@ function ProjectList({ db }: { db: DataBrowserState }) {
 }
 
 function ProjectDetail({ db }: { db: DataBrowserState }) {
+  const t = useT();
   const project = db.projectDetail!;
-  const [addOpen, setAddOpen] = useState(false);
 
   return (
     <div className={styles.detailScroll}>
       <div className={styles.breadcrumb}>
         <button type="button" className={styles.crumb} onClick={db.backToProjects}>
-          All semantic projects
+          {t.dataModels.allSemanticProjects}
         </button>
         <Icon name="chevronRight" size={11} color="var(--dex-icon-faint)" />
         <span className={styles.crumbCurrent}>{project.name}</span>
@@ -72,9 +89,13 @@ function ProjectDetail({ db }: { db: DataBrowserState }) {
       <div className={styles.detailHeaderRow}>
         <Icon name="layers" size={18} color="var(--dex-accent)" />
         <span className={styles.detailTitle}>{project.name}</span>
-        <Button variant="green" style={{ marginLeft: 'auto' }} onClick={() => setAddOpen(true)}>
+        <Button
+          variant="green"
+          style={{ marginLeft: 'auto' }}
+          onClick={() => db.openEditor({ mode: 'new' })}
+        >
           <Icon name="plus" size={13} color="#fff" />
-          New model
+          {t.dataModels.newModel}
         </Button>
       </div>
       {project.description ? (
@@ -85,13 +106,12 @@ function ProjectDetail({ db }: { db: DataBrowserState }) {
           <ModelCard key={m.id} model={m} db={db} />
         ))}
       </div>
-
-      {addOpen ? <AddModelDialog onClose={() => setAddOpen(false)} onSubmit={db.addModel} /> : null}
     </div>
   );
 }
 
 function ModelCard({ model, db }: { model: SemanticModel; db: DataBrowserState }) {
+  const t = useT();
   const [confirming, setConfirming] = useState(false);
   return (
     <div className={styles.dmCard}>
@@ -103,11 +123,14 @@ function ModelCard({ model, db }: { model: SemanticModel; db: DataBrowserState }
         <div className={styles.dmCardHead}>
           <Icon name="table" size={15} color="var(--dex-icon)" />
           <span className={styles.dmCardName}>{model.name}</span>
-          {model.endorsed ? <Pill tone="endorsed">Endorsed</Pill> : null}
+          {model.endorsed ? <Pill tone="endorsed">{t.dataModels.endorsed}</Pill> : null}
+          <StatusBadge status={model.status} builtin={model.builtin} />
         </div>
         {model.description ? <div className={styles.dmCardDesc}>{model.description}</div> : null}
         <div className={styles.dmCardMeta}>
-          {model.measures.length} measures · {model.dimensions.length} dimensions
+          <span className={styles.dmCardMetaText}>
+            {t.dataModels.measuresDimensions(model.measures.length, model.dimensions.length)}
+          </span>
         </div>
       </button>
       {model.builtin ? null : (
@@ -115,7 +138,7 @@ function ModelCard({ model, db }: { model: SemanticModel; db: DataBrowserState }
           icon="trash"
           size={13}
           color="var(--dex-icon-subtle)"
-          title="Delete model"
+          title={t.dataModels.deleteLabel}
           hover="mid"
           className={`${styles.rowDelete} ${styles.dmCardDelete}`}
           onClick={() => setConfirming(true)}
@@ -123,14 +146,15 @@ function ModelCard({ model, db }: { model: SemanticModel; db: DataBrowserState }
       )}
       {confirming ? (
         <ConfirmDialog
-          title="Delete data model"
+          title={t.dataModels.deleteTitle}
           message={
             <>
-              Delete the model <strong>{model.name}</strong>? This removes the semantic definition;
-              the underlying table is not affected.
+              {t.dataModels.deleteBefore}
+              <strong>{model.name}</strong>
+              {t.dataModels.deleteAfter}
             </>
           }
-          confirmLabel="Delete model"
+          confirmLabel={t.dataModels.deleteLabel}
           onConfirm={() => db.removeModel(model.id)}
           onClose={() => setConfirming(false)}
         />
@@ -140,6 +164,7 @@ function ModelCard({ model, db }: { model: SemanticModel; db: DataBrowserState }
 }
 
 function ModelDetail({ db }: { db: DataBrowserState }) {
+  const t = useT();
   const project = db.projectDetail;
   const model = db.modelDetail!;
   const [confirming, setConfirming] = useState(false);
@@ -148,7 +173,7 @@ function ModelDetail({ db }: { db: DataBrowserState }) {
     <div className={styles.detailScroll}>
       <div className={styles.breadcrumb}>
         <button type="button" className={styles.crumb} onClick={db.backToProjects}>
-          All semantic projects
+          {t.dataModels.allSemanticProjects}
         </button>
         <Icon name="chevronRight" size={11} color="var(--dex-icon-faint)" />
         <button type="button" className={styles.crumb} onClick={db.backToModels}>
@@ -161,16 +186,22 @@ function ModelDetail({ db }: { db: DataBrowserState }) {
       <div className={styles.detailHeaderRow}>
         <Icon name="table" size={18} color="var(--dex-icon)" />
         <span className={styles.detailTitle}>{model.name}</span>
-        {model.endorsed ? <Pill tone="endorsed">Endorsed</Pill> : null}
+        {model.endorsed ? <Pill tone="endorsed">{t.dataModels.endorsed}</Pill> : null}
+        <StatusBadge status={model.status} builtin={model.builtin} />
         {model.builtin ? null : (
-          <Button
-            variant="ghost"
-            style={{ marginLeft: 'auto' }}
-            onClick={() => setConfirming(true)}
-          >
-            <Icon name="trash" size={13} color="var(--dex-danger-fg)" />
-            Delete
-          </Button>
+          <div className={styles.headerActions}>
+            <Button
+              variant="ghost"
+              onClick={() => db.openEditor({ mode: 'edit', modelId: model.id })}
+            >
+              <Icon name="edit" size={13} color="var(--dex-icon)" />
+              {t.dataModels.edit}
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirming(true)}>
+              <Icon name="trash" size={13} color="var(--dex-danger-fg)" />
+              {t.dataModels.delete}
+            </Button>
+          </div>
         )}
       </div>
       {model.description ? <div className={styles.descEditable}>{model.description}</div> : null}
@@ -181,14 +212,14 @@ function ModelDetail({ db }: { db: DataBrowserState }) {
           className={`${styles.segTab} ${db.dmTab === 'dims' ? styles.segTabActive : ''}`}
           onClick={() => db.setDmTab('dims')}
         >
-          Definition
+          {t.dataModels.definition}
         </button>
         <button
           type="button"
           className={`${styles.segTab} ${db.dmTab === 'preview' ? styles.segTabActive : ''}`}
           onClick={() => db.setDmTab('preview')}
         >
-          Preview
+          {t.dataModels.preview}
         </button>
       </div>
 
@@ -200,12 +231,12 @@ function ModelDetail({ db }: { db: DataBrowserState }) {
         model.preview ? (
           <DataGrid columns={model.preview.columns} rows={model.preview.rows} />
         ) : (
-          <div className={styles.joinsEmpty}>No preview available.</div>
+          <div className={styles.joinsEmpty}>{t.dataModels.noPreview}</div>
         )
       ) : (
         <div className={styles.modelCols}>
           <div className={styles.modelCol}>
-            <div className={styles.modelColTitle}>Measures</div>
+            <div className={styles.modelColTitle}>{t.dataModels.measures}</div>
             {model.measures.map((m) => (
               <div key={m.code} className={styles.memberRow}>
                 <Icon name="sigma" size={14} color="var(--dex-accent)" />
@@ -218,9 +249,9 @@ function ModelDetail({ db }: { db: DataBrowserState }) {
             ))}
           </div>
           <div className={styles.modelCol}>
-            <div className={styles.modelColTitle}>Dimensions</div>
+            <div className={styles.modelColTitle}>{t.dataModels.dimensions}</div>
             {model.dimensions.length === 0 ? (
-              <div className={styles.joinsEmpty}>No dimensions.</div>
+              <div className={styles.joinsEmpty}>{t.dataModels.noDimensions}</div>
             ) : (
               model.dimensions.map((d) => (
                 <div key={d.name} className={styles.memberRow}>
@@ -232,9 +263,9 @@ function ModelDetail({ db }: { db: DataBrowserState }) {
             )}
           </div>
           <div className={styles.modelCol}>
-            <div className={styles.modelColTitle}>Joins</div>
+            <div className={styles.modelColTitle}>{t.dataModels.joins}</div>
             {model.joins.length === 0 ? (
-              <div className={styles.joinsEmpty}>No joins configured.</div>
+              <div className={styles.joinsEmpty}>{t.dataModels.noJoins}</div>
             ) : (
               model.joins.map((j) => (
                 <div key={j.to} className={styles.memberRow}>
@@ -252,14 +283,15 @@ function ModelDetail({ db }: { db: DataBrowserState }) {
 
       {confirming ? (
         <ConfirmDialog
-          title="Delete data model"
+          title={t.dataModels.deleteTitle}
           message={
             <>
-              Delete the model <strong>{model.name}</strong>? This removes the semantic definition;
-              the underlying table is not affected.
+              {t.dataModels.deleteBefore}
+              <strong>{model.name}</strong>
+              {t.dataModels.deleteAfter}
             </>
           }
-          confirmLabel="Delete model"
+          confirmLabel={t.dataModels.deleteLabel}
           onConfirm={() => db.removeModel(model.id)}
           onClose={() => setConfirming(false)}
         />

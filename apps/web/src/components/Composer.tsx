@@ -3,6 +3,7 @@ import { Icon } from '@/lib/icons';
 import { IconButton } from '@/components/ui';
 import { ContextPicker } from '@/components/ContextPicker';
 import { contextPrefix, type Attachment, type ProjectContext } from '@/lib/attachments';
+import { useT } from '@/i18n';
 import styles from './Composer.module.css';
 
 export function Composer({
@@ -18,6 +19,7 @@ export function Composer({
    *  first message (the caller decides). */
   project?: ProjectContext | null;
 }) {
+  const t = useT();
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -69,7 +71,7 @@ export function Composer({
                 <button
                   type="button"
                   className={styles.chipRemove}
-                  title="Remove"
+                  title={t.composer.remove}
                   onClick={() => removeAttachment(a.key)}
                 >
                   <Icon name="cross" size={10} color="var(--dex-icon-subtle)" />
@@ -83,7 +85,7 @@ export function Composer({
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKey}
           rows={1}
-          placeholder="Ask a question…"
+          placeholder={t.composer.placeholder}
           className={styles.textarea}
         />
         <div className={styles.toolbar}>
@@ -91,7 +93,7 @@ export function Composer({
             <button
               type="button"
               className={`${styles.attach} ${pickerOpen ? styles.attachActive : ''}`}
-              title="Add data context"
+              title={t.composer.addContext}
               onClick={() => setPickerOpen((o) => !o)}
             >
               <Icon name="plus" size={14} color="var(--dex-icon)" />
@@ -109,20 +111,25 @@ export function Composer({
             icon="cog"
             size={15}
             color="var(--dex-text-subtle)"
-            title="Settings"
+            title={t.composer.settings}
             hover="mid"
             padding={6}
           />
           <button className={styles.auto}>
-            Auto
+            {t.composer.auto}
             <Icon name="caretDown" size={12} color="var(--dex-text-subtle)" />
           </button>
           {streaming ? (
-            <button className={styles.stop} onClick={onStop} title="Stop">
+            <button className={styles.stop} onClick={onStop} title={t.composer.stop}>
               <span className={styles.stopGlyph} />
             </button>
           ) : (
-            <button className={styles.send} onClick={submit} disabled={!value.trim()} title="Send">
+            <button
+              className={styles.send}
+              onClick={submit}
+              disabled={!value.trim()}
+              title={t.composer.send}
+            >
               <Icon name="send" size={13} color="#fff" />
             </button>
           )}

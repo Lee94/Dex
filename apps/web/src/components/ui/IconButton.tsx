@@ -14,6 +14,7 @@ export function IconButton({
   padding = 5,
   style,
   className,
+  disabled,
 }: {
   icon: string;
   size?: number;
@@ -24,6 +25,7 @@ export function IconButton({
   padding?: number | string;
   style?: CSSProperties;
   className?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -32,6 +34,7 @@ export function IconButton({
       title={title}
       aria-label={title}
       onClick={onClick}
+      disabled={disabled}
       style={{ padding, ...style }}
     >
       <Icon name={icon} size={size} color={color} />

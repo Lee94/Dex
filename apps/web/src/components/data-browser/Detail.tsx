@@ -11,18 +11,18 @@ import {
   type PreviewResult,
 } from '@/lib/dataSources';
 import type { DataBrowserState } from '@/hooks/useDataBrowser';
+import { useT } from '@/i18n';
 import styles from './dataBrowser.module.css';
 
 /** Right pane: empty state, or the selected table's detail (columns + preview). */
 export function Detail({ db }: { db: DataBrowserState }) {
+  const t = useT();
   if (!db.selectedConnId || !db.selectedTable) {
     return (
       <div className={styles.detailEmpty}>
         <Icon name="data" size={30} color="var(--dex-text-faintest)" />
-        <div className={styles.detailEmptyTitle}>No data selected</div>
-        <div className={styles.detailEmptySub}>
-          Select a data connection and table to get started.
-        </div>
+        <div className={styles.detailEmptyTitle}>{t.detail.noDataTitle}</div>
+        <div className={styles.detailEmptySub}>{t.detail.noDataSub}</div>
       </div>
     );
   }
@@ -30,11 +30,12 @@ export function Detail({ db }: { db: DataBrowserState }) {
 }
 
 function TableDetail({ db }: { db: DataBrowserState }) {
+  const t = useT();
   const table = db.selectedTable!;
   const { detail, detailLoading, detailError } = db;
   const rowCount = db.visibleSchemas
     .flatMap((s) => s.tables)
-    .find((t) => t.name === table)?.rowCount;
+    .find((tbl) => tbl.name === table)?.rowCount;
 
   return (
     <div className={styles.detailScroll}>
@@ -49,8 +50,10 @@ function TableDetail({ db }: { db: DataBrowserState }) {
       <div className={styles.detailHeaderRow}>
         <Icon name="table" size={18} color="var(--dex-icon)" />
         <span className={styles.detailTitle}>{table}</span>
-        <span className={styles.kindBadge}>Table</span>
-        {detail?.metadata.status === 'endorsed' ? <Pill tone="endorsed">Endorsed</Pill> : null}
+        <span className={styles.kindBadge}>{t.detail.table}</span>
+        {detail?.metadata.status === 'endorsed' ? (
+          <Pill tone="endorsed">{t.detail.endorsed}</Pill>
+        ) : null}
       </div>
 
       {detailLoading ? (
@@ -62,7 +65,7 @@ function TableDetail({ db }: { db: DataBrowserState }) {
           <Icon name="warning" size={18} color="var(--dex-danger-fg)" />
           <div className={styles.errorText}>{detailError}</div>
           <Button variant="ghost" onClick={() => db.selectTable(table)}>
-            Retry
+            {t.common.retry}
           </Button>
         </div>
       ) : detail ? (
@@ -74,7 +77,7 @@ function TableDetail({ db }: { db: DataBrowserState }) {
 
           <div className={styles.metaGrid}>
             <div className={styles.metaCol}>
-              <span className={styles.metaLabel}>Status</span>
+              <span className={styles.metaLabel}>{t.detail.status}</span>
               <StatusControl
                 status={detail.metadata.status}
                 onToggle={() =>
@@ -86,14 +89,14 @@ function TableDetail({ db }: { db: DataBrowserState }) {
               />
             </div>
             <div className={styles.metaCol}>
-              <span className={styles.metaLabel}>Categories</span>
+              <span className={styles.metaLabel}>{t.detail.categories}</span>
               <CategoriesControl
                 categories={detail.metadata.categories}
                 onChange={(categories) => void db.patchMetadata({ table, categories })}
               />
             </div>
             <div className={styles.metaCol}>
-              <span className={styles.metaLabel}>Included for AI</span>
+              <span className={styles.metaLabel}>{t.detail.includedForAi}</span>
               <div className={styles.toggleRow}>
                 <button
                   type="button"
@@ -101,7 +104,7 @@ function TableDetail({ db }: { db: DataBrowserState }) {
                   onClick={() =>
                     void db.patchMetadata({ table, includedForAi: !detail.metadata.includedForAi })
                   }
-                  aria-label="Toggle included for AI"
+                  aria-label={t.detail.toggleIncludedForAi}
                 >
                   <span className={styles.toggleKnob} />
                 </button>
@@ -114,11 +117,11 @@ function TableDetail({ db }: { db: DataBrowserState }) {
               <span className={styles.statValue}>
                 {rowCount != null ? fmtCount(rowCount) : '—'}
               </span>
-              <span className={styles.statLabel}>Rows</span>
+              <span className={styles.statLabel}>{t.detail.rows}</span>
             </div>
             <div className={styles.statChip}>
               <span className={styles.statValue}>{detail.columns.length}</span>
-              <span className={styles.statLabel}>Columns</span>
+              <span className={styles.statLabel}>{t.detail.columns}</span>
             </div>
           </div>
 
@@ -128,14 +131,14 @@ function TableDetail({ db }: { db: DataBrowserState }) {
               className={`${styles.detailTab} ${db.detailTab === 'columns' ? styles.detailTabActive : ''}`}
               onClick={() => db.pickDetailTab('columns')}
             >
-              Columns
+              {t.detail.columns}
             </button>
             <button
               type="button"
               className={`${styles.detailTab} ${db.detailTab === 'preview' ? styles.detailTabActive : ''}`}
               onClick={() => db.pickDetailTab('preview')}
             >
-              Preview
+              {t.detail.preview}
             </button>
           </div>
 
@@ -168,18 +171,21 @@ function ColumnsTab({
   columns: ColumnInfo[];
   onSaveColumnDesc: (column: string, value: string) => void;
 }) {
+  const t = useT();
   return (
     <div className={styles.colTable}>
       <div className={styles.colHeadRow}>
-        <span className={`${styles.colNameCell} ${styles.colHeadCell}`}>Column</span>
-        <span className={`${styles.colTypeCell} ${styles.colHeadCell}`}>Type</span>
-        <span className={`${styles.colDescCell} ${styles.colHeadCell}`}>Description</span>
+        <span className={`${styles.colNameCell} ${styles.colHeadCell}`}>{t.detail.colColumn}</span>
+        <span className={`${styles.colTypeCell} ${styles.colHeadCell}`}>{t.detail.colType}</span>
+        <span className={`${styles.colDescCell} ${styles.colHeadCell}`}>
+          {t.detail.colDescription}
+        </span>
       </div>
       {columns.map((col) => (
         <div key={col.name} className={styles.colRow}>
           <span className={styles.colNameCell}>
             <span className={styles.colName}>{col.name}</span>
-            {col.primaryKey ? <span className={styles.pkBadge}>PK</span> : null}
+            {col.primaryKey ? <span className={styles.pkBadge}>{t.detail.pk}</span> : null}
           </span>
           <span className={styles.colTypeCell}>
             <span className={styles.typeDot} style={{ background: typeColorVar(col.type) }} />
@@ -211,6 +217,7 @@ function PreviewTab({
   error: string | null;
   onRetry: () => void;
 }) {
+  const t = useT();
   if (loading) {
     return (
       <div className={styles.center}>
@@ -224,7 +231,7 @@ function PreviewTab({
         <Icon name="warning" size={18} color="var(--dex-danger-fg)" />
         <div className={styles.errorText}>{error}</div>
         <Button variant="ghost" onClick={onRetry}>
-          Retry
+          {t.common.retry}
         </Button>
       </div>
     );
@@ -234,7 +241,7 @@ function PreviewTab({
     <>
       <DataGrid columns={preview.columns} rows={preview.rows} />
       <div className={styles.gridCaption}>
-        Showing first {preview.rows.length} rows of {table}
+        {t.detail.previewCaption(preview.rows.length, table)}
       </div>
     </>
   );
@@ -248,8 +255,9 @@ export function DataGrid({
   columns: string[];
   rows: Record<string, unknown>[];
 }) {
+  const t = useT();
   if (columns.length === 0) {
-    return <div className={styles.emptyTree}>No data.</div>;
+    return <div className={styles.emptyTree}>{t.detail.noData}</div>;
   }
   return (
     <div className={styles.gridWrap}>
@@ -288,6 +296,7 @@ function DescriptionEditable({
   onSave: (value: string) => void;
   inline?: boolean;
 }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? '');
   useEffect(() => setDraft(value ?? ''), [value]);
@@ -312,24 +321,25 @@ function DescriptionEditable({
       className={inline ? styles.colDescEmpty : styles.descEditable}
       onClick={() => setEditing(true)}
     >
-      {value ? value : <span className={styles.descPlaceholder}>Add a description...</span>}
+      {value ? value : <span className={styles.descPlaceholder}>{t.detail.addDescription}</span>}
     </div>
   );
 }
 
 function StatusControl({ status, onToggle }: { status: string | null; onToggle: () => void }) {
+  const t = useT();
   if (status === 'endorsed') {
     return (
       <button type="button" className={styles.metaAdd} onClick={onToggle}>
         <Icon name="tickCircle" size={12} color="var(--dex-success-check)" />
-        Endorsed
+        {t.detail.endorsed}
       </button>
     );
   }
   return (
     <button type="button" className={styles.metaAdd} onClick={onToggle}>
       <Icon name="plus" size={11} />
-      Add status
+      {t.detail.addStatus}
     </button>
   );
 }
@@ -341,6 +351,7 @@ function CategoriesControl({
   categories: string[];
   onChange: (categories: string[]) => void;
 }) {
+  const t = useT();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
 
@@ -358,7 +369,7 @@ function CategoriesControl({
           key={c}
           type="button"
           className={styles.metaAdd}
-          title="Remove category"
+          title={t.detail.removeCategory}
           onClick={() => onChange(categories.filter((x) => x !== c))}
         >
           {c}
@@ -371,7 +382,7 @@ function CategoriesControl({
           className={styles.input}
           style={{ height: 23, width: 120 }}
           value={draft}
-          placeholder="Category"
+          placeholder={t.detail.category}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {
@@ -385,7 +396,7 @@ function CategoriesControl({
       ) : (
         <button type="button" className={styles.metaAdd} onClick={() => setAdding(true)}>
           <Icon name="plus" size={11} />
-          Add categories
+          {t.detail.addCategories}
         </button>
       )}
     </div>

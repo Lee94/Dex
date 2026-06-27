@@ -19,6 +19,7 @@
     "@fx-ui/icon": "^1.4.24",
     "@jsy/formula": "^1.0.0-feature.20260625075225",
     "@mastra/client-js": "^1.26.0",
+    "@monaco-editor/react": "^4.7.0",
     "@tanstack/react-query": "^5.101.1",
     "@van/analysis": "^0.0.1-feature.20260623102849",
     "@vinci/core": "^0.0.1-feature.20260625183304",
@@ -29,6 +30,7 @@
     "mobx": "^6.16.1",
     "mobx-keystone": "^1.21.0",
     "mobx-react-lite": "^4.1.1",
+    "monaco-editor": "^0.55.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router": "^7.18.0"

@@ -91,6 +91,35 @@ export interface SemanticJoin {
   to: string;
   relationship?: string;
 }
+/** Versioned-draft status (v3.1). `draft_pending` = published + an unpublished edit. */
+export type ModelStatus = 'draft' | 'published' | 'draft_pending';
+
+/** Raw cube definition the editor seeds its GUI/YAML tabs from (the
+ *  draft??published view; null for built-ins served read-only via `yaml`). */
+export interface CubeMeasureDef {
+  name: string;
+  title?: string;
+  description?: string;
+  type: string; // count | sum | avg | count_distinct | min | max | ratio
+  sql?: string;
+  format?: string;
+}
+export interface CubeDimensionDef {
+  name: string;
+  title?: string;
+  description?: string;
+  type: DimensionKind;
+  sql: string;
+}
+export interface CubeDef {
+  name: string;
+  title?: string;
+  description?: string;
+  sql: string;
+  measures: CubeMeasureDef[];
+  dimensions: CubeDimensionDef[];
+}
+
 export interface SemanticModel {
   id: string;
   name: string;
@@ -98,12 +127,17 @@ export interface SemanticModel {
   endorsed: boolean;
   /** False for user-added models (deletable); true / undefined for built-ins. */
   builtin?: boolean;
+  /** Versioned-draft status; absent for built-ins (treated as published). */
+  status?: ModelStatus;
   /** The base table the model reads from (== id for built-in cubes). */
   baseTable?: string;
   measures: SemanticMeasure[];
   dimensions: SemanticDimension[];
   joins: SemanticJoin[];
   preview?: PreviewResult;
+  /** Raw cube definition + its YAML (only on the single-model GET, for the editor). */
+  cube?: CubeDef | null;
+  yaml?: string | null;
 }
 
 export type MeasureKind = 'count' | 'sum' | 'avg' | 'count_distinct' | 'min' | 'max';
@@ -116,6 +150,24 @@ export interface NewModelInput {
   table: string;
   measures: { name: string; title?: string; type: MeasureKind; column?: string }[];
   dimensions: { name: string; column: string; type: DimensionKind }[];
+}
+
+/** Create payload: a GUI form or a raw YAML cube; `publish` skips the draft. */
+export type CreateModelInput =
+  | ({ source?: 'gui'; publish?: boolean } & NewModelInput)
+  | { source: 'yaml'; yaml: string; baseTable?: string; publish?: boolean };
+
+/** Patch payload: a definition edit (GUI or YAML) and/or a lifecycle action. */
+export interface UpdateModelPatch {
+  source?: 'gui' | 'yaml';
+  yaml?: string;
+  name?: string;
+  title?: string;
+  description?: string;
+  table?: string;
+  measures?: NewModelInput['measures'];
+  dimensions?: NewModelInput['dimensions'];
+  action?: 'save' | 'publish' | 'discard';
 }
 export interface SemanticProject {
   id: string;
@@ -215,12 +267,40 @@ export function fetchSemanticModel(projectId: string, modelId: string): Promise<
 
 export function createSemanticModel(
   projectId: string,
-  input: NewModelInput,
+  input: CreateModelInput,
 ): Promise<SemanticModel> {
   return apiFetch<{ model: SemanticModel }>(
     `/semantic/projects/${encodeURIComponent(projectId)}/models`,
     { method: 'POST', body: JSON.stringify(input) },
   ).then((r) => r.model);
+}
+
+/** Edit a model's draft and/or run a lifecycle action (save / publish / discard).
+ *  Returns the updated model, or null when a never-published draft is discarded. */
+export function updateSemanticModel(
+  projectId: string,
+  modelId: string,
+  patch: UpdateModelPatch,
+): Promise<SemanticModel | null> {
+  return apiFetch<{ model: SemanticModel | null }>(
+    `/semantic/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(modelId)}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+  ).then((r) => r.model);
+}
+
+export function publishSemanticModel(
+  projectId: string,
+  modelId: string,
+  patch: Omit<UpdateModelPatch, 'action'> = {},
+): Promise<SemanticModel | null> {
+  return updateSemanticModel(projectId, modelId, { ...patch, action: 'publish' });
+}
+
+export function discardModelDraft(
+  projectId: string,
+  modelId: string,
+): Promise<SemanticModel | null> {
+  return updateSemanticModel(projectId, modelId, { action: 'discard' });
 }
 
 export function deleteSemanticModel(projectId: string, modelId: string): Promise<void> {

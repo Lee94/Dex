@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router';
 import { useProjectsContext } from '@/contexts/ProjectsContext';
 import { ProjectsList } from '@/components/projects/ProjectsList';
+import { useT } from '@/i18n';
 
 /**
  * The projects list at `/projects`. Thin adapter: pulls projects state from
@@ -10,6 +11,7 @@ import { ProjectsList } from '@/components/projects/ProjectsList';
 export function ProjectsListRoute() {
   const { projects, loading, error, refresh, createProject } = useProjectsContext();
   const navigate = useNavigate();
+  const t = useT();
 
   return (
     <ProjectsList
@@ -20,7 +22,7 @@ export function ProjectsListRoute() {
       onRetry={() => void refresh()}
       onNew={() =>
         void (async () => {
-          const p = await createProject({ name: 'Untitled project' });
+          const p = await createProject({ name: t.projects.untitled });
           if (p) navigate(`/projects/${p.id}`);
         })()
       }

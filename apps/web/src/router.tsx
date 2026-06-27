@@ -3,11 +3,7 @@ import { RootLayout } from '@/layouts/RootLayout';
 import { ShellLayout } from '@/layouts/ShellLayout';
 import { ThreadRoute } from '@/routes/ThreadRoute';
 import { ThreadsListRoute } from '@/routes/ThreadsListRoute';
-import { Placeholder } from '@/components/Placeholder';
-
-const placeholder = (icon: string, title: string) => (
-  <Placeholder icon={icon} title={title} subtitle="Nothing here yet." />
-);
+import { RoutePlaceholder } from '@/components/RoutePlaceholder';
 
 /**
  * Route table (v3.0). The URL is the single source of truth for navigation:
@@ -64,11 +60,20 @@ export const router = createBrowserRouter([
               Component: (await import('@/components/tasks/TasksView')).TasksView,
             }),
           },
-          { path: 'home', element: placeholder('home', 'Home') },
-          { path: 'applications', element: placeholder('applications', 'Context Studio') },
-          { path: 'collections', element: placeholder('collections', 'Collections') },
-          { path: 'components', element: placeholder('components', 'Components') },
-          { path: 'explorations', element: placeholder('explorations', 'Explorations') },
+          { path: 'home', element: <RoutePlaceholder icon="home" tkey="home" /> },
+          {
+            path: 'applications',
+            element: <RoutePlaceholder icon="applications" tkey="contextStudio" />,
+          },
+          {
+            path: 'collections',
+            element: <RoutePlaceholder icon="collections" tkey="collections" />,
+          },
+          { path: 'components', element: <RoutePlaceholder icon="components" tkey="components" /> },
+          {
+            path: 'explorations',
+            element: <RoutePlaceholder icon="explorations" tkey="explorations" />,
+          },
         ],
       },
 

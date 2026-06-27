@@ -3,6 +3,7 @@ import { Icon } from '@/lib/icons';
 import { Button, ConfirmDialog } from '@/components/ui';
 import { ContextPicker } from '@/components/ContextPicker';
 import { relativeTime } from '@/lib/threads';
+import { useT } from '@/i18n';
 import type { Project, ProjectPatch } from '@/lib/projects';
 import type { Attachment } from '@/lib/attachments';
 import type { Thread } from '@/types';
@@ -38,6 +39,7 @@ export function ProjectDetail({
   onOpenThread: (id: string) => void;
   onNewThread: () => void;
 }) {
+  const t = useT();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -58,7 +60,7 @@ export function ProjectDetail({
         <div className={styles.backRow}>
           <Button variant="ghost" onClick={onBack}>
             <Icon name="chevronLeft" size={14} color="var(--dex-icon)" />
-            Projects
+            {t.projects.back}
           </Button>
         </div>
 
@@ -69,19 +71,19 @@ export function ProjectDetail({
             <input
               className={styles.nameInput}
               defaultValue={project.name}
-              placeholder="Project name"
+              placeholder={t.projects.namePh}
               onBlur={(e) => {
                 const v = e.target.value.trim();
                 if (v && v !== project.name) onChange({ name: v });
               }}
             />
           </div>
-          <label className={styles.label}>Description</label>
+          <label className={styles.label}>{t.projects.description}</label>
           <textarea
             className={styles.textarea}
             rows={2}
             defaultValue={project.description}
-            placeholder="What is this project about?"
+            placeholder={t.projects.descriptionPh}
             onBlur={(e) => {
               if (e.target.value !== project.description) onChange({ description: e.target.value });
             }}
@@ -90,24 +92,21 @@ export function ProjectDetail({
 
         {/* shared context */}
         <div className={styles.section}>
-          <div className={styles.sectionTitle}>Shared context</div>
-          <label className={styles.label}>Instructions</label>
+          <div className={styles.sectionTitle}>{t.projects.sharedContext}</div>
+          <label className={styles.label}>{t.projects.instructions}</label>
           <textarea
             className={styles.textarea}
             rows={4}
             defaultValue={project.instructions}
-            placeholder="Standing instructions for every thread in this project — definitions, conventions, defaults…"
+            placeholder={t.projects.instructionsPh}
             onBlur={(e) => {
               if (e.target.value !== project.instructions)
                 onChange({ instructions: e.target.value });
             }}
           />
-          <div className={styles.hint}>
-            Every thread you start in this project inherits these instructions and the data sources
-            below.
-          </div>
+          <div className={styles.hint}>{t.projects.inheritHint}</div>
 
-          <label className={styles.label}>Data sources</label>
+          <label className={styles.label}>{t.projects.dataSources}</label>
           {project.attachments.length > 0 ? (
             <div className={styles.chips}>
               {project.attachments.map((a) => (
@@ -117,7 +116,7 @@ export function ProjectDetail({
                   <button
                     type="button"
                     className={styles.chipRemove}
-                    title="Remove"
+                    title={t.common.remove}
                     onClick={() => removeAttachment(a.key)}
                   >
                     <Icon name="cross" size={10} color="var(--dex-icon-subtle)" />
@@ -127,13 +126,13 @@ export function ProjectDetail({
             </div>
           ) : (
             <div className={styles.chips}>
-              <span className={styles.empty}>No data sources bound yet.</span>
+              <span className={styles.empty}>{t.projects.noDataSources}</span>
             </div>
           )}
           <div className={styles.addWrap}>
             <Button variant="ghost" onClick={() => setPickerOpen((o) => !o)}>
               <Icon name="plus" size={13} color="var(--dex-icon)" />
-              Add data
+              {t.projects.addData}
             </Button>
             {pickerOpen ? (
               <ContextPicker
@@ -148,22 +147,26 @@ export function ProjectDetail({
         {/* threads */}
         <div className={styles.section}>
           <div className={styles.sectionTitle}>
-            Threads
+            {t.projects.threads}
             <span className={styles.sectionSpacer} />
             <Button variant="ghost" onClick={onNewThread}>
               <Icon name="plus" size={13} color="var(--dex-icon)" />
-              New thread
+              {t.projects.newThread}
             </Button>
           </div>
           {threads.length === 0 ? (
-            <div className={styles.empty}>No threads in this project yet.</div>
+            <div className={styles.empty}>{t.projects.noThreads}</div>
           ) : (
-            threads.map((t) => (
-              <button key={t.id} className={styles.threadRow} onClick={() => onOpenThread(t.id)}>
+            threads.map((thr) => (
+              <button
+                key={thr.id}
+                className={styles.threadRow}
+                onClick={() => onOpenThread(thr.id)}
+              >
                 <Icon name="threads" size={14} color="var(--dex-icon-subtle)" />
-                <span className={styles.threadName}>{t.title}</span>
-                {t.updatedAt ? (
-                  <span className={styles.threadTime}>{relativeTime(t.updatedAt)}</span>
+                <span className={styles.threadName}>{thr.title}</span>
+                {thr.updatedAt ? (
+                  <span className={styles.threadTime}>{relativeTime(thr.updatedAt)}</span>
                 ) : null}
               </button>
             ))
@@ -172,22 +175,20 @@ export function ProjectDetail({
 
         {/* danger zone */}
         <div className={styles.section}>
-          <div className={styles.sectionTitle}>Danger zone</div>
+          <div className={styles.sectionTitle}>{t.projects.dangerZone}</div>
           <Button variant="danger" onClick={() => setConfirmDelete(true)}>
             <Icon name="trash" size={13} color="currentColor" />
-            Delete project
+            {t.projects.deleteProject}
           </Button>
-          <div className={styles.hint}>
-            Deleting a project does not delete its threads — they become loose threads.
-          </div>
+          <div className={styles.hint}>{t.projects.deleteHint}</div>
         </div>
       </div>
 
       {confirmDelete ? (
         <ConfirmDialog
-          title="Delete project?"
-          message={`“${project.name}” will be removed. Its threads are kept (they become loose threads).`}
-          confirmLabel="Delete project"
+          title={t.projects.deleteConfirmTitle}
+          message={t.projects.deleteConfirmMessage(project.name)}
+          confirmLabel={t.projects.deleteProject}
           onConfirm={onDelete}
           onClose={() => setConfirmDelete(false)}
         />
