@@ -35,7 +35,6 @@ import { deleteThread, listThreads, renameThread } from '@/lib/threads';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  localStorage.clear();
   h.chunks = [];
 });
 

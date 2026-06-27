@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
 import { Placeholder } from '@/components/Placeholder';
-import { useDataBrowser, type HeaderTab } from '@/hooks/useDataBrowser';
+import { useDataBrowser, type DataBrowserState, type HeaderTab } from '@/hooks/useDataBrowser';
 import { SourceList } from './SourceList';
 import { SchemaTree } from './SchemaTree';
 import { Detail } from './Detail';
@@ -15,10 +16,65 @@ const TABS: { key: HeaderTab; label: string }[] = [
   { key: 'curation', label: 'Curation' },
 ];
 
-/** The data-source module (v0.6) — implements DataBrowser.dc.html. */
+/**
+ * The data-source module (v0.6) — implements DataBrowser.dc.html. The drill-down
+ * (connection → table) is deep-linkable: `/data/:connId/:table`. The URL is the
+ * source of truth — selection handlers navigate, and two effects mirror the
+ * route back into the self-contained `useDataBrowser` hook. Ephemeral UI state
+ * (header tab, detail tab, search, data-model drill-down) stays in the hook.
+ */
 export function DataBrowserView() {
   const db = useDataBrowser();
+  const { connId, table } = useParams<{ connId?: string; table?: string }>();
+  const navigate = useNavigate();
   const [addOpen, setAddOpen] = useState(false);
+
+  // Pull the selection + its stable handles out of the per-render `db` object so
+  // the sync effects below depend on plain identifiers.
+  const { selectedConnId, selectedTable, selectConn, selectTable, backToSources, gotoSchema } = db;
+
+  // URL → hook: select the routed connection (loads its tree).
+  useEffect(() => {
+    if (connId) {
+      if (connId !== selectedConnId) selectConn(connId);
+    } else if (selectedConnId) {
+      backToSources();
+    }
+  }, [connId, selectedConnId, selectConn, backToSources]);
+
+  // URL → hook: select the routed table, but only once its connection is active
+  // (so `selectTable`, which reads `selectedConnId`, has it).
+  useEffect(() => {
+    if (!connId || selectedConnId !== connId) return;
+    // `useParams` already decodes; navigate re-encodes when writing the path.
+    const t = table ?? null;
+    if (t) {
+      if (t !== selectedTable) selectTable(t);
+    } else if (selectedTable) {
+      gotoSchema();
+    }
+  }, [connId, table, selectedConnId, selectedTable, selectTable, gotoSchema]);
+
+  // Hook actions → URL. Navigation is the single source of truth; the effects
+  // above then drive the hook. `addConnection`/`removeConnection` perform their
+  // backend mutation first, then route so the URL tracks the new selection.
+  const cur = connId ?? db.selectedConnId ?? '';
+  const nav: DataBrowserState = {
+    ...db,
+    selectConn: (id) => navigate(`/data/${encodeURIComponent(id)}`),
+    backToSources: () => navigate('/data'),
+    selectTable: (t) => navigate(`/data/${encodeURIComponent(cur)}/${encodeURIComponent(t)}`),
+    gotoSchema: () => navigate(`/data/${encodeURIComponent(cur)}`),
+    addConnection: async (input) => {
+      const created = await db.addConnection(input);
+      navigate(`/data/${encodeURIComponent(created.id)}`);
+      return created;
+    },
+    removeConnection: async (id) => {
+      await db.removeConnection(id);
+      if (id === connId) navigate('/data');
+    },
+  };
 
   return (
     <div className={styles.root}>
@@ -34,41 +90,41 @@ export function DataBrowserView() {
           <button
             key={t.key}
             type="button"
-            className={`${styles.tab} ${db.headerTab === t.key ? styles.tabActive : ''}`}
-            onClick={() => db.pickHeader(t.key)}
+            className={`${styles.tab} ${nav.headerTab === t.key ? styles.tabActive : ''}`}
+            onClick={() => nav.pickHeader(t.key)}
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      {db.headerTab === 'warehouse' ? (
+      {nav.headerTab === 'warehouse' ? (
         <div className={styles.body}>
           <div className={styles.left}>
-            {db.selectedConnId ? (
-              <SchemaTree db={db} />
+            {nav.selectedConnId ? (
+              <SchemaTree db={nav} />
             ) : (
-              <SourceList db={db} onAddConnection={() => setAddOpen(true)} />
+              <SourceList db={nav} onAddConnection={() => setAddOpen(true)} />
             )}
           </div>
           <div className={styles.right}>
-            <Detail db={db} />
+            <Detail db={nav} />
           </div>
         </div>
-      ) : db.headerTab === 'datamodels' ? (
+      ) : nav.headerTab === 'datamodels' ? (
         <div className={styles.right}>
-          <DataModelsPanel db={db} />
+          <DataModelsPanel db={nav} />
         </div>
       ) : (
         <Placeholder
-          icon={db.headerTab === 'recommended' ? 'dashboard' : 'tickCircle'}
-          title={db.headerTab === 'recommended' ? 'Recommended' : 'Curation'}
+          icon={nav.headerTab === 'recommended' ? 'dashboard' : 'tickCircle'}
+          title={nav.headerTab === 'recommended' ? 'Recommended' : 'Curation'}
           subtitle="Nothing here yet."
         />
       )}
 
       {addOpen ? (
-        <AddConnectionDialog onClose={() => setAddOpen(false)} onSubmit={db.addConnection} />
+        <AddConnectionDialog onClose={() => setAddOpen(false)} onSubmit={nav.addConnection} />
       ) : null}
     </div>
   );

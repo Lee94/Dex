@@ -12,10 +12,6 @@ import { apiFetch } from '@/lib/apiClient';
 /** The title a new (untitled) notebook gets — kept here so the hook agrees. */
 export const DEFAULT_NOTEBOOK_TITLE = 'Untitled notebook';
 
-/** localStorage key for the last-open notebook — shared by the hook (restore on
- *  reload) and App (open a thread "as a notebook"). */
-export const ACTIVE_NOTEBOOK_KEY = 'dex.activeNotebookId';
-
 // --- types (mirror the backend route payloads) ------------------------------
 
 export type CellKind = 'sql' | 'viz';

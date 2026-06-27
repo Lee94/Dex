@@ -17,26 +17,8 @@ import type { AssistantMessage, ChatMessage, Thread, ToolStep } from '@/types';
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
 
-const ACTIVE_KEY = 'dex.activeThreadId';
-const readActive = (): string | null => {
-  try {
-    return localStorage.getItem(ACTIVE_KEY);
-  } catch {
-    return null;
-  }
-};
-const writeActive = (id: string | null) => {
-  try {
-    if (id) localStorage.setItem(ACTIVE_KEY, id);
-    else localStorage.removeItem(ACTIVE_KEY);
-  } catch {
-    /* storage unavailable (private mode) — selection just won't persist */
-  }
-};
-
 export function useThreads() {
   const [threads, setThreads] = useState<Thread[]>([]);
-  const [activeId, setActiveIdState] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -44,8 +26,6 @@ export function useThreads() {
   // disabled while streaming).
   const stopRef = useRef<(() => void) | null>(null);
   const didInit = useRef(false);
-
-  const activeThread = threads.find((t) => t.id === activeId) ?? null;
 
   /** Immutably patch a single thread by id. */
   const patchThread = useCallback((threadId: string, patch: (t: Thread) => Thread) => {
@@ -103,30 +83,8 @@ export function useThreads() {
   useEffect(() => {
     if (didInit.current) return; // guard StrictMode double-invoke
     didInit.current = true;
-    void (async () => {
-      const loaded = await refreshList();
-      const saved = readActive();
-      if (saved && loaded.some((t) => t.id === saved)) {
-        setActiveIdState(saved);
-        void loadMessages(saved);
-      }
-    })();
-  }, [refreshList, loadMessages]);
-
-  const setActiveId = useCallback(
-    (id: string | null) => {
-      setActiveIdState(id);
-      writeActive(id);
-      if (!id) return;
-      // Hydrate history the first time a thread is opened.
-      setThreads((prev) => {
-        const t = prev.find((x) => x.id === id);
-        if (t && !t.messagesLoaded && !t.loadingMessages) void loadMessages(id);
-        return prev;
-      });
-    },
-    [loadMessages],
-  );
+    void refreshList();
+  }, [refreshList]);
 
   const createThread = useCallback((): string => {
     const id = newThreadId();
@@ -142,8 +100,6 @@ export function useThreads() {
       messagesLoaded: true, // brand new — nothing to load from the store yet
     };
     setThreads((prev) => [thread, ...prev]);
-    setActiveIdState(id);
-    writeActive(id);
     return id;
   }, []);
 
@@ -161,13 +117,6 @@ export function useThreads() {
 
   const removeThread = useCallback((threadId: string) => {
     setThreads((prev) => prev.filter((t) => t.id !== threadId));
-    setActiveIdState((cur) => {
-      if (cur === threadId) {
-        writeActive(null);
-        return null;
-      }
-      return cur;
-    });
     void deleteThreadApi(threadId).catch((err) => {
       console.error('Failed to delete thread', err);
     });
@@ -342,11 +291,9 @@ export function useThreads() {
 
   return {
     threads,
-    activeId,
-    activeThread,
     listLoading,
     listError,
-    setActiveId,
+    loadMessages,
     refreshList,
     createThread,
     renameThread,

@@ -93,6 +93,7 @@
   border-radius: 6px;
   cursor: pointer;
   background: transparent;
+  text-decoration: none;
   transition: background var(--dex-transition);
 }
 .navRow:hover {
@@ -135,6 +136,7 @@
   padding: 0 9px;
   border-radius: 6px;
   cursor: pointer;
+  text-decoration: none;
   transition: background var(--dex-transition);
 }
 .recentRow:hover {

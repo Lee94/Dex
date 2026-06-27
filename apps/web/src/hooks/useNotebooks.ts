@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ACTIVE_NOTEBOOK_KEY,
   DEFAULT_NOTEBOOK_TITLE,
   createNotebook as createNotebookApi,
   deleteNotebook as deleteNotebookApi,
@@ -18,23 +17,6 @@ import {
 } from '@/lib/notebooks';
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
-const ACTIVE_KEY = ACTIVE_NOTEBOOK_KEY;
-const readActive = (): string | null => {
-  try {
-    return localStorage.getItem(ACTIVE_KEY);
-  } catch {
-    return null;
-  }
-};
-const writeActive = (id: string | null) => {
-  try {
-    if (id) localStorage.setItem(ACTIVE_KEY, id);
-    else localStorage.removeItem(ACTIVE_KEY);
-  } catch {
-    /* storage unavailable (private mode) — selection just won't persist */
-  }
-};
 
 /** Runtime (un-persisted) execution state for a single cell. */
 export interface CellRunState {
@@ -174,14 +156,19 @@ export function useNotebooks() {
 
   // --- open / close ---
   const openNotebook = useCallback(
-    async (id: string) => {
+    async (id: string, initial?: Notebook) => {
       flushSave(); // persist any pending edit to the previous notebook first
       setActiveId(id);
       activeIdRef.current = id;
-      writeActive(id);
       setActive(null);
       setResults({});
       setNotebookError(null);
+      // The route loader may have already fetched it — open instantly, no flash.
+      if (initial && initial.id === id) {
+        setActive(initial);
+        setNotebookLoading(false);
+        return;
+      }
       setNotebookLoading(true);
       try {
         const nb = await getNotebook(id);
@@ -197,30 +184,15 @@ export function useNotebooks() {
     [flushSave, setActive],
   );
 
-  const backToList = useCallback(() => {
-    flushSave();
-    setActiveId(null);
-    activeIdRef.current = null;
-    writeActive(null);
-    setActive(null);
-    setResults({});
-  }, [flushSave, setActive]);
-
-  // --- load list on mount, restore the active selection ---
+  // --- load the list on mount (the active notebook is driven by the route) ---
   useEffect(() => {
     if (didInit.current) return; // guard StrictMode double-invoke
     didInit.current = true;
-    void (async () => {
-      const loaded = await refreshList();
-      const saved = readActive();
-      if (saved && loaded.some((n) => n.id === saved)) {
-        void openNotebook(saved);
-      }
-    })();
-  }, [refreshList, openNotebook]);
+    void refreshList();
+  }, [refreshList]);
 
   // --- notebook CRUD ---
-  const createNotebook = useCallback(async () => {
+  const createNotebook = useCallback(async (): Promise<string | null> => {
     flushSave(); // persist any pending edit before switching away
     setListError(null);
     try {
@@ -228,12 +200,13 @@ export function useNotebooks() {
       setNotebooks((prev) => [summaryOf(nb), ...prev]);
       setActiveId(nb.id);
       activeIdRef.current = nb.id;
-      writeActive(nb.id);
       setActive(nb);
       setResults({});
       setNotebookError(null);
+      return nb.id;
     } catch (e) {
       setListError(errMsg(e));
+      return null;
     }
   }, [flushSave, setActive]);
 
@@ -252,7 +225,6 @@ export function useNotebooks() {
         cancelPendingSave(); // don't save a notebook we're deleting
         setActiveId(null);
         activeIdRef.current = null;
-        writeActive(null);
         setActive(null);
         setResults({});
       }
@@ -405,7 +377,7 @@ export function useNotebooks() {
     notebookLoading,
     notebookError,
     openNotebook,
-    backToList,
+    flushSave,
     retryOpen: () => activeId && openNotebook(activeId),
     // crud
     createNotebook,

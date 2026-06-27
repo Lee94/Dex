@@ -1,32 +1,38 @@
+import { useEffect, useRef } from 'react';
+import { useLoaderData, useNavigate, useParams } from 'react-router';
 import { Icon } from '@/lib/icons';
 import { Button, IconButton } from '@/components/ui';
-import { useNotebooks } from '@/hooks/useNotebooks';
-import { Cell } from './Cell';
-import { NotebookList } from './NotebookList';
-import styles from './notebook.module.css';
+import { Cell } from '@/components/notebook/Cell';
+import { useNotebooksContext } from '@/contexts/NotebooksContext';
+import type { Notebook } from '@/lib/notebooks';
+import styles from '@/components/notebook/notebook.module.css';
 
 /**
- * Notebook surface (v2.0 — NotebookEditor). Switches between the notebook list
- * and the cell editor; drives everything through `useNotebooks` (lazy load,
- * debounced autosave, per-cell run state). Lazy-mounted by `Shell` for the
- * `notebook` view.
+ * The notebook editor at `/notebooks/:id`. The routed id drives which notebook
+ * is open; the route `loader` (see router.tsx) pre-fetches it so opening is
+ * waterfall-free (`openNotebook` reuses the loader payload). Pending edits are
+ * flushed when the route unmounts.
  */
-export function NotebookView() {
-  const nb = useNotebooks();
+export function NotebookEditorRoute() {
+  const { id } = useParams<{ id: string }>();
+  const initial = useLoaderData() as Notebook | null;
+  const nb = useNotebooksContext();
+  const navigate = useNavigate();
 
-  if (!nb.activeId) {
-    return (
-      <NotebookList
-        notebooks={nb.notebooks}
-        loading={nb.listLoading}
-        error={nb.listError}
-        onOpen={nb.openNotebook}
-        onCreate={nb.createNotebook}
-        onRetry={nb.refreshList}
-        onDelete={nb.deleteNotebook}
-      />
-    );
-  }
+  const { openNotebook, flushSave, activeId } = nb;
+
+  // Hold the latest loader payload without making it an effect dependency, so a
+  // loader revalidation can't re-fire the open (which would flush mid-edit).
+  const initialRef = useRef(initial);
+  initialRef.current = initial;
+
+  // Open the routed notebook when the id changes — but skip if it's already the
+  // active one, so editing never reloads it out from under the user. Pending
+  // edits are flushed when the route unmounts.
+  useEffect(() => {
+    if (id && id !== activeId) void openNotebook(id, initialRef.current ?? undefined);
+    return () => flushSave();
+  }, [id, activeId, openNotebook, flushSave]);
 
   const notebook = nb.activeNotebook;
 
@@ -39,7 +45,7 @@ export function NotebookView() {
           color="var(--dex-text-strong)"
           title="All notebooks"
           hover="strong"
-          onClick={nb.backToList}
+          onClick={() => navigate('/notebooks')}
         />
         {notebook ? (
           <input

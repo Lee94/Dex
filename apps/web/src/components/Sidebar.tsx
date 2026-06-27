@@ -1,73 +1,63 @@
 import { useState } from 'react';
+import { NavLink, useNavigate } from 'react-router';
 import { Icon } from '@/lib/icons';
 import { IconButton, Button, Pill } from '@/components/ui';
-import type { Thread } from '@/types';
+import { useThreadsContext } from '@/contexts/ThreadsContext';
 import styles from './Sidebar.module.css';
-
-export type View =
-  | 'threads'
-  | 'thread'
-  | 'notebook'
-  | 'datasource'
-  | 'knowledge'
-  | 'tasks'
-  | 'other';
 
 // How many recent threads to surface in the sidebar.
 const MAX_RECENTS = 8;
 
-type NavItem = { key: string; label: string; view: View; beta?: boolean };
+type NavItem = { key: string; label: string; path: string; beta?: boolean };
 
 const NAV_TOP: NavItem[] = [
-  { key: 'home', label: 'Home', view: 'other' },
-  { key: 'applications', label: 'Context Studio', view: 'other' },
+  { key: 'home', label: 'Home', path: '/home' },
+  { key: 'applications', label: 'Context Studio', path: '/applications' },
 ];
 const NAV_MID: NavItem[] = [
-  { key: 'tasks', label: 'Tasks', view: 'tasks' },
-  { key: 'collections', label: 'Collections', view: 'other' },
-  { key: 'library', label: 'Knowledge', view: 'knowledge' },
+  { key: 'tasks', label: 'Tasks', path: '/tasks' },
+  { key: 'collections', label: 'Collections', path: '/collections' },
+  { key: 'library', label: 'Knowledge', path: '/knowledge' },
 ];
 const NAV_MAIN: NavItem[] = [
-  { key: 'threads', label: 'Threads', view: 'threads', beta: true },
-  { key: 'projects', label: 'Projects', view: 'notebook' },
-  { key: 'components', label: 'Components', view: 'other' },
-  { key: 'explorations', label: 'Explorations', view: 'other' },
-  { key: 'data', label: 'Data', view: 'datasource' },
+  { key: 'threads', label: 'Threads', path: '/threads', beta: true },
+  { key: 'projects', label: 'Projects', path: '/notebooks' },
+  { key: 'components', label: 'Components', path: '/components' },
+  { key: 'explorations', label: 'Explorations', path: '/explorations' },
+  { key: 'data', label: 'Data', path: '/data' },
 ];
 
-export function Sidebar({
-  nav,
-  threads,
-  onNavigate,
-  onNewThread,
-  onOpenThread,
-}: {
-  nav: string;
-  threads: Thread[];
-  onNavigate: (view: View, navKey: string, title: string) => void;
-  onNewThread: () => void;
-  onOpenThread: (id: string) => void;
-}) {
+export function Sidebar() {
+  const { threads, createThread } = useThreadsContext();
+  const navigate = useNavigate();
   const [recentsOpen, setRecentsOpen] = useState(true);
   const recents = threads.slice(0, MAX_RECENTS);
 
+  const newThread = () => navigate(`/threads/${createThread()}`);
+
+  // Nav rows are links now — active state comes from the URL via NavLink.
   const renderNav = (items: NavItem[]) =>
-    items.map((it) => {
-      const active = it.key === nav;
-      return (
-        <div
-          key={it.key}
-          className={`${styles.navRow} ${active ? styles.navRowActive : ''}`}
-          onClick={() => onNavigate(it.view, it.key, it.label)}
-        >
-          <Icon name={it.key} size={15} color={active ? 'var(--dex-primary)' : 'var(--dex-icon)'} />
-          <span className={`${styles.navLabel} ${active ? styles.navLabelActive : ''}`}>
-            {it.label}
-          </span>
-          {it.beta ? <Pill tone="beta">Beta</Pill> : null}
-        </div>
-      );
-    });
+    items.map((it) => (
+      <NavLink
+        key={it.key}
+        to={it.path}
+        className={({ isActive }) => `${styles.navRow} ${isActive ? styles.navRowActive : ''}`}
+      >
+        {({ isActive }) => (
+          <>
+            <Icon
+              name={it.key}
+              size={15}
+              color={isActive ? 'var(--dex-primary)' : 'var(--dex-icon)'}
+            />
+            <span className={`${styles.navLabel} ${isActive ? styles.navLabelActive : ''}`}>
+              {it.label}
+            </span>
+            {it.beta ? <Pill tone="beta">Beta</Pill> : null}
+          </>
+        )}
+      </NavLink>
+    ));
 
   const divider = <div className={styles.divider} />;
 
@@ -92,21 +82,17 @@ export function Sidebar({
 
       {/* quick create */}
       <div className={styles.quickRow}>
-        <Button
-          variant="quick"
-          onClick={() => onNavigate('notebook', 'projects', 'Projects')}
-          style={{ flex: 1 }}
-        >
+        <Button variant="quick" onClick={() => navigate('/notebooks')} style={{ flex: 1 }}>
           <Icon name="projects" size={13} color="var(--dex-icon)" />
           Project
         </Button>
-        <Button variant="quick" onClick={onNewThread} style={{ flex: 1 }}>
+        <Button variant="quick" onClick={newThread} style={{ flex: 1 }}>
           <Icon name="threads" size={13} color="var(--dex-accent)" />
           Thread
         </Button>
         <Button
           variant="quick"
-          onClick={onNewThread}
+          onClick={newThread}
           style={{ width: 30, flex: 'none', padding: 0 }}
           title="New"
         >
@@ -149,10 +135,10 @@ export function Sidebar({
               <div className={styles.recentsEmpty}>No threads yet</div>
             ) : (
               recents.map((t) => (
-                <div key={t.id} className={styles.recentRow} onClick={() => onOpenThread(t.id)}>
+                <NavLink key={t.id} to={`/threads/${t.id}`} className={styles.recentRow}>
                   <Icon name="threads" size={14} color="var(--dex-icon-subtle)" />
                   <span className={styles.recentLabel}>{t.title}</span>
-                </div>
+                </NavLink>
               ))
             )}
           </div>
