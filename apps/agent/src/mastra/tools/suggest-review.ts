@@ -11,17 +11,23 @@ import { createReviewRequest } from '../db/reviews';
  * surfaces it *alongside* a complete answer — never as a substitute for one.
  */
 export const suggestReviewTool = createTool({
-  id: 'suggest_review',
+  id: 'SuggestReview',
   description:
-    'Flag the current answer for a data-team review when your interpretation is genuinely ambiguous ' +
-    'or your confidence is low (an off-model metric, two plausible readings of a field, a high-stakes ' +
-    'number). This does NOT replace answering — still give your best complete answer, then call this ' +
-    'and tell the user you have flagged it for review and why.',
+    'Suggest that the user request a review from their data team. This shows the user a banner asking ' +
+    "'Is this correct? You can request a review from your data team'; it does NOT send anything unless " +
+    'the user accepts. Call this when: the user expresses doubt about the result; the data available ' +
+    'is incomplete or ambiguous and your answer relies on assumptions they may not share; you had to ' +
+    'choose between multiple plausible interpretations; or you investigated thoroughly but could not ' +
+    'give a clear answer. Do NOT call it merely because there were SQL/tool errors but you still ' +
+    'reached an answer, when you need clarification (ask instead), or when the user is satisfied. ' +
+    'CRITICAL: this banner adds no visible text — it must be the second-to-last thing in your turn, ' +
+    'and you MUST still write a complete, standalone answer AFTER it.',
   inputSchema: z.object({
-    question: z.string().describe('The question being answered.'),
+    question: z.string().optional().describe('The question being answered (optional).'),
     reason: z
       .string()
-      .describe('Why a human review is warranted — the specific ambiguity or risk.'),
+      .optional()
+      .describe('Why a human review is warranted — the specific ambiguity or risk (optional).'),
   }),
   outputSchema: z.object({
     requested: z.boolean(),
@@ -29,7 +35,10 @@ export const suggestReviewTool = createTool({
     message: z.string(),
   }),
   execute: async (input) => {
-    const review = await createReviewRequest({ question: input.question, reason: input.reason });
+    const review = await createReviewRequest({
+      question: input?.question ?? 'Answer flagged for review',
+      reason: input?.reason ?? 'The analyst flagged this answer as ambiguous or low-confidence.',
+    });
     return {
       requested: true,
       reviewId: review.id,

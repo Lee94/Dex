@@ -1,0 +1,40 @@
+{
+	"dslVersion": "1",
+	"dataVersion": "10.10.0",
+	"id": "vinci-cb-1",
+	"name": "男女人口对比",
+
+	"fields": {
+		"年龄段": { "from": "年龄段", "type": "string" },
+		"男性人口": { "from": "男性人口", "type": "number" },
+		"女性人口": { "from": "女性人口", "type": "number" }
+	},
+
+	"encoding": {
+		"x": [
+			{ "field": "男性人口", "summary": "sum", "axis": { "reverse": true } },
+			{ "field": "女性人口", "summary": "sum", "axis": { "reverse": false } }
+		],
+		"y": ["年龄段:same"],
+		"cols": { "display": "parallel" }
+	},
+
+	"geoms": {
+		"男性人口": { "type": "interval", "color": "$metric" },
+		"女性人口": { "type": "interval", "color": "$metric" }
+	},
+
+	"settings": {
+		"chart": {
+			"lines": {
+				"axisLine": { "horizontal": false },
+				"gridLine": { "horizontal": false }
+			}
+		},
+		"table": {}
+	},
+	"theme": {
+		"preset": "default",
+		"overrides": {}
+	}
+}

@@ -1,28 +1,39 @@
 import { Agent } from '@mastra/core/agent';
 import { model } from '../model';
+import { createVizCellTool } from '../tools/create-viz-cell';
+import { cellSearchTool } from '../tools/cell-search';
+import { VIZ_DSL_REFERENCE } from './viz-dsl-reference';
 
 /**
- * Visualization specialist (v1.2), invoked by the main analyst via the
- * `delegate_to_visualization` tool (Hex `DelegateToVisualizationAgent`).
+ * Visualization specialist (Hex `DelegateToVisualizationAgent`), invoked by the
+ * analyst via `delegate_to_visualization`.
  *
- * It owns no data tools — given a question and a description of a result's shape
- * (columns + types + a few sample values), it recommends how to visualize it:
- * chart type, the x / measure mapping, a title, and formatting notes. The analyst
- * then renders the actual card with its query tools (the v0.5 result cards) using
- * this recommendation. Internal; only the analyst delegates to it.
+ * Autonomous (Hex-style): given an analytical goal + the upstream data source
+ * (a SQL cell's outputName + its columns/types), it **owns the chart** — it picks
+ * the chart type, authors a vinci **surface DSL**, and creates the viz cell itself
+ * with `create_viz_cell` (binding it to the source's outputName). It does NOT query
+ * data; the chart aggregates the upstream rows per the DSL's encoding. Internal;
+ * only the analyst delegates to it. It runs in the analyst's thread, so the cell it
+ * creates lands in that thread's notebook.
  */
 export const visualizationAgent = new Agent({
   id: 'visualization',
   name: 'Visualization',
-  instructions: `You are a data-visualization specialist working for a lead data analyst. You are given a question and a description of a result set (column names, their types, and a few sample rows). You do NOT query data — you recommend how to present it.
+  instructions: `You are a data-visualization specialist working for a lead data analyst. You OWN visualization: given an analytical goal and a description of the data (an upstream SQL cell's outputName + its columns and types, plus a few sample rows), you choose the best chart and CREATE it.
 
-Recommend, concisely:
-- **chart type**: one of table / bar / line / area. Use a **line** (or area) for a time series (a temporal first column), a **bar** for comparing a categorical dimension, and a **table** for multi-dimensional or detail-level results where no single chart reads cleanly.
-- **mapping**: which column is the x-axis / category and which is the measure (value).
-- **title**: a short, human title for the card.
-- **notes**: formatting or ordering advice (sort by value, format as currency/percent, cap to top-N, etc.) and any caveat.
+How you work:
+1. Decide the chart from the goal and the columns: a **time series** (a date/time dimension) → line; a **comparison across categories** → bars (interval); **part-of-whole** → bars (interval — there is no pie geom); two measures over one dimension → multi-series.
+2. Author a **vinci surface DSL** (see the reference below) over the source's columns — declare the fields, map the dimension(s) to \`x\` and the measure(s) to \`y\`, set the geom, and let the encoding's summary/group do the aggregation (do NOT assume the data is pre-aggregated).
+3. Call **create_viz_cell** with the source's \`sourceOutputName\` and your \`dsl\`. That creates the chart cell in the notebook and returns its cellId.
+4. Reply with one short line naming the cellId you created and the chart you chose (e.g. "Created [cell:<id>] — a line chart of revenue by month"). The analyst embeds it.
 
-Keep it to a few lines of structured advice — the analyst will produce the actual result card using your recommendation.`,
+Use CellSearch if you need to confirm the upstream cell's outputName or columns. Use exact column names. Don't pre-aggregate or pre-filter — express that in the DSL. Keep your reply to one line; the analyst writes the user-facing answer.
+
+${VIZ_DSL_REFERENCE}`,
   model,
-  defaultOptions: { maxSteps: 2 },
+  tools: {
+    create_viz_cell: createVizCellTool,
+    CellSearch: cellSearchTool,
+  },
+  defaultOptions: { maxSteps: 5 },
 });

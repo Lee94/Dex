@@ -1,0 +1,20 @@
+{
+	"dslVersion": "1",
+	"dataVersion": "10.10.0",
+	"name": "总销售额 KPI",
+
+	"fields": {
+		"销售额": { "from": "销售额", "type": "number" }
+	},
+
+	"geoms": {
+		"$graphic": {
+			"type": "text",
+			"text": { "fields": ["销售额"] },
+			"options": { "fit": true }
+		}
+	},
+
+	"settings": {},
+	"theme": {}
+}

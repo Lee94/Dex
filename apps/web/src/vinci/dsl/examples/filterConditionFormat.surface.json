@@ -1,0 +1,67 @@
+{
+	"dslVersion": "1",
+	"dataVersion": "10.10.0",
+	"name": "区域销售额（带筛选与条件格式）",
+
+	"fields": {
+		"区域": { "from": "区域", "type": "string" },
+		"销售额": { "from": "销售额", "type": "number" }
+	},
+
+	"encoding": {
+		"x": ["区域:same"],
+		"y": ["销售额:sum"]
+	},
+
+	"geoms": {
+		"销售额": { "type": "interval" }
+	},
+
+	"filter": [
+		{
+			"filterType": "and",
+			"filterValue": [
+				{
+					"id": "flt-1",
+					"filterType": "num_gte",
+					"fieldId": "销售额:sum",
+					"filterValue": "100",
+					"filterValueType": "fixed"
+				},
+				{
+					"id": "flt-2",
+					"filterType": "str_in",
+					"fieldId": "区域:same",
+					"filterValue": { "type": "include", "value": ["华东", "华南"] }
+				}
+			]
+		}
+	],
+
+	"fieldGroupConfigs": {
+		"销售额:sum": {
+			"displayName": "销售总额",
+			"textIcon": [
+				{
+					"when": "this >= 8000000",
+					"result": {
+						"textColor": "#0E9F6E",
+						"iconShape": "arrows_up",
+						"iconColor": "#0E9F6E"
+					}
+				},
+				{
+					"when": "this < 3000000",
+					"result": {
+						"textColor": "#E02424",
+						"iconShape": "arrows_down",
+						"iconColor": "#E02424"
+					}
+				}
+			]
+		}
+	},
+
+	"settings": {},
+	"theme": {}
+}

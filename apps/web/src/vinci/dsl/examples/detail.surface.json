@@ -1,0 +1,19 @@
+{
+	"dslVersion": "1",
+	"dataVersion": "10.10.0",
+	"name": "订单明细",
+	"chartType": "detail",
+
+	"fields": {
+		"区域": { "from": "区域", "type": "string" },
+		"销售额": { "from": "销售额", "type": "number" },
+		"日期": { "from": "日期", "type": "date" }
+	},
+
+	"encoding": {
+		"values": ["区域", "销售额", "日期"]
+	},
+
+	"settings": {},
+	"theme": {}
+}

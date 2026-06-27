@@ -1,0 +1,175 @@
+{
+	"$modelType": "vinci/root",
+	"$modelId": "root-cb",
+	"id": "vinci-cb-1",
+	"name": "男女人口对比",
+	"dataVersion": "10.10.0",
+	"chartType": "custom",
+
+	"table": {
+		"$modelType": "vinci/table",
+		"$modelId": "table-cb",
+		"id": "table-cb",
+		"name": "人口明细",
+		"fields": [
+			{ "name": "年龄段", "type": 16 },
+			{ "name": "男性人口", "type": 32 },
+			{ "name": "女性人口", "type": 32 }
+		],
+		"params": [],
+		"missParams": []
+	},
+
+	"encoding": {
+		"$modelType": "vinci/encoding",
+		"$modelId": "encoding-cb",
+		"cols": [
+			{
+				"$modelType": "vinci/encoding/field",
+				"$modelId": "f-男性人口",
+				"id": "f-男性人口",
+				"origin": { "name": "男性人口", "type": 32 },
+				"group": { "type": 0 },
+				"summary": { "type": 1 },
+				"calculation": { "type": 0 },
+				"total": { "type": "sum" }
+			},
+			{
+				"$modelType": "vinci/encoding/field",
+				"$modelId": "f-女性人口",
+				"id": "f-女性人口",
+				"origin": { "name": "女性人口", "type": 32 },
+				"group": { "type": 0 },
+				"summary": { "type": 1 },
+				"calculation": { "type": 0 },
+				"total": { "type": "sum" }
+			}
+		],
+		"rows": [
+			{
+				"$modelType": "vinci/encoding/field",
+				"$modelId": "f-年龄段",
+				"id": "f-年龄段",
+				"origin": { "name": "年龄段", "type": 16 },
+				"group": { "type": 1 },
+				"summary": { "type": 0 },
+				"calculation": { "type": 0 },
+				"total": { "type": "sum" }
+			}
+		],
+		"values": [],
+		"totals": {
+			"col": { "position": "none", "grand": true, "sub": true },
+			"row": { "position": "none", "grand": true, "sub": true }
+		},
+		"geoms": {
+			"series": [
+				{
+					"$modelType": "vinci/encoding/geoms/series",
+					"$modelId": "g-男性人口",
+					"field": "f-男性人口",
+					"type": "interval",
+					"attributes": {
+						"color": {
+							"fields": [
+								{
+									"$modelType": "vinci/encoding/field",
+									"$modelId": "f-metric-name",
+									"id": "f-metric-name",
+									"origin": { "name": "__metric_name__", "type": 16 },
+									"group": { "type": 1 },
+									"summary": { "type": 0 },
+									"calculation": { "type": 0 },
+									"total": { "type": "sum" }
+								}
+							]
+						}
+					}
+				},
+				{
+					"$modelType": "vinci/encoding/geoms/series",
+					"$modelId": "g-女性人口",
+					"field": "f-女性人口",
+					"type": "interval",
+					"attributes": {
+						"color": {
+							"fields": [
+								{
+									"$modelType": "vinci/encoding/field",
+									"$modelId": "f-metric-name-2",
+									"id": "f-metric-name-2",
+									"origin": { "name": "__metric_name__", "type": 16 },
+									"group": { "type": 1 },
+									"summary": { "type": 0 },
+									"calculation": { "type": 0 },
+									"total": { "type": "sum" }
+								}
+							]
+						}
+					}
+				}
+			],
+			"graphic": {
+				"$modelType": "vinci/encoding/geoms/series",
+				"$modelId": "g-graphic",
+				"field": "__graphic__",
+				"type": "interval",
+				"attributes": {}
+			}
+		},
+		"buckets": [],
+		"config": {
+			"cols": { "type": "parallel" },
+			"rows": { "type": "aggregate" }
+		},
+		"forbiddenFields": []
+	},
+
+	"filter": [],
+	"sort": [],
+	"metrics": [],
+	"fieldConfigs": {
+		"f-男性人口": {
+			"valueAxisConfig": {
+				"reverse": true,
+				"title": { "enabled": false },
+				"label": { "enabled": true },
+				"domain": { "type": "auto" },
+				"logBase": false
+			}
+		},
+		"f-女性人口": {
+			"valueAxisConfig": {
+				"reverse": false,
+				"title": { "enabled": false },
+				"label": { "enabled": true },
+				"domain": { "type": "auto" },
+				"logBase": false
+			}
+		}
+	},
+	"fieldGroupConfigs": {},
+	"tableFieldConfigs": {},
+
+	"settings": {
+		"chart": {
+			"$modelType": "vinci/chartSettings",
+			"lines": {
+				"$modelType": "vinci/chartSettings/chartLines",
+				"axisLine": { "h": { "enabled": false } },
+				"gridLine": { "h": { "enabled": false } },
+				"sectionLine": {}
+			}
+		},
+		"table": { "$modelType": "vinci/tableSettings" }
+	},
+	"theme": {
+		"$modelType": "vinci/ThemeModel",
+		"$modelId": "theme-cb",
+		"preset": "default",
+		"overrides": {}
+	},
+
+	"packageProxy": null,
+	"extension": null
+}

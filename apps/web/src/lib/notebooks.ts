@@ -18,19 +18,21 @@ export const ACTIVE_NOTEBOOK_KEY = 'dex.activeNotebookId';
 
 // --- types (mirror the backend route payloads) ------------------------------
 
-export type CellKind = 'sql';
+export type CellKind = 'sql' | 'viz';
 
 export interface NotebookCell {
   id: string;
   kind: CellKind;
-  /** The cell's source — for a SQL cell, the query text. */
+  /** The cell's source — for a SQL cell, the query text. (Empty for a viz cell.) */
   source: string;
   /** A named output downstream cells can chain off via `FROM <outputName>`. */
   outputName?: string;
   /** Run against another registered source; omitted = the builtin warehouse. */
   datasourceId?: string;
-  /** Optional visualization hint (chart type + x/y columns) for the result card. */
-  chart?: import('@/types').ChartHint;
+  /** viz cell: the upstream SQL cell's `outputName` whose rows this chart visualizes. */
+  sourceOutputName?: string;
+  /** viz cell: the vinci surface DSL (SurfaceDoc) describing the chart. */
+  dsl?: unknown;
 }
 
 export interface Notebook {
@@ -49,7 +51,7 @@ export interface NotebookSummary {
   updatedAt: number;
 }
 
-/** The shape `/query/run` returns on success — same as `run_sql`'s result. */
+/** The shape `/query/run` returns on success — same as `RunSQL`'s result. */
 export interface SqlRunResult {
   columns: string[];
   rows: Record<string, unknown>[];
@@ -127,6 +129,17 @@ const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toStr
 /** A fresh, empty SQL cell. */
 export function newSqlCell(source = ''): NotebookCell {
   return { id: uid(), kind: 'sql', source };
+}
+
+/** A fresh viz cell bound to an upstream SQL cell's output (DSL filled in on first render). */
+export function newVizCell(sourceOutputName = '', dsl?: unknown): NotebookCell {
+  return {
+    id: uid(),
+    kind: 'viz',
+    source: '',
+    sourceOutputName: sourceOutputName || undefined,
+    dsl,
+  };
 }
 
 /** Project a full notebook to its list-row summary (for optimistic updates). */

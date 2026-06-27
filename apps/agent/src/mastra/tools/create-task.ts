@@ -11,10 +11,11 @@ import { createTask } from '../db/tasks';
  * guard as everything else. Confirm the schedule with the user before creating it.
  */
 export const createTaskTool = createTool({
-  id: 'create_task',
+  id: 'CreateTask',
   description:
-    'Schedule a read-only SQL query to re-run on a cron schedule, with optional alerting and delivery. ' +
-    'Use this when the user wants a recurring/monitored number ("every morning", "alert me if X drops ' +
+    'Create a scheduled task that re-runs a read-only SQL query on a cadence and delivers the result ' +
+    '(optionally alerting when a value crosses a threshold or changes). Use this when the user wants a ' +
+    'recurring or monitored number ("every weekday morning", "alert me if completed revenue drops ' +
     'below Y"). The cron is a standard 5-field expression (min hour day month weekday). Confirm the ' +
     "schedule, query, and any alert with the user first. Re-runs go through Dex's read-only guard.",
   inputSchema: z.object({

@@ -1,0 +1,162 @@
+{
+	"$modelType": "vinci/root",
+	"$modelId": "root-cl",
+	"id": "vinci-cl-1",
+	"name": "区域销售额与利润率",
+	"dataVersion": "10.10.0",
+	"chartType": "custom",
+
+	"table": {
+		"$modelType": "vinci/table",
+		"$modelId": "table-cl",
+		"id": "table-cl",
+		"name": "销售明细",
+		"fields": [
+			{ "name": "区域", "type": 16 },
+			{ "name": "销售额", "type": 32 },
+			{ "name": "利润率", "type": 32 }
+		],
+		"params": [],
+		"missParams": []
+	},
+
+	"encoding": {
+		"$modelType": "vinci/encoding",
+		"$modelId": "encoding-cl",
+		"cols": [
+			{
+				"$modelType": "vinci/encoding/field",
+				"$modelId": "f-region",
+				"id": "f-region",
+				"origin": { "name": "区域", "type": 16 },
+				"group": { "type": 1 },
+				"summary": { "type": 0 },
+				"calculation": { "type": 0 },
+				"total": { "type": "sum" }
+			}
+		],
+		"rows": [
+			{
+				"$modelType": "vinci/encoding/field",
+				"$modelId": "f-sales",
+				"id": "f-sales",
+				"origin": { "name": "销售额", "type": 32 },
+				"group": { "type": 0 },
+				"summary": { "type": 1 },
+				"calculation": { "type": 0 },
+				"total": { "type": "sum" },
+				"bucketId": "ax-main"
+			},
+			{
+				"$modelType": "vinci/encoding/field",
+				"$modelId": "f-profit",
+				"id": "f-profit",
+				"origin": { "name": "利润率", "type": 32 },
+				"group": { "type": 0 },
+				"summary": { "type": 2 },
+				"calculation": { "type": 0 },
+				"total": { "type": "sum" },
+				"bucketId": "ax-secondary"
+			}
+		],
+		"values": [],
+		"totals": {
+			"col": { "position": "none", "grand": true, "sub": true },
+			"row": { "position": "none", "grand": true, "sub": true }
+		},
+		"geoms": {
+			"series": [
+				{
+					"$modelType": "vinci/encoding/geoms/series",
+					"$modelId": "g-sales",
+					"field": "f-sales",
+					"type": "interval",
+					"attributes": {
+						"color": {
+							"fields": [
+								{
+									"$modelType": "vinci/encoding/field",
+									"$modelId": "f-metric-name",
+									"id": "f-metric-name",
+									"origin": { "name": "__metric_name__", "type": 16 },
+									"group": { "type": 1 },
+									"summary": { "type": 0 },
+									"calculation": { "type": 0 },
+									"total": { "type": "sum" }
+								}
+							]
+						}
+					}
+				},
+				{
+					"$modelType": "vinci/encoding/geoms/series",
+					"$modelId": "g-profit",
+					"field": "f-profit",
+					"type": "line",
+					"attributes": {
+						"color": {
+							"fields": [
+								{
+									"$modelType": "vinci/encoding/field",
+									"$modelId": "f-metric-name-2",
+									"id": "f-metric-name-2",
+									"origin": { "name": "__metric_name__", "type": 16 },
+									"group": { "type": 1 },
+									"summary": { "type": 0 },
+									"calculation": { "type": 0 },
+									"total": { "type": "sum" }
+								}
+							]
+						},
+						"options": { "line": { "lineType": "curve", "marker": true } }
+					}
+				}
+			],
+			"graphic": {
+				"$modelType": "vinci/encoding/geoms/series",
+				"$modelId": "g-graphic",
+				"field": "__graphic__",
+				"type": "interval",
+				"attributes": {}
+			}
+		},
+		"buckets": [
+			{ "id": "ax-main", "type": "main", "options": {} },
+			{ "id": "ax-secondary", "type": "secondary", "options": {} }
+		],
+		"config": {
+			"cols": { "type": "aggregate" },
+			"rows": { "type": "aggregate" }
+		},
+		"forbiddenFields": []
+	},
+
+	"filter": [],
+	"sort": [],
+	"metrics": [],
+	"fieldConfigs": {},
+	"fieldGroupConfigs": {},
+	"tableFieldConfigs": {},
+
+	"settings": {
+		"chart": {
+			"$modelType": "vinci/chartSettings",
+			"lines": {
+				"$modelType": "vinci/chartSettings/chartLines",
+				"axisLine": { "v": { "enabled": false } },
+				"gridLine": { "v": { "enabled": false } },
+				"sectionLine": {}
+			}
+		},
+		"table": { "$modelType": "vinci/tableSettings" }
+	},
+	"theme": {
+		"$modelType": "vinci/ThemeModel",
+		"$modelId": "theme-cl",
+		"preset": "default",
+		"overrides": {}
+	},
+
+	"packageProxy": null,
+	"extension": null
+}

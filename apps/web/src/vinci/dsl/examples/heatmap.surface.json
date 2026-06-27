@@ -1,0 +1,27 @@
+{
+	"dslVersion": "1",
+	"dataVersion": "10.10.0",
+	"name": "星期×时段访问量热力图",
+
+	"fields": {
+		"星期": { "from": "星期", "type": "string" },
+		"时段": { "from": "时段", "type": "string" },
+		"访问量": { "from": "访问量", "type": "number" }
+	},
+
+	"encoding": {
+		"x": ["星期:same"],
+		"y": ["时段:same"],
+		"values": ["访问量:sum"]
+	},
+
+	"geoms": {
+		"访问量": {
+			"type": "rect",
+			"color": { "fields": ["访问量"], "gradual": false }
+		}
+	},
+
+	"settings": {},
+	"theme": {}
+}

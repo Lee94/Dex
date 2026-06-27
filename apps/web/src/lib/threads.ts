@@ -127,7 +127,7 @@ export async function deleteThread(threadId: string): Promise<void> {
 //
 // A stored message is `{ role, createdAt, content: { parts: [...] } }`. Parts we
 // care about: `text` (answer), `reasoning` (summarized thinking), and
-// `tool-invocation` (a step in the "show your work" timeline; a run_sql result
+// `tool-invocation` (a step in the "show your work" timeline; a SQL result
 // becomes a ResultCard via isSqlResult). Consecutive assistant messages from one
 // turn are merged into a single assistant block, mirroring the live stream UI.
 

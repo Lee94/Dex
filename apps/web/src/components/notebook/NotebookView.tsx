@@ -88,26 +88,46 @@ export function NotebookView() {
                 This notebook is empty. Add a SQL cell to get started.
               </div>
             ) : (
-              notebook.cells.map((cell, i) => (
-                <Cell
-                  key={cell.id}
-                  cell={cell}
-                  index={i}
-                  runState={nb.results[cell.id]}
-                  canMoveUp={i > 0}
-                  canMoveDown={i < notebook.cells.length - 1}
-                  onChange={(source) => nb.updateCellSource(cell.id, source)}
-                  onOutputNameChange={(name) => nb.updateCellOutputName(cell.id, name)}
-                  onRun={() => void nb.runCell(cell)}
-                  onDelete={() => nb.deleteCell(cell.id)}
-                  onMove={(dir) => nb.moveCell(cell.id, dir)}
-                />
-              ))
+              notebook.cells.map((cell, i) => {
+                // viz cell: resolve the upstream SQL cell's latest result by outputName.
+                const src =
+                  cell.kind === 'viz' && cell.sourceOutputName
+                    ? notebook.cells.find(
+                        (c) => c.kind === 'sql' && c.outputName === cell.sourceOutputName,
+                      )
+                    : undefined;
+                const sources = notebook.cells
+                  .filter((c) => c.kind === 'sql' && c.outputName)
+                  .map((c) => c.outputName as string);
+                return (
+                  <Cell
+                    key={cell.id}
+                    cell={cell}
+                    index={i}
+                    runState={nb.results[cell.id]}
+                    canMoveUp={i > 0}
+                    canMoveDown={i < notebook.cells.length - 1}
+                    onChange={(source) => nb.updateCellSource(cell.id, source)}
+                    onOutputNameChange={(name) => nb.updateCellOutputName(cell.id, name)}
+                    onRun={() => void nb.runCell(cell)}
+                    onDelete={() => nb.deleteCell(cell.id)}
+                    onMove={(dir) => nb.moveCell(cell.id, dir)}
+                    sourceResult={src ? nb.results[src.id]?.result : undefined}
+                    sources={sources}
+                    onDslChange={(dsl) => nb.updateCellDsl(cell.id, dsl)}
+                    onSourceChange={(name) => nb.updateCellSourceOutputName(cell.id, name)}
+                  />
+                );
+              })
             )}
             <div className={styles.addCellRow}>
               <Button variant="quick" onClick={nb.addCell} style={{ gap: 7 }}>
                 <Icon name="plus" size={13} color="var(--dex-icon)" />
                 Add SQL cell
+              </Button>
+              <Button variant="quick" onClick={nb.addVizCell} style={{ gap: 7 }}>
+                <Icon name="plus" size={13} color="var(--dex-icon)" />
+                Add viz cell
               </Button>
             </div>
           </div>

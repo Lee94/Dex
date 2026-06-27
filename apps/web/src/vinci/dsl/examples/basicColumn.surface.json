@@ -1,0 +1,22 @@
+{
+	"dslVersion": "1",
+	"dataVersion": "10.10.0",
+	"name": "各品类销售额",
+
+	"fields": {
+		"品类": { "from": "品类", "type": "string" },
+		"销售额": { "from": "销售额", "type": "number" }
+	},
+
+	"encoding": {
+		"x": ["品类:same"],
+		"y": ["销售额:sum"]
+	},
+
+	"geoms": {
+		"销售额": { "type": "interval" }
+	},
+
+	"settings": {},
+	"theme": {}
+}

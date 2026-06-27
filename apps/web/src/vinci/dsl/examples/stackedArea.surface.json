@@ -1,0 +1,26 @@
+{
+	"dslVersion": "1",
+	"dataVersion": "10.10.0",
+	"name": "月度销量堆叠面积",
+
+	"fields": {
+		"月份": { "from": "月份", "type": "string" },
+		"销量": { "from": "销量", "type": "number" }
+	},
+
+	"encoding": {
+		"x": ["月份:same"],
+		"y": ["销量:sum"]
+	},
+
+	"geoms": {
+		"销量": {
+			"type": "area",
+			"color": { "fields": [], "gradual": true, "opacity": 0.4 },
+			"options": { "lineType": "curve", "stack": true }
+		}
+	},
+
+	"settings": {},
+	"theme": {}
+}

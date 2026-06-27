@@ -9,11 +9,12 @@ import { getThreadSummary, listThreadSummaries } from '../db/thread-summaries';
  * re-deriving something a previous analysis already established.
  */
 export const readPastThreadSummaryTool = createTool({
-  id: 'read_past_thread_summary',
+  id: 'ReadPastThreadSummary',
   description:
-    'Recall what happened in earlier threads. Call with no argument to list recent thread summaries ' +
-    '(title + gist), or with a threadId to read one in full. Use this when the user references prior ' +
-    'work ("like last time", "the analysis from yesterday") so you can build on it instead of redoing it.',
+    'Read structured summaries of past conversation threads. Call with no argument to list recent ' +
+    'thread summaries (title + gist), or with a threadId to read one in full. Use this when the user ' +
+    'references prior work ("like last time", "the analysis from yesterday") so you can build on what ' +
+    'was already established instead of redoing it. Cite what you recalled in plain language.',
   inputSchema: z.object({
     threadId: z.string().optional().describe('A thread id to read. Omit to list recent summaries.'),
   }),

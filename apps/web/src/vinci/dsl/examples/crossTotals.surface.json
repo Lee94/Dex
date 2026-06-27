@@ -1,0 +1,31 @@
+{
+	"dslVersion": "1",
+	"dataVersion": "10.10.0",
+	"name": "区域×类别交叉表（含汇总）",
+	"chartType": "cross",
+
+	"fields": {
+		"类别": { "from": "类别", "type": "string" },
+		"区域": { "from": "区域", "type": "string" },
+		"销售额": { "from": "销售额", "type": "number" },
+		"利润率": { "from": "利润率", "type": "number" }
+	},
+
+	"encoding": {
+		"x": ["类别:same"],
+		"y": ["区域:same"],
+		"values": ["销售额:sum", "利润率:avg"],
+		"totals": {
+			"col": { "position": "right", "grand": true, "sub": false },
+			"row": { "position": "bottom", "grand": true, "sub": false }
+		}
+	},
+
+	"fieldGroupConfigs": {
+		"销售额:sum": { "displayName": "销售总额" },
+		"利润率:avg": { "displayName": "平均利润率" }
+	},
+
+	"settings": {},
+	"theme": {}
+}

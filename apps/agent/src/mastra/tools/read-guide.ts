@@ -10,12 +10,15 @@ import { getGuide, listGuides } from '../db/guides';
  * the standard rather than re-deriving them.
  */
 export const readGuideTool = createTool({
-  id: 'read_guide',
+  id: 'ReadGuide',
   description:
-    'Consult the organization knowledge base of guides (metric definitions, terminology, approved ' +
-    'query patterns). Call with NO argument to list the available guides, then call again with a ' +
-    "`guide` (its slug) to read one in full. Consult relevant guides early and treat a guide's " +
-    'definition as authoritative — do not re-derive a metric a guide already defines.',
+    'Read the full contents of organization guides — curated knowledge about metric definitions, ' +
+    'terminology, approved query/filtering patterns, chart standards, and business context. Consult ' +
+    'guides EARLY in your analysis to guide your approach, and whenever their purpose matches your ' +
+    'task (writing queries, defining a metric, an unfamiliar concept). Call with NO argument to list ' +
+    "the available guides, then call again with a `guide` (its slug) to read one in full. A guide's " +
+    'definition is authoritative — do not re-derive a metric a guide already defines, and follow ' +
+    'cross-references to other guides when relevant.',
   inputSchema: z.object({
     guide: z
       .string()

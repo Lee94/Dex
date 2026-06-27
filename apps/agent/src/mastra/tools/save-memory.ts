@@ -11,12 +11,14 @@ import { saveMemory } from '../db/memories';
  * context on every future turn, including new threads.
  */
 export const saveMemoryTool = createTool({
-  id: 'save_memory',
+  id: 'SaveMemory',
   description:
-    'Save a durable user preference or convention so you honor it in every future thread (e.g. ' +
-    '"report revenue in thousands", "fiscal year starts in February", "default to completed orders"). ' +
-    'Only save preferences the user has actually stated or confirmed — never guess, and never save ' +
-    'one-off question details. State plainly that you will remember it.',
+    "Save an explicit memory about the user's preferences, patterns, or context for future " +
+    'conversations (e.g. "report revenue in thousands", "fiscal year starts in February", "default ' +
+    'to completed orders"). Use it when the user explicitly asks you to remember something, or when ' +
+    'you discover a strong, stable preference the user confirms. Do NOT save proactively, do NOT save ' +
+    'ephemeral one-off details, and do NOT save info already in the user profile. Keep each memory ' +
+    'concise and specific — one clear statement. State plainly that you will remember it.',
   inputSchema: z.object({
     content: z
       .string()

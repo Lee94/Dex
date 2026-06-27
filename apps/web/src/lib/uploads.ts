@@ -3,7 +3,7 @@ import { apiFetch } from '@/lib/apiClient';
 /**
  * Uploads client (v1.1). Talks to the agent's root `/uploads` routes
  * (apps/agent/src/mastra/server/upload-routes.ts). A file is sent as base64 JSON
- * (no multipart); the agent reads it by id via the `get_file_contents` tool.
+ * (no multipart); the agent reads it by id via the `GetFileContents` tool.
  */
 
 export interface Upload {

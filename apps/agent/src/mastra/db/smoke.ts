@@ -564,27 +564,30 @@ async function main(): Promise<void> {
 
   // 5d. notebooks (v2.0) — create → get → update (cells) → list → delete
   const createdNotebook = await createNotebook('Smoke notebook', [
+    { id: 'c1', kind: 'sql', source: 'SELECT 1 AS one', outputName: 'one_row' },
     {
-      id: 'c1',
-      kind: 'sql',
-      source: 'SELECT 1 AS one',
-      chart: { type: 'line', x: 'trade_date', y: 'close_price' },
+      id: 'v1',
+      kind: 'viz',
+      source: '',
+      sourceOutputName: 'one_row',
+      dsl: { dslVersion: '1', name: 'demo chart' },
     },
   ]);
   try {
     const fetchedNotebook = await getNotebook(createdNotebook.id);
     check(
-      'notebook create + get round-trips one SQL cell',
+      'notebook create + get round-trips a SQL cell',
       fetchedNotebook?.title === 'Smoke notebook' &&
-        fetchedNotebook?.cells.length === 1 &&
+        fetchedNotebook?.cells.length === 2 &&
         fetchedNotebook?.cells[0]?.source === 'SELECT 1 AS one',
       fetchedNotebook,
     );
     check(
-      'a cell chart hint round-trips (v1.2 viz handoff)',
-      fetchedNotebook?.cells[0]?.chart?.type === 'line' &&
-        fetchedNotebook?.cells[0]?.chart?.y === 'close_price',
-      fetchedNotebook?.cells[0]?.chart,
+      'a viz cell round-trips (kind + sourceOutputName + dsl)',
+      fetchedNotebook?.cells[1]?.kind === 'viz' &&
+        fetchedNotebook?.cells[1]?.sourceOutputName === 'one_row' &&
+        !!fetchedNotebook?.cells[1]?.dsl,
+      fetchedNotebook?.cells[1],
     );
 
     const updatedNotebook = await updateNotebook(createdNotebook.id, {

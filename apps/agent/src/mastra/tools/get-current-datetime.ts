@@ -30,11 +30,12 @@ export function currentDatetime(now: Date = new Date()): CurrentDatetime {
  * I/O — it just reads the server clock.
  */
 export const getCurrentDatetimeTool = createTool({
-  id: 'get_current_datetime',
+  id: 'GetCurrentDateTime',
   description:
-    'Get the current date and time (server clock). Call this before any relative-date analysis — ' +
-    '"last 30 days", "this month", "year to date", "yesterday" — so you anchor the window to the ' +
-    'real today instead of guessing. Returns ISO date/time, the weekday, and the timezone.',
+    'Get the current date and time based on the timezone configured for the server (the workspace ' +
+    'default). Call this before any relative-date analysis — "last 30 days", "this month", "year to ' +
+    'date", "yesterday" — so you anchor the window to the real today instead of guessing. Returns ' +
+    'ISO date/time, the weekday, and the timezone.',
   inputSchema: z.object({}),
   outputSchema: z.object({
     iso: z.string().describe('Full ISO-8601 timestamp, e.g. 2026-06-25T14:03:00.000Z'),

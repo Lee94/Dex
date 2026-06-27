@@ -4,29 +4,38 @@ import { getConnectorById } from '../db/connector';
 import { getColumnMetadataMap, getTableMetadata } from '../db/metadata';
 import { enrichTableDescription, type DescribedTable } from '../db/catalog';
 
-export const describeTableTool = createTool({
-  id: 'describe_table',
+/**
+ * `ViewTables` (Hex) — verified schema for one or more EXACT, known warehouse
+ * tables. Use immediately when a user, a guide, or prior tool output names a
+ * specific table and you need its real columns before writing SQL. For keyword/
+ * topic discovery (you don't know the table name yet) use `FindTableSchemas`.
+ */
+export const viewTablesTool = createTool({
+  id: 'ViewTables',
   description:
-    "Inspect one or more tables in a single call — each table's columns (name, type, nullability, " +
-    'primary key) plus a few sample rows. Pass ALL the tables you need in `tables` at once rather ' +
-    'than calling this repeatedly. Use it when list_tables did not include columns, or when you ' +
-    'want sample rows / keys before writing SQL. ' +
-    'Columns carry curated catalog metadata when present (`description`, `endorsed`); AI-excluded ' +
-    'columns are omitted. ' +
-    'Pass the same `datasourceId` you used with list_tables to inspect tables in another registered data source.',
+    "Get verified schema and columns for one or more EXACT known warehouse tables — each table's " +
+    'columns (name, type, nullability, primary key) plus a few sample rows. Use this immediately when ' +
+    'a user, a guide, or prior tool output gives you a specific table name; verified schema should be ' +
+    'obtained here before you write SQL against that table. Pass every table you need at once in ' +
+    '`tableRefs` (exact names as returned by FindTableSchemas — preserve casing). Returns not-found ' +
+    'guidance instead of guessing. Schema verification only confirms names; it does not prove a table ' +
+    'is the right analytical source. Do NOT use this for keyword discovery — that is FindTableSchemas. ' +
+    'Pass the same `dataConnectionId` you used with FindTableSchemas to inspect tables in another ' +
+    'registered connection.',
   inputSchema: z.object({
-    tables: z
+    tableRefs: z
       .array(z.string())
-      .optional()
+      .min(1)
+      .max(10)
       .describe(
-        'Exact table names, as returned by list_tables. Pass every table you need at once.',
+        'Exact known table refs to inspect (table, schema.table, or database.schema.table).',
       ),
-    table: z.string().optional().describe('Deprecated single-table alias; prefer `tables`.'),
-    datasourceId: z
+    dataConnectionId: z
       .string()
+      .nullable()
       .optional()
       .describe(
-        'Optional data source id to target another registered source instead of the default warehouse.',
+        'Optional data connection id to target another registered connection instead of the default warehouse.',
       ),
   }),
   outputSchema: z.object({
@@ -54,15 +63,11 @@ export const describeTableTool = createTool({
     ),
   }),
   execute: async (input) => {
-    const names = input.tables ?? (input.table ? [input.table] : []);
-    if (names.length === 0) {
-      throw new Error('Provide one or more table names in `tables`.');
-    }
-    const dsId = input.datasourceId ?? 'builtin';
+    const dsId = input.dataConnectionId?.trim() || 'builtin';
     const connector = await getConnectorById(dsId);
 
     const results: DescribedTable[] = [];
-    for (const name of names) {
+    for (const name of input.tableRefs) {
       try {
         const [desc, tableMeta, colMeta] = await Promise.all([
           connector.describeTable(name),

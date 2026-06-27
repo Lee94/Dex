@@ -11,3 +11,7 @@ package-lock.json
 # Vendored / handoff artifacts — keep pristine
 design/
 apps/web/src/blueprint/
+apps/web/src/vinci/
+
+# Local-only data-source credentials (gitignored; never reformat)
+apps/agent/datasources.local.json

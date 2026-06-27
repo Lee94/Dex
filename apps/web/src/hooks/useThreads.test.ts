@@ -46,7 +46,7 @@ describe('useThreads stream mapping', () => {
       { type: 'text-delta', payload: { text: 'world' } },
       {
         type: 'tool-call',
-        payload: { toolCallId: 't1', toolName: 'run_sql', args: { sql: 'SELECT 1' } },
+        payload: { toolCallId: 't1', toolName: 'RunSQL', args: { sql: 'SELECT 1' } },
       },
       {
         type: 'tool-result',
@@ -76,7 +76,7 @@ describe('useThreads stream mapping', () => {
     expect(assistant.text).toBe('Hello world');
     expect(assistant.status).toBe('done');
     expect(assistant.steps).toHaveLength(1);
-    expect(assistant.steps[0]).toMatchObject({ toolName: 'run_sql', status: 'done' });
+    expect(assistant.steps[0]).toMatchObject({ toolName: 'RunSQL', status: 'done' });
     expect(assistant.steps[0].result).toEqual({
       columns: ['n'],
       rows: [{ n: 1 }],

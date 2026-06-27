@@ -19,6 +19,6 @@ test('the specialist sub-agents are constructed with stable ids', () => {
 });
 
 test('the delegation tools expose the expected ids', () => {
-  assert.equal(delegateDiscoveryTool.id, 'delegate_to_data_discovery');
-  assert.equal(delegateVisualizationTool.id, 'delegate_to_visualization');
+  assert.equal(delegateDiscoveryTool.id, 'DelegateToDataDiscoveryAgent');
+  assert.equal(delegateVisualizationTool.id, 'DelegateToVisualizationAgent');
 });

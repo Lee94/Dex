@@ -8,10 +8,11 @@ import { getTask, listTasks } from '../db/tasks';
  * (status, value, time). Read-only.
  */
 export const viewTaskTool = createTool({
-  id: 'view_task',
+  id: 'ViewTask',
   description:
-    'View scheduled tasks. Call with no argument to list all tasks (name, cron, enabled, last status); ' +
-    "call with a taskId to see one task's full config and its most recent run (status, value, time).",
+    'View the scheduled tasks that already exist in the workspace. Call with no argument to list all ' +
+    "tasks (name, cron, enabled, last status); call with a taskId to see one task's full config and " +
+    'its most recent run (status, value, time).',
   inputSchema: z.object({
     taskId: z.string().optional().describe('A task id to inspect. Omit to list all tasks.'),
   }),

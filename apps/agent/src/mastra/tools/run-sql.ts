@@ -4,22 +4,39 @@ import { dialectHint, getActiveProvider, getConnectorById } from '../db/connecto
 
 const DIALECT = getActiveProvider() === 'postgres' ? 'PostgreSQL' : 'SQLite';
 
+/**
+ * `RunSQL` (Hex) — ephemeral, exploratory warehouse SQL. Results are shown to YOU
+ * (the agent) but are NOT saved to the notebook or displayed to the user. Use it
+ * as a scratchpad to inform downstream work; for any user-visible, durable result
+ * use `CreateSqlCell` instead.
+ */
 export const runSqlTool = createTool({
-  id: 'run_sql',
+  id: 'RunSQL',
   description:
-    `Run a single read-only SQL query (SELECT, or WITH ... SELECT) and get back columns + rows. ` +
-    `By default it runs against the primary ${DIALECT} warehouse; when the question context names a specific data source by \`datasourceId\`, pass that id to run against THAT source (write SQL for the dialect reported by list_tables / describe_table for it). ` +
-    'Write/DDL statements (INSERT/UPDATE/DELETE/DROP/...) are rejected. ' +
-    `Discover columns with list_tables (and describe_table for sample rows / keys) before querying; prefer one complete query over many exploratory ones. For the default warehouse: ${dialectHint()}`,
+    `Run ephemeral, read-only exploratory SQL (SELECT, or WITH … SELECT) without creating a notebook ` +
+    `cell. Results are shown to you but NOT saved to the notebook or shown to the user — use this as a ` +
+    `scratchpad to inform downstream work, not as a final answer source (use CreateSqlCell for ` +
+    `user-visible, durable analysis). Before calling this, you should already have inspected the ` +
+    `relevant tables with ViewTables. By default it runs against the primary ${DIALECT} warehouse; ` +
+    `pass a \`dataConnectionId\` (from ListDataConnections or the question context) to run against ` +
+    `another connection, writing SQL for the dialect ViewTables reported for it. Write/DDL statements ` +
+    `(INSERT/UPDATE/DELETE/DROP/…) and multiple statements are rejected. Keep queries small and use a ` +
+    `LIMIT. For the default warehouse: ${dialectHint()}`,
   inputSchema: z.object({
     sql: z
       .string()
       .describe('A single read-only query. No multiple semicolon-separated statements.'),
-    datasourceId: z
+    description: z
       .string()
       .optional()
       .describe(
-        'Optional data source id to run against another registered source instead of the default warehouse.',
+        'At most four words, sentence case, starting with an action verb (e.g. "Check order grain").',
+      ),
+    dataConnectionId: z
+      .string()
+      .optional()
+      .describe(
+        'Optional data connection id to run against another registered connection instead of the default warehouse.',
       ),
   }),
   outputSchema: z.object({
@@ -29,7 +46,7 @@ export const runSqlTool = createTool({
     truncated: z.boolean(),
   }),
   execute: async (input) => {
-    const connector = await getConnectorById(input.datasourceId ?? 'builtin');
+    const connector = await getConnectorById(input.dataConnectionId ?? 'builtin');
     return await connector.runReadOnlySql(input.sql);
   },
 });

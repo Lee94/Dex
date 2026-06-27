@@ -18,19 +18,12 @@ import { dexStore } from './store';
  * `server/notebook-routes.ts`), never this module.
  */
 
-export type CellKind = 'sql';
-
-/** A visualization hint for a cell's result card (chart type + x/y columns). */
-export interface CellChart {
-  type?: 'table' | 'bar' | 'line' | 'area';
-  x?: string;
-  y?: string;
-}
+export type CellKind = 'sql' | 'viz';
 
 export interface NotebookCell {
   id: string;
   kind: CellKind;
-  /** The cell's source — for a SQL cell, the query text. */
+  /** The cell's source — for a SQL cell, the query text. (Empty for a viz cell.) */
   source: string;
   /**
    * A named output other cells can chain off (Hex-style): a downstream cell that
@@ -40,8 +33,10 @@ export interface NotebookCell {
   outputName?: string;
   /** Which data source to run against; omitted/undefined = the builtin warehouse. */
   datasourceId?: string;
-  /** Optional visualization hint surfaced by the result card (v1.2 viz handoff). */
-  chart?: CellChart;
+  /** viz cell: the upstream SQL cell's `outputName` whose rows this chart visualizes. */
+  sourceOutputName?: string;
+  /** viz cell: the vinci surface DSL (SurfaceDoc) describing the chart. */
+  dsl?: unknown;
 }
 
 export interface Notebook {
@@ -83,30 +78,20 @@ function ensureSchema(): Promise<void> {
 type Cell = unknown;
 
 /** A persisted cell, normalized — tolerant of older/partial JSON shapes. */
-function normalizeChart(raw: unknown): CellChart | undefined {
-  if (typeof raw !== 'object' || raw === null) return undefined;
-  const c = raw as Record<string, unknown>;
-  const type = c.type;
-  const ok = type === 'table' || type === 'bar' || type === 'line' || type === 'area';
-  const chart: CellChart = {
-    type: ok ? (type as CellChart['type']) : undefined,
-    x: typeof c.x === 'string' ? c.x : undefined,
-    y: typeof c.y === 'string' ? c.y : undefined,
-  };
-  return chart.type || chart.x || chart.y ? chart : undefined;
-}
-
 function normalizeCell(raw: unknown): NotebookCell | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const c = raw as Record<string, unknown>;
   const outputName = typeof c.outputName === 'string' ? c.outputName.trim() : '';
+  const kind: CellKind = c.kind === 'viz' ? 'viz' : 'sql';
+  const sourceOutputName = typeof c.sourceOutputName === 'string' ? c.sourceOutputName.trim() : '';
   return {
     id: typeof c.id === 'string' ? c.id : randomUUID(),
-    kind: 'sql',
+    kind,
     source: typeof c.source === 'string' ? c.source : '',
     outputName: outputName || undefined,
     datasourceId: typeof c.datasourceId === 'string' ? c.datasourceId : undefined,
-    chart: normalizeChart(c.chart),
+    sourceOutputName: kind === 'viz' ? sourceOutputName || undefined : undefined,
+    dsl: kind === 'viz' && typeof c.dsl === 'object' && c.dsl !== null ? c.dsl : undefined,
   };
 }
 

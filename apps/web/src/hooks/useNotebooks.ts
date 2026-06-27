@@ -7,6 +7,7 @@ import {
   getNotebook,
   listNotebooks,
   newSqlCell,
+  newVizCell,
   runCell as runCellApi,
   summaryOf,
   updateNotebook,
@@ -270,6 +271,43 @@ export function useNotebooks() {
     mutateActive((nb) => ({ ...nb, cells: [...nb.cells, newSqlCell()] }), true);
   }, [mutateActive]);
 
+  /** Append a viz cell, defaulting its source to the last SQL cell with an output name. */
+  const addVizCell = useCallback(() => {
+    mutateActive((nb) => {
+      const lastNamed = [...nb.cells].reverse().find((c) => c.kind === 'sql' && c.outputName);
+      return { ...nb, cells: [...nb.cells, newVizCell(lastNamed?.outputName)] };
+    }, true);
+  }, [mutateActive]);
+
+  /** Persist a viz cell's DSL (debounced — the Designer fires onChange on every edit). */
+  const updateCellDsl = useCallback(
+    (cellId: string, dsl: unknown) => {
+      mutateActive((nb) => ({
+        ...nb,
+        cells: nb.cells.map((c) => (c.id === cellId ? { ...c, dsl } : c)),
+      }));
+    },
+    [mutateActive],
+  );
+
+  /** Rebind a viz cell to a different upstream SQL cell output. */
+  const updateCellSourceOutputName = useCallback(
+    (cellId: string, sourceOutputName: string) => {
+      const next = sourceOutputName.trim() || undefined;
+      mutateActive(
+        (nb) => ({
+          ...nb,
+          // Changing the source invalidates the old DSL (different columns).
+          cells: nb.cells.map((c) =>
+            c.id === cellId ? { ...c, sourceOutputName: next, dsl: undefined } : c,
+          ),
+        }),
+        true,
+      );
+    },
+    [mutateActive],
+  );
+
   const updateCellSource = useCallback(
     (cellId: string, source: string) => {
       mutateActive((nb) => ({
@@ -375,8 +413,11 @@ export function useNotebooks() {
     deleteNotebook,
     // cells
     addCell,
+    addVizCell,
     updateCellSource,
     updateCellOutputName,
+    updateCellDsl,
+    updateCellSourceOutputName,
     deleteCell,
     moveCell,
     // execution

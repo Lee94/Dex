@@ -4,19 +4,22 @@ import { getBuiltinDataSource } from '../db/connector';
 import { loadAllConfigs, toPublicDataSource } from '../db/datasources';
 
 /**
- * `list_datasources` (Hex `ListDataConnections`) — enumerate the registered data
- * sources the agent can query. The env-driven primary warehouse is surfaced as
- * the `builtin` source; user-registered connections are listed alongside it. The
- * agent targets any of them by passing its `id` as `datasourceId` to
- * list_tables / describe_table / run_sql — no composer attachment required.
+ * `ListDataConnections` (Hex) — enumerate the registered data connections the
+ * agent can query. The env-driven primary warehouse is surfaced as the `builtin`
+ * connection; user-registered connections are listed alongside it. The agent
+ * targets any of them by passing its `id` as `dataConnectionId` to
+ * FindTableSchemas / ViewTables / RunSQL — no composer attachment required.
  */
 export const listDatasourcesTool = createTool({
-  id: 'list_datasources',
+  id: 'ListDataConnections',
   description:
-    'List the data sources (databases) you can query: the primary warehouse (id "builtin") plus ' +
-    'any registered connections, each with its id, dialect, and a human label. To inspect or query ' +
-    'a non-primary source, pass its `id` as `datasourceId` to list_tables / describe_table / run_sql. ' +
-    'Use this when a question might live in another connected database, not just the primary warehouse.',
+    'List all available data connections (databases) in the workspace: the primary warehouse (id ' +
+    '"builtin") plus any registered connections, each with its id, dialect, and a human label. Use ' +
+    'this when you need to query data but have no connection reference yet, when the user names a ' +
+    'connection you must resolve, or when your current connection lacks the tables you need. To ' +
+    'inspect or query a non-primary connection, pass its `id` as `dataConnectionId` to ' +
+    'FindTableSchemas / ViewTables / RunSQL. Do NOT call this if you already hold a valid connection ' +
+    'reference from a prior tool call or from context.',
   inputSchema: z.object({}),
   outputSchema: z.object({
     datasources: z.array(

@@ -1,0 +1,27 @@
+{
+	"dslVersion": "1",
+	"dataVersion": "10.10.0",
+	"name": "广告投入与销售额散点",
+
+	"fields": {
+		"广告投入": { "from": "广告投入", "type": "number" },
+		"销售额": { "from": "销售额", "type": "number" },
+		"利润率": { "from": "利润率", "type": "number" }
+	},
+
+	"encoding": {
+		"x": ["广告投入:sum"],
+		"y": ["销售额:sum"]
+	},
+
+	"geoms": {
+		"销售额": {
+			"type": "point",
+			"size": { "fields": ["利润率"] },
+			"options": { "labelPosition": "top" }
+		}
+	},
+
+	"settings": {},
+	"theme": {}
+}

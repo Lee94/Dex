@@ -1,0 +1,48 @@
+{
+	"dslVersion": "1",
+	"dataVersion": "10.10.0",
+	"id": "vinci-cl-1",
+	"name": "区域销售额与利润率",
+
+	"fields": {
+		"区域": { "from": "区域", "type": "string" },
+		"销售额": { "from": "销售额", "type": "number" },
+		"利润率": { "from": "利润率", "type": "number" }
+	},
+
+	"axes": {
+		"main": { "id": "ax-main", "pos": "main", "options": {} },
+		"secondary": { "id": "ax-secondary", "pos": "secondary", "options": {} }
+	},
+
+	"encoding": {
+		"x": ["区域:same"],
+		"y": ["销售额:sum @main", "利润率:avg @secondary"]
+	},
+
+	"geoms": {
+		"销售额": {
+			"type": "interval",
+			"color": "$metric"
+		},
+		"利润率": {
+			"type": "line",
+			"color": "$metric",
+			"options": { "lineType": "curve", "marker": true }
+		}
+	},
+
+	"settings": {
+		"chart": {
+			"lines": {
+				"axisLine": { "vertical": false },
+				"gridLine": { "vertical": false }
+			}
+		},
+		"table": {}
+	},
+	"theme": {
+		"preset": "default",
+		"overrides": {}
+	}
+}

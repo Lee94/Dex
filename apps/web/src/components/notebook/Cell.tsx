@@ -1,15 +1,18 @@
-import { useLayoutEffect, useRef, type KeyboardEvent } from 'react';
+import { type KeyboardEvent, lazy, Suspense, useLayoutEffect, useRef } from 'react';
 import { Icon } from '@/lib/icons';
 import { IconButton } from '@/components/ui';
 import { ResultCard } from '@/components/ResultCard';
-import type { NotebookCell } from '@/lib/notebooks';
+import type { NotebookCell, SqlRunResult } from '@/lib/notebooks';
 import type { CellRunState } from '@/hooks/useNotebooks';
 import styles from './notebook.module.css';
 
+// The vinci/帆软 chart stack is heavy — only pull it when a viz cell actually renders.
+const VizCell = lazy(() => import('./VizCell'));
+
 /**
- * One notebook cell (v2.0). The MVP is a SQL cell: a mono code editor whose
- * "Run" sends the query through the read-only `/query/sql` path and renders the
- * result with the shared `ResultCard` (table or bar chart). ⌘/Ctrl+Enter runs.
+ * One notebook cell. A **SQL cell** is a mono code editor whose "Run" sends the
+ * query through the read-only `/query/run` path and renders a table (⌘/Ctrl+Enter
+ * runs). A **viz cell** charts an upstream SQL cell's output via vinci's Designer.
  */
 export function Cell({
   cell,
@@ -22,6 +25,11 @@ export function Cell({
   onRun,
   onDelete,
   onMove,
+  // viz-only:
+  sourceResult,
+  sources,
+  onDslChange,
+  onSourceChange,
 }: {
   cell: NotebookCell;
   index: number;
@@ -33,12 +41,15 @@ export function Cell({
   onRun: () => void;
   onDelete: () => void;
   onMove: (dir: -1 | 1) => void;
+  sourceResult?: SqlRunResult;
+  sources?: string[];
+  onDslChange?: (dsl: unknown) => void;
+  onSourceChange?: (outputName: string) => void;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  const isViz = cell.kind === 'viz';
 
-  // Auto-grow the textarea to fit its content. useLayoutEffect runs before paint
-  // so a saved multi-line cell renders at full height with no collapse-then-grow
-  // flash on open.
+  // Auto-grow the SQL textarea to fit its content (no collapse-then-grow flash).
   const resize = () => {
     const el = ref.current;
     if (!el) return;
@@ -59,21 +70,25 @@ export function Cell({
   return (
     <div className={styles.cell}>
       <div className={styles.cellToolbar}>
-        <span className={styles.cellKind}>SQL</span>
+        <span className={styles.cellKind}>{isViz ? 'VIZ' : 'SQL'}</span>
         <span className={styles.cellIndex}>[{index + 1}]</span>
-        <button className={styles.runBtn} onClick={onRun} disabled={running} title="Run (⌘↵)">
-          <Icon name="play" size={11} color="currentColor" />
-          {running ? 'Running…' : 'Run'}
-        </button>
-        <span className={styles.outputArrow}>→</span>
-        <input
-          className={styles.outputName}
-          value={cell.outputName ?? ''}
-          spellCheck={false}
-          placeholder="output_name"
-          title="Name this cell's output so later cells can chain off it (FROM output_name)"
-          onChange={(e) => onOutputNameChange(e.target.value)}
-        />
+        {!isViz && (
+          <>
+            <button className={styles.runBtn} onClick={onRun} disabled={running} title="Run (⌘↵)">
+              <Icon name="play" size={11} color="currentColor" />
+              {running ? 'Running…' : 'Run'}
+            </button>
+            <span className={styles.outputArrow}>→</span>
+            <input
+              className={styles.outputName}
+              value={cell.outputName ?? ''}
+              spellCheck={false}
+              placeholder="output_name"
+              title="Name this cell's output so later cells can chain off it (FROM output_name)"
+              onChange={(e) => onOutputNameChange(e.target.value)}
+            />
+          </>
+        )}
         <span className={styles.cellToolSpacer} />
         <div className={styles.cellActions}>
           <IconButton
@@ -108,47 +123,56 @@ export function Cell({
         </div>
       </div>
 
-      <div className={styles.editorArea}>
-        <div className={styles.gutter}>{index + 1}</div>
-        <textarea
-          ref={ref}
-          className={styles.textarea}
-          value={cell.source}
-          spellCheck={false}
-          placeholder="SELECT … — write a read-only query"
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={onKeyDown}
-          rows={1}
-        />
-      </div>
-
-      {runState && runState.status !== 'idle' ? (
-        <div className={styles.output}>
-          {runState.status === 'running' ? (
-            <div className={styles.outputState}>
-              <span className={styles.miniSpinner} />
-              Running query…
-            </div>
-          ) : runState.status === 'error' ? (
-            <div className={styles.outputError}>
-              <Icon
-                name="warning"
-                size={14}
-                color="var(--dex-danger)"
-                style={{ flex: 'none', marginTop: 1 }}
-              />
-              <span>{runState.errorText || 'Query failed.'}</span>
-            </div>
-          ) : runState.result ? (
-            <ResultCard
-              result={runState.result}
-              sql={cell.source}
-              title={cell.outputName}
-              chart={cell.chart}
+      {isViz ? (
+        <Suspense fallback={<div className={styles.vizPlaceholder}>Loading chart…</div>}>
+          <VizCell
+            cell={cell}
+            sourceResult={sourceResult}
+            sources={sources ?? []}
+            onDslChange={onDslChange ?? (() => {})}
+            onSourceChange={onSourceChange ?? (() => {})}
+          />
+        </Suspense>
+      ) : (
+        <>
+          <div className={styles.editorArea}>
+            <div className={styles.gutter}>{index + 1}</div>
+            <textarea
+              ref={ref}
+              className={styles.textarea}
+              value={cell.source}
+              spellCheck={false}
+              placeholder="SELECT … — write a read-only query"
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={onKeyDown}
+              rows={1}
             />
+          </div>
+
+          {runState && runState.status !== 'idle' ? (
+            <div className={styles.output}>
+              {runState.status === 'running' ? (
+                <div className={styles.outputState}>
+                  <span className={styles.miniSpinner} />
+                  Running query…
+                </div>
+              ) : runState.status === 'error' ? (
+                <div className={styles.outputError}>
+                  <Icon
+                    name="warning"
+                    size={14}
+                    color="var(--dex-danger)"
+                    style={{ flex: 'none', marginTop: 1 }}
+                  />
+                  <span>{runState.errorText || 'Query failed.'}</span>
+                </div>
+              ) : runState.result ? (
+                <ResultCard result={runState.result} sql={cell.source} title={cell.outputName} />
+              ) : null}
+            </div>
           ) : null}
-        </div>
-      ) : null}
+        </>
+      )}
     </div>
   );
 }

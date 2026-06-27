@@ -14,14 +14,30 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fd/fine-design-biz": "^2.3.137",
+    "@fx-ui/fine-design": "^1.21.1",
+    "@fx-ui/icon": "^1.4.24",
+    "@jsy/formula": "^1.0.0-feature.20260625075225",
     "@mastra/client-js": "^1.26.0",
+    "@tanstack/react-query": "^5.101.1",
+    "@van/analysis": "^0.0.1-feature.20260623102849",
+    "@vinci/core": "^0.0.1-feature.20260625183304",
+    "@vinci/designer": "^0.0.1-feature.20260625183304",
+    "@vinci/shared": "^0.0.1-feature.20260625183304",
+    "@vinci/viewer": "^0.0.1-feature.20260625183304",
+    "dayjs": "^1.11.21",
+    "mobx": "^6.16.1",
+    "mobx-keystone": "^1.21.0",
+    "mobx-react-lite": "^4.1.1",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "react-router": "^7.18.0"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/lodash-es": "^4.17.12",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
@@ -31,5 +47,9 @@
     "typescript": "~6.0.2",
     "vite": "^8.1.0",
     "vitest": "^3.2.6"
+  },
+  "overrides": {
+    "react": "$react",
+    "react-dom": "$react-dom"
   }
 }

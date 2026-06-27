@@ -1,19 +1,26 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@/lib/icons';
 import { Button, IconButton } from '@/components/ui';
 import {
   isSqlResult,
+  outputNameOf,
   resultProvenance,
+  vizCellsOf,
   type AssistantMessage,
-  type ChartHint,
+  type SqlResult,
   type Thread,
   type ToolStep,
+  type VizCellRef,
 } from '@/types';
 import { Composer } from '@/components/Composer';
 import { Markdown } from '@/components/Markdown';
 import { ResultCard } from '@/components/ResultCard';
+import type { NotebookCell } from '@/lib/notebooks';
 import { splitUserMessage } from '@/lib/attachments';
 import styles from './ThreadView.module.css';
+
+// The vinci chart stack is heavy — only pull it in when a thread embeds a chart.
+const VizCell = lazy(() => import('./notebook/VizCell'));
 
 const EXAMPLES = [
   'Top 5 products by revenue',
@@ -187,13 +194,13 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
 // other brackets stay literal.
 const CELL_TAG = /\[([^\]\n]{6,})\]/g;
 
-function cellRefId(bracketContent: string, cellById: Map<string, ToolStep>): string | undefined {
+function cellRefId(bracketContent: string, hasCell: (id: string) => boolean): string | undefined {
   const raw = bracketContent.trim();
   const candidate = raw.includes(':') ? raw.slice(raw.lastIndexOf(':') + 1).trim() : raw;
-  return cellById.has(candidate) ? candidate : undefined;
+  return hasCell(candidate) ? candidate : undefined;
 }
 
-/** Read a `create_sql_cell` result's cellId, if this step is one. */
+/** Read a `CreateSqlCell` / `CreateSemanticTable` result's cellId, if this step is one. */
 function cellIdOf(result: unknown): string | undefined {
   if (typeof result === 'object' && result !== null) {
     const id = (result as { cellId?: unknown }).cellId;
@@ -202,38 +209,40 @@ function cellIdOf(result: unknown): string | undefined {
   return undefined;
 }
 
-/** A `chart` hint the agent attached to create_sql_cell (or echoed on the result). */
-function chartHint(step: ToolStep): ChartHint | undefined {
-  const fromArgs = step.args.chart;
-  const fromResult =
-    typeof step.result === 'object' && step.result !== null
-      ? (step.result as { chart?: unknown }).chart
-      : undefined;
-  const raw = fromArgs ?? fromResult;
-  if (typeof raw !== 'object' || raw === null) return undefined;
-  const h = raw as Record<string, unknown>;
-  const type = h.type;
-  const ok = type === 'table' || type === 'bar' || type === 'line' || type === 'area';
-  return {
-    type: ok ? (type as ChartHint['type']) : undefined,
-    x: typeof h.x === 'string' ? h.x : undefined,
-    y: typeof h.y === 'string' ? h.y : undefined,
-  };
-}
-
 function cardFor(step: ToolStep, key: string) {
   const prov = resultProvenance(step.result);
   const sql = prov.sql ?? (typeof step.args.sql === 'string' ? step.args.sql : undefined);
   const title = typeof step.args.label === 'string' ? step.args.label : undefined;
   return (
-    <ResultCard
-      key={key}
-      result={step.result}
-      sql={sql}
-      endorsed={prov.endorsed}
-      title={title}
-      chart={chartHint(step)}
-    />
+    <ResultCard key={key} result={step.result} sql={sql} endorsed={prov.endorsed} title={title} />
+  );
+}
+
+/**
+ * A chart the visualization sub-agent authored, rendered in the thread by reusing
+ * the notebook's vinci `VizCell` over the upstream SQL cell's rows (resolved by
+ * `sourceOutputName`). Read-only here — edits belong in the notebook — so the
+ * change callbacks are no-ops.
+ */
+function VizCard({ viz, source }: { viz: VizCellRef; source?: SqlResult }) {
+  const cell: NotebookCell = {
+    id: viz.cellId,
+    kind: 'viz',
+    source: '',
+    sourceOutputName: viz.sourceOutputName,
+    dsl: viz.dsl,
+  };
+  return (
+    <Suspense fallback={<div className={styles.answerText}>Loading chart…</div>}>
+      <VizCell
+        cell={cell}
+        sourceResult={source}
+        sources={viz.sourceOutputName ? [viz.sourceOutputName] : []}
+        onDslChange={() => {}}
+        onSourceChange={() => {}}
+        editable={false}
+      />
+    </Suspense>
   );
 }
 
@@ -267,15 +276,39 @@ function UserRow({ text }: { text: string }) {
 
 function AssistantBlock({ msg }: { msg: AssistantMessage }) {
   const [open, setOpen] = useState(true);
-  // Authored SQL cells (create_sql_cell results), keyed by cellId.
+  // Authored SQL cells (CreateSqlCell / CreateSemanticTable results), keyed by cellId.
   const cellById = new Map<string, ToolStep>();
+  // SQL outputs keyed by their outputName — the rows a viz cell charts.
+  const outputResults = new Map<string, SqlResult>();
+  // Viz cells the visualization sub-agent created (lifted from the delegation
+  // result; the sub-agent's create_viz_cell isn't an analyst step), keyed by cellId.
+  const vizById = new Map<string, VizCellRef>();
   for (const s of msg.steps) {
     const id = cellIdOf(s.result);
     if (id) cellById.set(id, s);
+    if (isSqlResult(s.result)) {
+      const on = outputNameOf(s.result);
+      if (on) outputResults.set(on, s.result);
+    }
+    for (const v of vizCellsOf(s.result)) vizById.set(v.cellId, v);
   }
+  const hasCell = (id: string) => cellById.has(id) || vizById.has(id);
+
+  // Render whichever kind of cell a resolved id refers to: a SQL result table or
+  // a vinci chart over its upstream SQL cell's rows.
+  const renderCell = (id: string, key: string): ReactNode => {
+    const step = cellById.get(id);
+    if (step) return cardFor(step, key);
+    const viz = vizById.get(id);
+    if (viz) {
+      const source = viz.sourceOutputName ? outputResults.get(viz.sourceOutputName) : undefined;
+      return <VizCard key={key} viz={viz} source={source} />;
+    }
+    return null;
+  };
 
   // What may surface to the user: SQL cells and governed semantic results. A
-  // plain run_sql result is an internal scratchpad and is never shown.
+  // plain RunSQL result is an internal scratchpad and is never shown.
   const showable = msg.steps.filter((s) => {
     if (!isSqlResult(s.result)) return false;
     return Boolean(cellIdOf(s.result)) || resultProvenance(s.result).via === 'semantic';
@@ -285,17 +318,18 @@ function AssistantBlock({ msg }: { msg: AssistantMessage }) {
   const referenced = new Set<string>();
   CELL_TAG.lastIndex = 0;
   for (let m = CELL_TAG.exec(msg.text); m; m = CELL_TAG.exec(msg.text)) {
-    const id = cellRefId(m[1], cellById);
+    const id = cellRefId(m[1], hasCell);
     if (id) referenced.add(id);
   }
   const hasEmbeds = referenced.size > 0;
 
   // Anything showable but not embedded inline is listed below the answer, so a
-  // SQL cell is always visible even when the agent didn't reference it.
+  // SQL cell / chart is always visible even when the agent didn't reference it.
   const belowCards = showable.filter((s) => {
     const id = cellIdOf(s.result);
     return !(id && referenced.has(id));
   });
+  const belowViz = [...vizById.values()].filter((v) => !referenced.has(v.cellId));
 
   const renderAnswer = () => {
     if (!hasEmbeds) return <Markdown source={msg.text} className={styles.answerText} />;
@@ -305,14 +339,14 @@ function AssistantBlock({ msg }: { msg: AssistantMessage }) {
     let i = 0;
     CELL_TAG.lastIndex = 0;
     while ((m = CELL_TAG.exec(msg.text))) {
-      const id = cellRefId(m[1], cellById);
-      const step = id ? cellById.get(id) : undefined;
-      if (!step) continue; // not a real cell ref → leave it in the surrounding text
+      const id = cellRefId(m[1], hasCell);
+      const node = id ? renderCell(id, `c${i}`) : null;
+      if (!node) continue; // not a real cell ref → leave it in the surrounding text
       const before = msg.text.slice(last, m.index);
       if (before.trim()) {
         nodes.push(<Markdown key={`t${i}`} source={before} className={styles.answerText} />);
       }
-      nodes.push(cardFor(step, `c${i}`));
+      nodes.push(node);
       last = m.index + m[0].length;
       i++;
     }
@@ -366,6 +400,15 @@ function AssistantBlock({ msg }: { msg: AssistantMessage }) {
       {/* governed/legacy result cards below the answer */}
       {belowCards.map((s) => cardFor(s, s.toolCallId))}
 
+      {/* charts the answer didn't embed inline — still always shown */}
+      {belowViz.map((v) => (
+        <VizCard
+          key={v.cellId}
+          viz={v}
+          source={v.sourceOutputName ? outputResults.get(v.sourceOutputName) : undefined}
+        />
+      ))}
+
       {/* error */}
       {msg.status === 'error' ? (
         <div className={styles.error}>
@@ -402,12 +445,45 @@ function StepRow({ step, labelOverride }: { step: ToolStep; labelOverride?: stri
   );
 }
 
+// Friendly timeline labels for the Hex-named tools (the user sees these, never the
+// tool name). Falls back to a humanized tool name for anything unmapped.
+const STEP_LABELS: Record<string, string> = {
+  GetCurrentDateTime: 'Checked the current date',
+  ListDataConnections: 'Listed data connections',
+  FindTableSchemas: 'Searched for tables',
+  ViewTables: 'Inspected table schemas',
+  RunSQL: 'Ran a SQL query',
+  CreateSqlCell: 'Created a SQL cell',
+  FindSemanticColumns: 'Searched the semantic layer',
+  InspectSemanticData: 'Inspected semantic data',
+  CreateSemanticTable: 'Built a semantic table',
+  CellSearch: 'Reviewed the notebook',
+  ReadGuide: 'Consulted the guides',
+  SaveMemory: 'Saved a preference',
+  SuggestReview: 'Flagged for review',
+  SearchWeb: 'Searched the web',
+  ExtractWeb: 'Read a web page',
+  GetFileContents: 'Read an attached file',
+  SearchTools: 'Looked up its tools',
+  DelegateToDataDiscoveryAgent: 'Delegated data discovery',
+  DelegateToVisualizationAgent: 'Created a visualization',
+  CreateTask: 'Scheduled a task',
+  ViewTask: 'Reviewed scheduled tasks',
+  ReadPastThreadSummary: 'Recalled past work',
+};
+
 function stepLabel(step: ToolStep): string {
+  const mapped = STEP_LABELS[step.toolName];
+  if (mapped) return mapped;
   const args = step.args || {};
   if (typeof args.sql === 'string') return 'Ran a SQL query';
-  if (typeof args.table === 'string') return `Inspected ${args.table}`;
-  if (/list/i.test(step.toolName)) return 'Listed available tables';
-  return step.toolName || 'Working';
+  if (Array.isArray(args.tableRefs)) return 'Inspected table schemas';
+  // Humanize an unmapped PascalCase tool name ("FooBar" → "Foo bar").
+  if (step.toolName) {
+    const words = step.toolName.replace(/([a-z])([A-Z])/g, '$1 $2');
+    return words.charAt(0).toUpperCase() + words.slice(1).toLowerCase();
+  }
+  return 'Working';
 }
 
 function Spinner() {

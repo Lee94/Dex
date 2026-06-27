@@ -1,0 +1,25 @@
+{
+	"dslVersion": "1",
+	"dataVersion": "10.10.0",
+	"name": "月度销售趋势",
+
+	"fields": {
+		"月份": { "from": "月份", "type": "string" },
+		"销售额": { "from": "销售额", "type": "number" }
+	},
+
+	"encoding": {
+		"x": ["月份:same"],
+		"y": ["销售额:sum"]
+	},
+
+	"geoms": {
+		"销售额": {
+			"type": "line",
+			"options": { "lineType": "curve", "marker": true }
+		}
+	},
+
+	"settings": {},
+	"theme": {}
+}
