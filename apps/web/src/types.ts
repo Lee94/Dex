@@ -38,6 +38,9 @@ export type ChatMessage = UserMessage | AssistantMessage;
 export type Thread = {
   id: string;
   title: string;
+  /** The project this thread belongs to, if any (stored in Mastra thread metadata).
+   *  Undefined = a loose thread not in any project. */
+  projectId?: string;
   /** Display string for the threads list, e.g. "2 hrs ago" / "just now". */
   updated: string;
   /** Epoch ms of the last update, for sorting and recomputing `updated`. */
@@ -54,7 +57,7 @@ export type Thread = {
   loadError?: string;
 };
 
-/** Shape of a successful SQL tool result (RunSQL / CreateSqlCell / CreateSemanticTable). */
+/** Shape of a successful SQL tool result (RunSQL / ShowSql / ShowSemanticTable). */
 export type SqlResult = {
   columns: string[];
   rows: Array<Record<string, unknown>>;
@@ -71,9 +74,8 @@ export function isSqlResult(value: unknown): value is SqlResult {
   );
 }
 
-/** Read a SQL cell result's `outputName` (the name downstream cells/charts chain
- *  off). `CreateSqlCell` / `CreateSemanticTable` results carry it; raw `RunSQL`
- *  results don't. */
+/** Read a SQL result's `outputName` (the name a chart binds to). `ShowSql` /
+ *  `ShowSemanticTable` results carry it; raw `RunSQL` results don't. */
 export function outputNameOf(value: unknown): string | undefined {
   if (typeof value === 'object' && value !== null) {
     const on = (value as { outputName?: unknown }).outputName;
@@ -83,10 +85,10 @@ export function outputNameOf(value: unknown): string | undefined {
 }
 
 /**
- * A viz cell the visualization sub-agent created. It's authored inside the
- * sub-agent (not an analyst step), so the analyst surfaces it through the
+ * A chart the visualization sub-agent built. It's authored inside the sub-agent
+ * (not an analyst step), so the analyst surfaces it through the
  * `DelegateToVisualizationAgent` result; the thread renders it over the upstream
- * SQL cell's rows (matched by `sourceOutputName`).
+ * result's rows (matched by `sourceOutputName`). `cellId` is just the embeddable id.
  */
 export type VizCellRef = {
   cellId: string;
@@ -95,7 +97,7 @@ export type VizCellRef = {
   label?: string;
 };
 
-/** Read viz cells out of a `DelegateToVisualizationAgent` tool result, if any. */
+/** Read charts out of a `DelegateToVisualizationAgent` tool result, if any. */
 export function vizCellsOf(value: unknown): VizCellRef[] {
   if (typeof value !== 'object' || value === null) return [];
   const cells = (value as { vizCells?: unknown }).vizCells;
@@ -129,7 +131,7 @@ export function toCsv(result: SqlResult): string {
 }
 
 /**
- * Provenance a result may carry. The semantic layer's `CreateSemanticTable`
+ * Provenance a result may carry. The semantic layer's `ShowSemanticTable`
  * returns the compiled `sql`, whether it came from an `endorsed` (trusted)
  * definition, and `via: 'semantic'`. Raw `RunSQL` results carry none of these.
  */

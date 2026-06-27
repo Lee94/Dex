@@ -2,17 +2,21 @@ import { useState, type KeyboardEvent } from 'react';
 import { Icon } from '@/lib/icons';
 import { IconButton } from '@/components/ui';
 import { ContextPicker } from '@/components/ContextPicker';
-import { contextPrefix, type Attachment } from '@/lib/attachments';
+import { contextPrefix, type Attachment, type ProjectContext } from '@/lib/attachments';
 import styles from './Composer.module.css';
 
 export function Composer({
   onSend,
   onStop,
   streaming,
+  project,
 }: {
   onSend: (text: string) => void;
   onStop: () => void;
   streaming: boolean;
+  /** Shared project context to fold into the message — pass only on the thread's
+   *  first message (the caller decides). */
+  project?: ProjectContext | null;
 }) {
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -31,7 +35,7 @@ export function Composer({
   const submit = () => {
     const text = value.trim();
     if (!text || streaming) return;
-    const message = contextPrefix(attachments) + text;
+    const message = contextPrefix(attachments, project ?? undefined) + text;
     setValue('');
     setAttachments([]);
     onSend(message);

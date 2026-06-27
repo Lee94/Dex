@@ -18,7 +18,7 @@ export const inspectSemanticDataTool = createTool({
     'descriptions and resource counts (discover what is available). With `projectName` only, lists ' +
     'the datasets in that project. With `projectName` + `resourceName`, returns the full schema ' +
     '(dimensions, measures, joins) AND a sample-data preview of dimension values for that dataset — ' +
-    'use this to understand a dataset before creating a CreateSemanticTable over it. Endorsed datasets ' +
+    'use this to understand a dataset before running a ShowSemanticTable over it. Endorsed datasets ' +
     'are curated; prefer them.',
   inputSchema: z.object({
     projectName: z.string().nullable().optional(),

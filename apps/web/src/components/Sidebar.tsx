@@ -21,7 +21,7 @@ const NAV_MID: NavItem[] = [
 ];
 const NAV_MAIN: NavItem[] = [
   { key: 'threads', label: 'Threads', path: '/threads', beta: true },
-  { key: 'projects', label: 'Projects', path: '/notebooks' },
+  { key: 'projects', label: 'Projects', path: '/projects' },
   { key: 'components', label: 'Components', path: '/components' },
   { key: 'explorations', label: 'Explorations', path: '/explorations' },
   { key: 'data', label: 'Data', path: '/data' },
@@ -82,7 +82,7 @@ export function Sidebar() {
 
       {/* quick create */}
       <div className={styles.quickRow}>
-        <Button variant="quick" onClick={() => navigate('/notebooks')} style={{ flex: 1 }}>
+        <Button variant="quick" onClick={() => navigate('/projects')} style={{ flex: 1 }}>
           <Icon name="projects" size={13} color="var(--dex-icon)" />
           Project
         </Button>

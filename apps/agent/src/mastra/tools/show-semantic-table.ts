@@ -7,14 +7,13 @@ import {
   type SemanticFilter,
   type SemanticQuery,
 } from '../db/semantic';
-import { appendCell, type NotebookCell } from '../db/notebooks';
 
 /**
- * `CreateSemanticTable` (Hex) — materialize a semantic-layer result as a durable
- * notebook cell. Hex creates a "table cell from a semantic dataset"; Dex compiles
- * the requested measures/dimensions to governed read-only SQL (`runSemanticQuery`)
- * and persists it as a SQL cell (so it renders, chains by outputName, and carries
- * the endorsed/`via:'semantic'` provenance the UI shows as a "Trusted definition").
+ * `ShowSemanticTable` — show a semantic-layer result to the user as a table. Dex
+ * compiles the requested measures/dimensions to governed read-only SQL
+ * (`runSemanticQuery`); the result renders as a table and carries the endorsed /
+ * `via:'semantic'` provenance the UI shows as a "Trusted definition". The result
+ * is ephemeral to the conversation (no notebook) — reference it with [result:<id>].
  *
  * Field shape mirrors Hex (`fieldName` + `queryPath`); Dex resolves the cube for a
  * field from its queryPath (the joined dataset) or the base `datasetName`, builds a
@@ -65,29 +64,29 @@ const cubeOf = (f: FieldRef, base: string) =>
   f.queryPath && f.queryPath.length > 0 ? f.queryPath[f.queryPath.length - 1] : base;
 const refOf = (f: FieldRef, base: string) => `${cubeOf(f, base)}.${f.fieldName}`;
 
-export const createSemanticTableTool = createTool({
-  id: 'CreateSemanticTable',
+export const showSemanticTableTool = createTool({
+  id: 'ShowSemanticTable',
   description:
-    'Create a durable table cell from a semantic dataset — the standard way to materialize a ' +
-    'semantic-layer result (detail rows, grouped metrics, or a single-number answer). Behavior: ' +
-    'dimensions only → row-level detail; measures only → a single aggregated row (e.g. total ' +
-    'revenue); dimensions + measures → grouped aggregation (e.g. revenue by category). Put pre-defined ' +
-    'metrics in `measures` (never aggregate them again) and grouping/detail fields in `dimensions`. ' +
-    'Provide `queryPath` for each field: empty/omitted for base-dataset fields, or the joined-dataset ' +
-    'path for joined fields. Verify dataset and field names via FindSemanticColumns / ' +
-    'InspectSemanticData first. The cell renders as a table, chains by outputName, and shows a Trusted ' +
-    'definition badge when every measure used is endorsed. Reference it in your answer with ' +
-    '[cell:<cellId>].',
+    'Show a table from a semantic dataset to the user — the standard way to surface a semantic-layer ' +
+    'result (detail rows, grouped metrics, or a single-number answer). Behavior: dimensions only → ' +
+    'row-level detail; measures only → a single aggregated row (e.g. total revenue); dimensions + ' +
+    'measures → grouped aggregation (e.g. revenue by category). Put pre-defined metrics in `measures` ' +
+    '(never aggregate them again) and grouping/detail fields in `dimensions`. Provide `queryPath` for ' +
+    'each field: empty/omitted for base-dataset fields, or the joined-dataset path for joined fields. ' +
+    'Verify dataset and field names via FindSemanticColumns / InspectSemanticData first. The result ' +
+    'renders as a table and shows a Trusted definition badge when every measure used is endorsed. ' +
+    'Reference it in your answer with [result:<id>].',
   inputSchema: z.object({
     semanticInput: z.object({
       semanticProjectName: z.string(),
       datasetName: z.string(),
     }),
-    label: z.string().optional(),
+    label: z.string().optional().describe('Short human label shown as the result table title.'),
     outputName: z
       .string()
       .regex(/^[a-z_][a-z0-9_]*$/)
-      .optional(),
+      .optional()
+      .describe('snake_case name so a chart (build_chart) can bind to this result by name.'),
     dimensions: z.array(dimensionField).nullable().optional(),
     measures: z.array(measureField).nullable().optional(),
     filters: z.array(filterField).nullable().optional(),
@@ -112,7 +111,7 @@ export const createSemanticTableTool = createTool({
     endorsed: z.boolean(),
     via: z.literal('semantic'),
   }),
-  execute: async (input, ctx) => {
+  execute: async (input) => {
     const base = input.semanticInput.datasetName;
     const measures = (input.measures ?? []).map((m) => refOf(m, base));
     if (measures.length === 0 && (input.dimensions ?? []).length === 0) {
@@ -140,7 +139,7 @@ export const createSemanticTableTool = createTool({
         cube?.measures[0];
       if (!counter) {
         throw new Error(
-          `Dataset "${base}" has no measure to aggregate by. For raw detail rows, use CreateSqlCell instead.`,
+          `Dataset "${base}" has no measure to aggregate by. For raw detail rows, use ShowSql instead.`,
         );
       }
       effectiveMeasures = [`${base}.${counter.name}`];
@@ -157,16 +156,9 @@ export const createSemanticTableTool = createTool({
 
     const result = await runSemanticQuery(query);
 
-    const cellId = randomUUID();
-    const outputName = input.outputName?.trim() || undefined;
-    const threadId = ctx?.agent?.threadId;
-    if (threadId) {
-      const cell: NotebookCell = { id: cellId, kind: 'sql', source: result.sql, outputName };
-      await appendCell(threadId, cell, { titleIfNew: input.label });
-    }
     return {
-      cellId,
-      outputName: outputName ?? null,
+      cellId: randomUUID(),
+      outputName: input.outputName?.trim() || null,
       columns: result.columns,
       rows: result.rows,
       rowCount: result.rowCount,

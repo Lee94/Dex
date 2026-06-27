@@ -14,7 +14,7 @@ const byCategory = {
 };
 
 describe('ResultCard', () => {
-  it('renders a result as a table (charts live in vinci viz cells)', () => {
+  it('renders a result as a table (charts live in the thread chart)', () => {
     render(<ResultCard result={byCategory} />);
     expect(screen.getByRole('table')).toBeTruthy();
     // No in-card chart toggles anymore.

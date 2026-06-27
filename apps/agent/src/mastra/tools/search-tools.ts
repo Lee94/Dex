@@ -26,7 +26,10 @@ const TOOL_REGISTRY: { name: string; description: string }[] = [
     name: 'RunSQL',
     description: 'Run ephemeral read-only warehouse SQL (scratchpad; not shown to the user).',
   },
-  { name: 'CreateSqlCell', description: 'Create a durable, re-runnable SQL cell in the notebook.' },
+  {
+    name: 'ShowSql',
+    description: 'Run read-only SQL and show the result table to the user.',
+  },
   {
     name: 'FindSemanticColumns',
     description: 'Search the semantic layer for dimensions and measures.',
@@ -36,12 +39,8 @@ const TOOL_REGISTRY: { name: string; description: string }[] = [
     description: 'List semantic projects/datasets or inspect a dataset schema + sample.',
   },
   {
-    name: 'CreateSemanticTable',
-    description: 'Materialize a semantic dataset (measures/dimensions) as a cell.',
-  },
-  {
-    name: 'CellSearch',
-    description: 'Inspect the notebook structure and specific cells (source/outputs).',
+    name: 'ShowSemanticTable',
+    description: 'Show a semantic dataset (measures/dimensions) result as a table.',
   },
   {
     name: 'ReadGuide',

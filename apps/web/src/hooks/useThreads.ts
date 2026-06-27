@@ -10,8 +10,8 @@ import {
   loadThreadMessages,
   newThreadId,
   relativeTime,
-  renameThread as renameThreadApi,
   titleFromText,
+  updateThreadMeta,
 } from '@/lib/threads';
 import type { AssistantMessage, ChatMessage, Thread, ToolStep } from '@/types';
 
@@ -86,12 +86,13 @@ export function useThreads() {
     void refreshList();
   }, [refreshList]);
 
-  const createThread = useCallback((): string => {
+  const createThread = useCallback((projectId?: string): string => {
     const id = newThreadId();
     const now = Date.now();
     const thread: Thread = {
       id,
       title: 'New thread',
+      projectId,
       updated: 'just now',
       updatedAt: now,
       creator: CREATOR,
@@ -107,12 +108,14 @@ export function useThreads() {
     (threadId: string, rawTitle: string) => {
       const title = rawTitle.trim();
       if (!title) return;
+      // Preserve the thread's project membership — `update` replaces metadata.
+      const projectId = threads.find((t) => t.id === threadId)?.projectId;
       patchThread(threadId, (t) => ({ ...t, title }));
-      void renameThreadApi(threadId, title).catch((err) => {
+      void updateThreadMeta(threadId, { title, projectId }).catch((err) => {
         console.error('Failed to rename thread', err);
       });
     },
-    [patchThread],
+    [patchThread, threads],
   );
 
   const removeThread = useCallback((threadId: string) => {
@@ -121,6 +124,19 @@ export function useThreads() {
       console.error('Failed to delete thread', err);
     });
   }, []);
+
+  /** Move a thread into a project (or out of any project when `projectId` is null). */
+  const moveThreadToProject = useCallback(
+    (threadId: string, projectId: string | null) => {
+      const current = threads.find((t) => t.id === threadId);
+      if (!current) return;
+      patchThread(threadId, (t) => ({ ...t, projectId: projectId ?? undefined }));
+      void updateThreadMeta(threadId, { title: current.title, projectId }).catch((err) => {
+        console.error('Failed to move thread', err);
+      });
+    },
+    [patchThread, threads],
+  );
 
   const stop = useCallback(() => {
     stopRef.current?.();
@@ -134,6 +150,7 @@ export function useThreads() {
       const current = threads.find((t) => t.id === threadId);
       const isFirst = (current?.messages.length ?? 0) === 0;
       const title = isFirst ? titleFromText(trimmed) : current?.title;
+      const projectId = current?.projectId;
 
       const userMsg: ChatMessage = { id: uid(), role: 'user', text: trimmed };
       const assistantId = uid();
@@ -258,10 +275,11 @@ export function useThreads() {
             finishedAt: Date.now(),
           }));
           patchThread(threadId, (t) => ({ ...t, updated: relativeTime(Date.now()) }));
-          // Belt-and-suspenders: make sure the persisted thread carries the
-          // auto-title even if the memory option didn't seed it.
+          // First turn: persist the auto-title AND the project membership onto the
+          // thread (the memory option seeds the title but not metadata). This is
+          // when a thread created inside a project gets its `projectId` written.
           if (isFirst && title) {
-            void renameThreadApi(threadId, title).catch(() => {});
+            void updateThreadMeta(threadId, { title, projectId }).catch(() => {});
           }
           // Record a recallable one-line summary of this thread (v1.3). Best-effort.
           if (answerText.trim()) {
@@ -298,6 +316,7 @@ export function useThreads() {
     createThread,
     renameThread,
     removeThread,
+    moveThreadToProject,
     sendMessage,
     stop,
   };

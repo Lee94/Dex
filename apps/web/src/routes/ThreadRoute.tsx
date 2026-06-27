@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useThreadsContext } from '@/contexts/ThreadsContext';
-import { ensureNotebook } from '@/lib/notebooks';
+import { useProjectsContext } from '@/contexts/ProjectsContext';
 
 // Code-split the thread view (and its chart/result rendering) — loaded only when
 // a thread is opened.
@@ -17,9 +17,14 @@ const ThreadView = lazy(() =>
 export function ThreadRoute() {
   const { id } = useParams<{ id: string }>();
   const { threads, listLoading, loadMessages, sendMessage, stop } = useThreadsContext();
+  const { projects } = useProjectsContext();
   const navigate = useNavigate();
 
   const thread = id ? (threads.find((t) => t.id === id) ?? null) : null;
+  // The thread's project (if any) — its shared context is folded into the first message.
+  const project = thread?.projectId
+    ? (projects.find((p) => p.id === thread.projectId) ?? null)
+    : null;
 
   // Hydrate this thread's history the first time it's opened (the URL drove us
   // here; the old setActiveId side-effect is replaced by this effect).
@@ -43,18 +48,11 @@ export function ThreadRoute() {
     <Suspense fallback={null}>
       <ThreadView
         thread={thread}
+        project={project}
         onBack={() => navigate('/threads')}
         onSend={(text) => sendMessage(thread.id, text)}
         onStop={stop}
         onRetryLoad={() => void loadMessages(thread.id)}
-        onOpenNotebook={() => {
-          // Open the thread "as a notebook" (Hex-style): the thread's cells live
-          // in a notebook whose id IS the threadId. Ensure it exists, then route.
-          void (async () => {
-            await ensureNotebook(thread.id, thread.title).catch(() => {});
-            navigate(`/notebooks/${thread.id}`);
-          })();
-        }}
       />
     </Suspense>
   );

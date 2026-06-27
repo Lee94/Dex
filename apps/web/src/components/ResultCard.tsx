@@ -41,8 +41,8 @@ function downloadFile(content: string, filename: string, type: string): void {
 }
 
 /**
- * Renders a RunSQL / CreateSemanticTable / CreateSqlCell result as a **table** card.
- * Charting lives in vinci viz cells (see components/notebook/VizCell) — result
+ * Renders a RunSQL / ShowSemanticTable / ShowSql result as a **table** card.
+ * Charting lives in the thread chart (see components/thread/ThreadChart) — result
  * cards are table-only.
  */
 export function ResultCard({

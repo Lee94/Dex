@@ -2,9 +2,9 @@
  * Agent-side **pre-flight validator** for the vinci surface DSL the visualization
  * specialist authors. It mirrors the structural checks the web's vendored compiler
  * (`apps/web/src/vinci/dsl/surface/{geomOptions,fieldRef}.ts`) performs at render
- * time, so a malformed DSL is caught **here** — before it's persisted into a
- * notebook cell — and the error is fed back to the agent to repair (instead of the
- * web silently showing "Couldn't build this chart from the DSL").
+ * time, so a malformed DSL is caught **here** — before the chart is built — and the
+ * error is fed back to the agent to repair (instead of the web silently showing
+ * "Couldn't build this chart from the DSL").
  *
  * It is deliberately **conservative**: it only hard-fails on shapes the real
  * compiler is certain to reject (unknown geom type / geom-attribute / geom-option
@@ -220,7 +220,7 @@ function validateGeom(alias: string, geom: unknown, errs: string[]): void {
             const spec = schema[k];
             if (!spec) {
               errs.push(
-                `Geom "${alias}" (type ${type}) options doesn't support key "${k}"; allowed: ${Object.keys(schema).join(' / ') || '(none)'}. To sort, use top-level \`sort\`; to keep only top-N rows, LIMIT in the SQL cell.`,
+                `Geom "${alias}" (type ${type}) options doesn't support key "${k}"; allowed: ${Object.keys(schema).join(' / ') || '(none)'}. To sort, use top-level \`sort\`; to keep only top-N rows, LIMIT in the upstream SQL.`,
               );
             } else {
               const msg = checkOptionValue(spec, v, `geoms.${alias}.options.${k}`);
@@ -303,7 +303,7 @@ export function validateVizDsl(dsl: unknown): string[] {
     }
     if ('limit' in dsl.settings) {
       errs.push(
-        '`settings.limit` is not supported. To show only the top-N rows, add a LIMIT to the upstream SQL cell — the chart has no row cap.',
+        '`settings.limit` is not supported. To show only the top-N rows, add a LIMIT to the upstream SQL — the chart has no row cap.',
       );
     }
   }

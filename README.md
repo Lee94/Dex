@@ -9,7 +9,7 @@ result cards (tables and bar charts).
 - **Agent backend:** [Mastra](https://mastra.ai) (TypeScript) + Claude
   (`claude-opus-4-8`) via the [AI SDK](https://ai-sdk.dev) Anthropic provider.
 - **Frontend:** React + Vite, implementing a Claude Design handoff — a
-  [Blueprint](https://blueprintjs.com)-styled "Notebook" app shell, branded **Dex**.
+  [Blueprint](https://blueprintjs.com)-styled app shell, branded **Dex**.
 - **Data:** a bundled sample e-commerce SQLite warehouse (zero external setup).
 
 ## Layout
@@ -75,13 +75,14 @@ npm run smoke     # exercises the SQL tools + the read-only guard
 
 ## Status & roadmap
 
-Shipped (**v0.1.0**): the **Notebook.dc.html** design — app shell (sidebar, nav,
-recents), the Threads list, and the focused **thread chat wired to the live
-agent**.
+The product centers on **two concepts**: **Threads** (conversations with the
+agent) and **Projects** (containers that group threads and give them shared
+context — project-level instructions + bound data sources its threads inherit).
+Shipped along the way: the app shell + live thread chat (v0.1), thread persistence
+(v0.2), the connector seam + semantic layer (v0.3–0.5), the data-source browser
+(v0.6), catalog/knowledge/memory (v0.8–0.9), external context (v1.1), specialist
+sub-agents (v1.2), scheduling (v1.3), and the **Projects pivot (v3.0)** — which
+removed the earlier notebook surface and kept the agent's results (tables +
+charts) inline in the thread.
 
-Next milestones: tests + CI (v0.2) · persistence / saved threads (v0.3) ·
-chart-type selection & export (v0.4) · live Postgres connections + a semantic
-layer (v0.5) · the full cell-based **NotebookEditor** (v1.0).
-
-The detailed version plan — what's shipped and what each upcoming version
-delivers — lives in [`docs/roadmap/`](./docs/roadmap/README.md).
+The detailed version plan lives in [`docs/roadmap/`](./docs/roadmap/README.md).

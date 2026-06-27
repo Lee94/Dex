@@ -25,7 +25,7 @@ export interface TaskDelivery {
 export interface Task {
   id: string;
   name: string;
-  kind: 'sql' | 'notebook';
+  kind: 'sql';
   sql?: string;
   cron: string;
   enabled: boolean;

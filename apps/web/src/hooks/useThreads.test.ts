@@ -24,14 +24,14 @@ vi.mock('@/lib/threads', () => ({
   listThreads: vi.fn(async () => []),
   loadThreadMessages: vi.fn(async () => []),
   deleteThread: vi.fn(async () => {}),
-  renameThread: vi.fn(async () => {}),
+  updateThreadMeta: vi.fn(async () => {}),
   newThreadId: vi.fn(() => 'thread-1'),
   relativeTime: vi.fn(() => 'just now'),
   titleFromText: vi.fn((t: string) => t.slice(0, 20)),
 }));
 
 import { useThreads } from '@/hooks/useThreads';
-import { deleteThread, listThreads, renameThread } from '@/lib/threads';
+import { deleteThread, listThreads, updateThreadMeta } from '@/lib/threads';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -130,7 +130,7 @@ describe('useThreads persistence paths (v0.2)', () => {
       id = result.current.createThread();
     });
     act(() => result.current.renameThread(id, 'Renamed'));
-    expect(renameThread).toHaveBeenCalledWith(id, 'Renamed');
+    expect(updateThreadMeta).toHaveBeenCalledWith(id, { title: 'Renamed', projectId: undefined });
     act(() => result.current.removeThread(id));
     expect(deleteThread).toHaveBeenCalledWith(id);
     expect(result.current.threads.find((t) => t.id === id)).toBeUndefined();

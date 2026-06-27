@@ -15,12 +15,11 @@ import {
 import { Composer } from '@/components/Composer';
 import { Markdown } from '@/components/Markdown';
 import { ResultCard } from '@/components/ResultCard';
-import type { NotebookCell } from '@/lib/notebooks';
-import { splitUserMessage } from '@/lib/attachments';
+import { splitUserMessage, type ProjectContext } from '@/lib/attachments';
 import styles from './ThreadView.module.css';
 
 // The vinci chart stack is heavy — only pull it in when a thread embeds a chart.
-const VizCell = lazy(() => import('./notebook/VizCell'));
+const ThreadChart = lazy(() => import('./thread/ThreadChart'));
 
 const EXAMPLES = [
   'Top 5 products by revenue',
@@ -34,14 +33,15 @@ export function ThreadView({
   onSend,
   onStop,
   onRetryLoad,
-  onOpenNotebook,
+  project,
 }: {
   thread: Thread;
   onBack: () => void;
   onSend: (text: string) => void;
   onStop: () => void;
   onRetryLoad: () => void;
-  onOpenNotebook: () => void;
+  /** Shared context of the thread's project, folded into the first message. */
+  project?: ProjectContext | null;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -57,7 +57,7 @@ export function ThreadView({
 
   return (
     <div className={styles.root}>
-      <Header title={thread.title} onBack={onBack} onOpenNotebook={onOpenNotebook} />
+      <Header title={thread.title} onBack={onBack} />
 
       <div ref={scrollRef} className={styles.scroll}>
         <div className={styles.page}>
@@ -85,20 +85,17 @@ export function ThreadView({
         </div>
       </div>
 
-      <Composer onSend={onSend} onStop={onStop} streaming={streaming} />
+      <Composer
+        onSend={onSend}
+        onStop={onStop}
+        streaming={streaming}
+        project={empty ? project : null}
+      />
     </div>
   );
 }
 
-function Header({
-  title,
-  onBack,
-  onOpenNotebook,
-}: {
-  title: string;
-  onBack: () => void;
-  onOpenNotebook: () => void;
-}) {
+function Header({ title, onBack }: { title: string; onBack: () => void }) {
   return (
     <div className={styles.header}>
       <IconButton
@@ -125,15 +122,6 @@ function Header({
         title="Translate"
         hover="mid"
         padding={6}
-      />
-      <IconButton
-        icon="notebook"
-        size={16}
-        color="var(--dex-icon)"
-        title="Open as notebook"
-        hover="mid"
-        padding={6}
-        onClick={onOpenNotebook}
       />
       <Button variant="ghost">
         <Icon name="share" size={14} color="var(--dex-icon)" />
@@ -187,11 +175,11 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
   );
 }
 
-// The agent references a cell with a bracketed tag whose prefix varies in
-// practice ([cell:<id>], [c:<id>], or just [<id>]). Match any bracketed token,
+// The agent references a result with a bracketed tag whose prefix varies in
+// practice ([result:<id>], [cell:<id>], or just [<id>]). Match any bracketed token,
 // then pull out the id (the part after a ':' if present). It's an embed only
-// when that id is a real authored cell, so ordinary [text](link) markdown and
-// other brackets stay literal.
+// when that id is a real result, so ordinary [text](link) markdown and other
+// brackets stay literal.
 const CELL_TAG = /\[([^\]\n]{6,})\]/g;
 
 function cellRefId(bracketContent: string, hasCell: (id: string) => boolean): string | undefined {
@@ -200,7 +188,7 @@ function cellRefId(bracketContent: string, hasCell: (id: string) => boolean): st
   return hasCell(candidate) ? candidate : undefined;
 }
 
-/** Read a `CreateSqlCell` / `CreateSemanticTable` result's cellId, if this step is one. */
+/** Read a `ShowSql` / `ShowSemanticTable` result's embeddable id, if this step is one. */
 function cellIdOf(result: unknown): string | undefined {
   if (typeof result === 'object' && result !== null) {
     const id = (result as { cellId?: unknown }).cellId;
@@ -219,29 +207,14 @@ function cardFor(step: ToolStep, key: string) {
 }
 
 /**
- * A chart the visualization sub-agent authored, rendered in the thread by reusing
- * the notebook's vinci `VizCell` over the upstream SQL cell's rows (resolved by
- * `sourceOutputName`). Read-only here — edits belong in the notebook — so the
- * change callbacks are no-ops.
+ * A chart the visualization sub-agent authored, rendered read-only in the thread
+ * over the upstream result's rows (resolved by `sourceOutputName`). The chart spec
+ * (the vinci DSL) rides on the delegation tool result — there is no notebook.
  */
 function VizCard({ viz, source }: { viz: VizCellRef; source?: SqlResult }) {
-  const cell: NotebookCell = {
-    id: viz.cellId,
-    kind: 'viz',
-    source: '',
-    sourceOutputName: viz.sourceOutputName,
-    dsl: viz.dsl,
-  };
   return (
     <Suspense fallback={<div className={styles.answerText}>Loading chart…</div>}>
-      <VizCell
-        cell={cell}
-        sourceResult={source}
-        sources={viz.sourceOutputName ? [viz.sourceOutputName] : []}
-        onDslChange={() => {}}
-        onSourceChange={() => {}}
-        editable={false}
-      />
+      <ThreadChart dsl={viz.dsl} source={source} label={viz.label} />
     </Suspense>
   );
 }
@@ -249,6 +222,7 @@ function VizCard({ viz, source }: { viz: VizCellRef; source?: SqlResult }) {
 function ctxIcon(kind: string): string {
   if (/table/i.test(kind)) return 'table';
   if (/model/i.test(kind)) return 'layers';
+  if (/project/i.test(kind)) return 'projects';
   return 'data';
 }
 
@@ -276,12 +250,12 @@ function UserRow({ text }: { text: string }) {
 
 function AssistantBlock({ msg }: { msg: AssistantMessage }) {
   const [open, setOpen] = useState(true);
-  // Authored SQL cells (CreateSqlCell / CreateSemanticTable results), keyed by cellId.
+  // Shown SQL/semantic results (ShowSql / ShowSemanticTable), keyed by their id.
   const cellById = new Map<string, ToolStep>();
-  // SQL outputs keyed by their outputName — the rows a viz cell charts.
+  // SQL outputs keyed by their outputName — the rows a chart visualizes.
   const outputResults = new Map<string, SqlResult>();
-  // Viz cells the visualization sub-agent created (lifted from the delegation
-  // result; the sub-agent's create_viz_cell isn't an analyst step), keyed by cellId.
+  // Charts the visualization sub-agent built (lifted from the delegation result;
+  // the sub-agent's build_chart isn't an analyst step), keyed by their id.
   const vizById = new Map<string, VizCellRef>();
   for (const s of msg.steps) {
     const id = cellIdOf(s.result);
@@ -394,7 +368,7 @@ function AssistantBlock({ msg }: { msg: AssistantMessage }) {
         </>
       )}
 
-      {/* assistant answer — with inline [cell:<id>] embeds (Hex visibility) */}
+      {/* assistant answer — with inline [result:<id>] embeds (Hex-style visibility) */}
       {msg.text ? renderAnswer() : null}
 
       {/* governed/legacy result cards below the answer */}
@@ -453,11 +427,10 @@ const STEP_LABELS: Record<string, string> = {
   FindTableSchemas: 'Searched for tables',
   ViewTables: 'Inspected table schemas',
   RunSQL: 'Ran a SQL query',
-  CreateSqlCell: 'Created a SQL cell',
+  ShowSql: 'Built a result table',
   FindSemanticColumns: 'Searched the semantic layer',
   InspectSemanticData: 'Inspected semantic data',
-  CreateSemanticTable: 'Built a semantic table',
-  CellSearch: 'Reviewed the notebook',
+  ShowSemanticTable: 'Built a semantic table',
   ReadGuide: 'Consulted the guides',
   SaveMemory: 'Saved a preference',
   SuggestReview: 'Flagged for review',

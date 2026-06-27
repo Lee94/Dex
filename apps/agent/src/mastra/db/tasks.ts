@@ -3,16 +3,16 @@ import { dexStore } from './store';
 import type { QueryResult } from './types';
 
 /**
- * Scheduled tasks (v1.3) — turn a saved query/notebook into a living artifact.
+ * Scheduled tasks (v1.3) — turn a saved query into a living artifact.
  *
- * A task re-runs a read-only query on a cron, optionally **alerts** when a scalar
- * crosses a threshold (or changes), and **delivers** a summary (Slack/webhook).
- * Tasks persist in `dex.db`; re-runs go through the same read-only execution path
- * as everything else (see `task-runner.ts`). Delivery + alerting start simple by
- * design (no rules engine).
+ * A task re-runs a read-only SQL query on a cron, optionally **alerts** when a
+ * scalar crosses a threshold (or changes), and **delivers** a summary
+ * (Slack/webhook). Tasks persist in `dex.db`; re-runs go through the same read-only
+ * execution path as everything else (see `task-runner.ts`). Delivery + alerting
+ * start simple by design (no rules engine).
  */
 
-export type TaskKind = 'sql' | 'notebook';
+export type TaskKind = 'sql';
 export type AlertOp = 'gt' | 'lt' | 'ne' | 'changed';
 export type DeliveryChannel = 'none' | 'slack' | 'webhook';
 export type RunStatus = 'ok' | 'alert' | 'error';
@@ -36,8 +36,6 @@ export interface Task {
   name: string;
   kind: TaskKind;
   sql?: string;
-  notebookId?: string;
-  cellId?: string;
   cron: string;
   enabled: boolean;
   delivery: TaskDelivery;
@@ -54,8 +52,6 @@ export interface NewTaskInput {
   name: string;
   kind: TaskKind;
   sql?: string;
-  notebookId?: string;
-  cellId?: string;
   cron: string;
   enabled?: boolean;
   delivery?: TaskDelivery;
@@ -73,8 +69,6 @@ function ensureSchema(): Promise<void> {
            name        TEXT NOT NULL,
            kind        TEXT NOT NULL,
            sql         TEXT,
-           notebook_id TEXT,
-           cell_id     TEXT,
            cron        TEXT NOT NULL,
            enabled     INTEGER NOT NULL DEFAULT 1,
            delivery    TEXT,
@@ -109,8 +103,6 @@ function rowToTask(row: Record<string, Cell>): Task {
     name: String(row.name),
     kind: String(row.kind) as TaskKind,
     sql: row.sql == null ? undefined : String(row.sql),
-    notebookId: row.notebook_id == null ? undefined : String(row.notebook_id),
-    cellId: row.cell_id == null ? undefined : String(row.cell_id),
     cron: String(row.cron),
     enabled: Number(row.enabled) === 1,
     delivery: parseJson<TaskDelivery>(row.delivery, { channel: 'none' }),
@@ -144,8 +136,6 @@ export async function createTask(input: NewTaskInput): Promise<Task> {
     name: input.name.trim() || 'Untitled task',
     kind: input.kind,
     sql: input.sql,
-    notebookId: input.notebookId,
-    cellId: input.cellId,
     cron: input.cron.trim(),
     enabled: input.enabled ?? true,
     delivery: input.delivery ?? { channel: 'none' },
@@ -154,15 +144,13 @@ export async function createTask(input: NewTaskInput): Promise<Task> {
   };
   await dexStore.execute({
     sql: `INSERT INTO dex_tasks
-            (id, name, kind, sql, notebook_id, cell_id, cron, enabled, delivery, alert, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (id, name, kind, sql, cron, enabled, delivery, alert, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       task.id,
       task.name,
       task.kind,
       task.sql ?? null,
-      task.notebookId ?? null,
-      task.cellId ?? null,
       task.cron,
       task.enabled ? 1 : 0,
       JSON.stringify(task.delivery),

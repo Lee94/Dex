@@ -1,23 +1,9 @@
-import { createBrowserRouter, Navigate, type LoaderFunctionArgs } from 'react-router';
+import { createBrowserRouter, Navigate } from 'react-router';
 import { RootLayout } from '@/layouts/RootLayout';
 import { ShellLayout } from '@/layouts/ShellLayout';
-import { NotebooksLayout } from '@/layouts/NotebooksLayout';
 import { ThreadRoute } from '@/routes/ThreadRoute';
 import { ThreadsListRoute } from '@/routes/ThreadsListRoute';
-import { NotebooksListRoute } from '@/routes/NotebooksListRoute';
 import { Placeholder } from '@/components/Placeholder';
-import { getNotebook, type Notebook } from '@/lib/notebooks';
-
-// Pre-fetch the notebook during navigation so the editor opens without a
-// loading-then-data flash. Returns null on failure; the route renders the
-// hook's error state in that case.
-async function notebookLoader({ params }: LoaderFunctionArgs): Promise<Notebook | null> {
-  try {
-    return await getNotebook(params.id!);
-  } catch {
-    return null;
-  }
-}
 
 const placeholder = (icon: string, title: string) => (
   <Placeholder icon={icon} title={title} subtitle="Nothing here yet." />
@@ -25,10 +11,10 @@ const placeholder = (icon: string, title: string) => (
 
 /**
  * Route table (v3.0). The URL is the single source of truth for navigation:
- * `RootLayout` mounts the threads context for the whole tree, `/threads/:id`
- * is full-screen (no Shell), and everything else nests under `ShellLayout`
- * (sidebar + outlet). Heavy surfaces use react-router's route-level `lazy` so
- * their code is split exactly as before (DataBrowser/Notebook editor/etc.).
+ * `RootLayout` mounts the threads + projects contexts for the whole tree,
+ * `/threads/:id` is full-screen (no Shell), and everything else nests under
+ * `ShellLayout` (sidebar + outlet). Heavy surfaces use react-router's route-level
+ * `lazy` so their code is split (DataBrowser / project editor / etc.).
  */
 export const router = createBrowserRouter([
   {
@@ -45,18 +31,16 @@ export const router = createBrowserRouter([
         children: [
           { path: 'threads', element: <ThreadsListRoute /> },
           {
-            path: 'notebooks',
-            element: <NotebooksLayout />,
-            children: [
-              { index: true, element: <NotebooksListRoute /> },
-              {
-                path: ':id',
-                loader: notebookLoader,
-                lazy: async () => ({
-                  Component: (await import('@/routes/NotebookEditorRoute')).NotebookEditorRoute,
-                }),
-              },
-            ],
+            path: 'projects',
+            lazy: async () => ({
+              Component: (await import('@/routes/ProjectsListRoute')).ProjectsListRoute,
+            }),
+          },
+          {
+            path: 'projects/:id',
+            lazy: async () => ({
+              Component: (await import('@/routes/ProjectRoute')).ProjectRoute,
+            }),
           },
           {
             // One route with optional params — keeps DataBrowserView mounted

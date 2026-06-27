@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateVizDsl } from '../src/mastra/agents/viz-dsl-validate';
-import { createVizCellTool } from '../src/mastra/tools/create-viz-cell';
+import { buildChartTool } from '../src/mastra/tools/build-chart';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const execTool = (input: unknown, ctx: unknown) => (createVizCellTool as any).execute(input, ctx);
+const execTool = (input: unknown) => (buildChartTool as any).execute(input);
 
 // Pre-flight validator for the visualization specialist's surface DSL. Mirrors the
 // web's vendored compiler so a malformed DSL is caught before it's persisted (and
@@ -99,14 +99,13 @@ test('passes a valid line chart with options (no false positives)', () => {
   assert.deepEqual(validateVizDsl(dsl), []);
 });
 
-// create_viz_cell tool — the feedback loop. An invalid DSL must throw (Mastra turns
-// the throw into a tool-error fed back to the visualization agent, which repairs and
-// retries within its step budget) and must NOT be persisted. No thread context is
-// passed, so nothing touches the notebook store.
+// build_chart tool — the feedback loop. An invalid DSL must throw (Mastra turns the
+// throw into a tool-error fed back to the visualization agent, which repairs and
+// retries within its step budget); a valid DSL returns a chart id to embed.
 
-test('create_viz_cell throws (does not persist) on the trace DSL', async () => {
+test('build_chart throws on the trace DSL', async () => {
   await assert.rejects(
-    () => execTool({ sourceOutputName: 'etf_ranking_no_money', dsl: badDsl }, {}),
+    () => execTool({ sourceOutputName: 'etf_ranking_no_money', dsl: badDsl }),
     (err: Error) => {
       assert.match(err.message, /invalid and was not created/);
       assert.match(err.message, /options doesn't support key "sort"/);
@@ -116,10 +115,8 @@ test('create_viz_cell throws (does not persist) on the trace DSL', async () => {
   );
 });
 
-test('create_viz_cell accepts the repaired DSL (returns a cellId)', async () => {
-  const res = await execTool({ sourceOutputName: 'etf_ranking_no_money', dsl: goodDsl }, {});
+test('build_chart accepts the repaired DSL (returns a chart id)', async () => {
+  const res = await execTool({ sourceOutputName: 'etf_ranking_no_money', dsl: goodDsl });
   assert.equal(typeof res.cellId, 'string');
   assert.ok(res.cellId.length > 0);
-  // No thread context → not persisted, but the DSL passed validation.
-  assert.equal(res.persisted, false);
 });

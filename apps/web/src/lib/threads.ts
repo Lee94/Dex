@@ -68,13 +68,21 @@ type ThreadSummaryRow = {
   title?: string;
   updatedAt?: string | Date;
   createdAt?: string | Date;
+  metadata?: Record<string, unknown> | null;
 };
+
+/** Read the projectId a thread carries in its Mastra metadata, if any. */
+function projectIdOf(metadata: Record<string, unknown> | null | undefined): string | undefined {
+  const pid = metadata?.projectId;
+  return typeof pid === 'string' && pid ? pid : undefined;
+}
 
 function threadFromSummary(row: ThreadSummaryRow): Thread {
   const updatedAt = toMs(row.updatedAt ?? row.createdAt);
   return {
     id: row.id,
     title: row.title || 'Untitled thread',
+    projectId: projectIdOf(row.metadata),
     updated: relativeTime(updatedAt),
     updatedAt,
     creator: CREATOR,
@@ -89,6 +97,20 @@ export async function listThreads(): Promise<Thread[]> {
   const res = await mastra.listMemoryThreads({
     agentId: AGENT_ID,
     resourceId: RESOURCE_ID,
+    perPage: 100,
+    orderBy: { field: 'updatedAt', direction: 'DESC' },
+  });
+  return (res.threads ?? []).map((t) => threadFromSummary(t as ThreadSummaryRow));
+}
+
+/** List the threads belonging to a project (server-side metadata filter), most
+ *  recently updated first. Authoritative even if the plain thread list doesn't
+ *  echo each thread's metadata back. */
+export async function listProjectThreads(projectId: string): Promise<Thread[]> {
+  const res = await mastra.listMemoryThreads({
+    agentId: AGENT_ID,
+    resourceId: RESOURCE_ID,
+    metadata: { projectId },
     perPage: 100,
     orderBy: { field: 'updatedAt', direction: 'DESC' },
   });
@@ -111,9 +133,19 @@ export async function loadThreadMessages(threadId: string): Promise<ChatMessage[
   return reconstructMessages(res.messages ?? []);
 }
 
-export async function renameThread(threadId: string, title: string): Promise<void> {
+/**
+ * Update a thread's title + project membership in one write. Mastra's `update`
+ * REPLACES the whole metadata object, so callers must always pass the intended
+ * `projectId` (omit/null = a loose thread) alongside the title — otherwise a rename
+ * would wipe the project and vice-versa.
+ */
+export async function updateThreadMeta(
+  threadId: string,
+  opts: { title: string; projectId?: string | null },
+): Promise<void> {
   const thread = mastra.getMemoryThread({ threadId, agentId: AGENT_ID });
-  await thread.update({ title, metadata: {}, resourceId: RESOURCE_ID, agentId: AGENT_ID });
+  const metadata = opts.projectId ? { projectId: opts.projectId } : {};
+  await thread.update({ title: opts.title, metadata, resourceId: RESOURCE_ID, agentId: AGENT_ID });
 }
 
 export async function deleteThread(threadId: string): Promise<void> {

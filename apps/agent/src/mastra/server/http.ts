@@ -1,6 +1,6 @@
 /**
  * Shared HTTP helpers for the root API route modules (`routes.ts`,
- * `notebook-routes.ts`). Kept tiny and dependency-free.
+ * `project-routes.ts`, `task-routes.ts`, …). Kept tiny and dependency-free.
  */
 
 /** A JSON error body + status the handlers return via `c.json(fail(...), status)`. */

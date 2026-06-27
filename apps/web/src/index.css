@@ -2,7 +2,7 @@
 @import './blueprint/styles.css';
 @import './styles/theme.css';
 
-/* ---- Base reset (from the Notebook.dc.html design) ---- */
+/* ---- Base reset ---- */
 * {
   box-sizing: border-box;
 }

@@ -1,8 +1,8 @@
 /**
  * Authoring reference for the vinci **surface DSL** (SurfaceDoc) the visualization
- * specialist emits to `create_viz_cell`. Embedded verbatim in that agent's
+ * specialist emits to `build_chart`. Embedded verbatim in that agent's
  * instructions. The web compiles this DSL (`dslToSnapshot`) and renders it with
- * vinci's chart editor; the in-memory compute aggregates the upstream rows per the
+ * vinci's chart viewer; the in-memory compute aggregates the upstream rows per the
  * encoding. Keep this in sync with apps/web/src/vinci/dsl (the vendored compiler).
  */
 export const VIZ_DSL_REFERENCE = `## vinci surface DSL (what you author)
@@ -39,7 +39,7 @@ A chart is one JSON object (a "SurfaceDoc"). Shape:
   \`"sort": [{ "id": "<dimension alias>:same", "sortType": "asc" | "desc", "dependField": "<measure alias>:<summary>" }]\`.
   Example — bars sorted by score descending: \`"sort": [{ "id": "name:same", "sortType": "desc", "dependField": "score:sum" }]\`.
 - There is **no row limit / top-N in the DSL** (no \`settings.limit\`). To chart only the top N, add a \`LIMIT\` (with an
-  \`ORDER BY\`) to the **upstream SQL cell** — the chart renders every row it's given.
+  \`ORDER BY\`) to the **upstream SQL result** — the chart renders every row it's given.
 
 ### Examples
 

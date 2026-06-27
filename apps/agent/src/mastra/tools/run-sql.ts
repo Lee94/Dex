@@ -6,17 +6,16 @@ const DIALECT = getActiveProvider() === 'postgres' ? 'PostgreSQL' : 'SQLite';
 
 /**
  * `RunSQL` (Hex) — ephemeral, exploratory warehouse SQL. Results are shown to YOU
- * (the agent) but are NOT saved to the notebook or displayed to the user. Use it
- * as a scratchpad to inform downstream work; for any user-visible, durable result
- * use `CreateSqlCell` instead.
+ * (the agent) but are NOT displayed to the user. Use it as a scratchpad to inform
+ * downstream work; for any user-visible result use `ShowSql` instead.
  */
 export const runSqlTool = createTool({
   id: 'RunSQL',
   description:
-    `Run ephemeral, read-only exploratory SQL (SELECT, or WITH … SELECT) without creating a notebook ` +
-    `cell. Results are shown to you but NOT saved to the notebook or shown to the user — use this as a ` +
-    `scratchpad to inform downstream work, not as a final answer source (use CreateSqlCell for ` +
-    `user-visible, durable analysis). Before calling this, you should already have inspected the ` +
+    `Run ephemeral, read-only exploratory SQL (SELECT, or WITH … SELECT). Results are shown to you ` +
+    `but NOT shown to the user — use this as a scratchpad to inform downstream work, not as a final ` +
+    `answer source (use ShowSql for user-visible analysis). Before calling this, you should already ` +
+    `have inspected the ` +
     `relevant tables with ViewTables. By default it runs against the primary ${DIALECT} warehouse; ` +
     `pass a \`dataConnectionId\` (from ListDataConnections or the question context) to run against ` +
     `another connection, writing SQL for the dialect ViewTables reported for it. Write/DDL statements ` +

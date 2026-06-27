@@ -32,7 +32,7 @@ describe('vizCellsOf', () => {
   it('lifts viz cells from a DelegateToVisualizationAgent result', () => {
     const dsl = { dslVersion: 1, geoms: [{ type: 'line' }] };
     const res = {
-      summary: 'Created [cell:abc] — a line chart',
+      summary: 'Created [result:abc] — a line chart',
       vizCells: [{ cellId: 'abc', sourceOutputName: 'trend', dsl, label: 'Trend' }],
     };
     expect(vizCellsOf(res)).toEqual([

@@ -1,6 +1,4 @@
 import { runReadOnlySql } from './queries';
-import { getNotebook } from './notebooks';
-import { resolveChainedSql } from './notebook-exec';
 import { deliverResult } from './delivery';
 import { recordRun, type Task, type TaskAlert, type RunStatus } from './tasks';
 import type { QueryResult } from './types';
@@ -52,18 +50,9 @@ export function evaluateAlert(
 }
 
 /** Resolve a task to the read-only SQL it should run. */
-async function resolveTaskSql(task: Task): Promise<string> {
-  if (task.kind === 'sql') {
-    if (!task.sql?.trim()) throw new Error('Task has no SQL to run.');
-    return task.sql;
-  }
-  // notebook: re-run a cell (default: the last cell), chaining upstream cells.
-  if (!task.notebookId) throw new Error('Notebook task has no notebookId.');
-  const notebook = await getNotebook(task.notebookId);
-  if (!notebook) throw new Error(`Notebook ${task.notebookId} not found.`);
-  const cellId = task.cellId ?? notebook.cells[notebook.cells.length - 1]?.id;
-  if (!cellId) throw new Error('Notebook has no cells to run.');
-  return resolveChainedSql(notebook.cells, cellId);
+function resolveTaskSql(task: Task): string {
+  if (!task.sql?.trim()) throw new Error('Task has no SQL to run.');
+  return task.sql;
 }
 
 export interface TaskRun {
@@ -80,7 +69,7 @@ export interface TaskRun {
  */
 export async function runTask(task: Task): Promise<TaskRun> {
   try {
-    const sql = await resolveTaskSql(task);
+    const sql = resolveTaskSql(task);
     const result = await runReadOnlySql(sql);
     const value = extractScalar(result, task.alert?.column);
     const alertFired = evaluateAlert(task.alert, value, task.lastValue);

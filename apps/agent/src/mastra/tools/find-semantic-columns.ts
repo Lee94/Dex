@@ -21,8 +21,8 @@ export const findSemanticColumnsTool = createTool({
     'Measures are pre-aggregated — use them directly without additional aggregation; dimensions are ' +
     'grouping/detail fields and can be aggregated (count, min, max). Prioritize endorsed datasets — ' +
     'they are curated for reliability. If the semantic layer defines the same data as a warehouse ' +
-    'table, bias toward the semantic layer. After choosing fields, materialize them with ' +
-    'CreateSemanticTable rather than re-deriving the same number in raw SQL.',
+    'table, bias toward the semantic layer. After choosing fields, surface them with ' +
+    'ShowSemanticTable rather than re-deriving the same number in raw SQL.',
   inputSchema: z.object({
     query: z.string().describe('Keyword search over semantic members (3-10 high-signal tokens).'),
     dataConnectionId: z.string().nullable().optional(),
@@ -30,7 +30,7 @@ export const findSemanticColumnsTool = createTool({
   outputSchema: z.object({
     columns: z.array(
       z.object({
-        name: z.string().describe('Field name (use as fieldName in CreateSemanticTable).'),
+        name: z.string().describe('Field name (use as fieldName in ShowSemanticTable).'),
         ref: z.string().describe('Fully-qualified "dataset.field" reference.'),
         kind: z.enum(['dimension', 'measure']),
         type: z.string(),

@@ -42,23 +42,16 @@ export const taskRoutes = [
       if (!body.name?.trim()) return c.json(fail('name is required'), 400);
       if (!body.cron || !isValidCron(body.cron))
         return c.json(fail('a valid 5-field cron is required'), 400);
-      const kind = body.kind === 'notebook' ? 'notebook' : 'sql';
-      if (kind === 'sql') {
-        if (!body.sql?.trim()) return c.json(fail('sql is required for a sql task'), 400);
-        try {
-          assertReadOnly(body.sql);
-        } catch (err) {
-          return c.json(fail(err instanceof Error ? err.message : String(err)), 400);
-        }
-      } else if (!body.notebookId?.trim()) {
-        return c.json(fail('notebookId is required for a notebook task'), 400);
+      if (!body.sql?.trim()) return c.json(fail('sql is required'), 400);
+      try {
+        assertReadOnly(body.sql);
+      } catch (err) {
+        return c.json(fail(err instanceof Error ? err.message : String(err)), 400);
       }
       const task = await createTask({
         name: body.name,
-        kind,
+        kind: 'sql',
         sql: body.sql,
-        notebookId: body.notebookId,
-        cellId: body.cellId,
         cron: body.cron,
         enabled: body.enabled ?? true,
         delivery: body.delivery ?? { channel: 'none' },

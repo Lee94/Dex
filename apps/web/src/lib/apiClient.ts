@@ -3,9 +3,9 @@ import { config } from '@/config';
 /**
  * Shared REST client for the agent's root API routes (mounted at the server
  * root, NOT under `/api` — see apps/agent/src/mastra/server/*). Used by the
- * data-source module (`lib/dataSources.ts`) and the notebook module
- * (`lib/notebooks.ts`): a thin `fetch` wrapper that returns parsed JSON or
- * throws a clean Error carrying the server's `{ error }` message.
+ * data-source module (`lib/dataSources.ts`), the projects module
+ * (`lib/projects.ts`), tasks, and knowledge: a thin `fetch` wrapper that returns
+ * parsed JSON or throws a clean Error carrying the server's `{ error }` message.
  */
 const BASE = config.mastraBaseUrl;
 

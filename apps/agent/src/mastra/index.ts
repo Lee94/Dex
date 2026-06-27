@@ -7,10 +7,10 @@ import { dataDiscoveryAgent } from './agents/discovery';
 import { visualizationAgent } from './agents/visualization';
 import { buildObservability } from './observability';
 import { dataSourceRoutes } from './server/routes';
-import { notebookRoutes } from './server/notebook-routes';
 import { knowledgeRoutes } from './server/knowledge-routes';
 import { uploadRoutes } from './server/upload-routes';
 import { taskRoutes } from './server/task-routes';
+import { projectRoutes } from './server/project-routes';
 import { startScheduler } from './db/scheduler';
 
 export const mastra = new Mastra({
@@ -42,16 +42,15 @@ export const mastra = new Mastra({
     },
     // v0.6 data-source module: read-only catalog browsing, metadata curation,
     // and connection management — independent of the agent (see server/routes.ts).
-    // v2.0 notebook module: notebook CRUD + a read-only /query/sql cell-execution
-    // path (see server/notebook-routes.ts). v0.9 knowledge module: guides /
-    // memories / review-requests (see server/knowledge-routes.ts). All mount at
-    // the server root.
+    // v0.9 knowledge module: guides / memories / review-requests (see
+    // server/knowledge-routes.ts). v3.0 projects module: project CRUD (see
+    // server/project-routes.ts). All mount at the server root.
     apiRoutes: [
       ...dataSourceRoutes,
-      ...notebookRoutes,
       ...knowledgeRoutes,
       ...uploadRoutes,
       ...taskRoutes,
+      ...projectRoutes,
     ],
   },
 });
