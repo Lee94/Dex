@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { Placeholder } from '@/components/Placeholder';
 import { useDataBrowser, type DataBrowserState, type HeaderTab } from '@/hooks/useDataBrowser';
 import { SourceList } from './SourceList';
@@ -28,8 +28,17 @@ export function DataBrowserView() {
   const db = useDataBrowser();
   const { connId, table } = useParams<{ connId?: string; table?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const tr = useT();
   const [addOpen, setAddOpen] = useState(false);
+
+  // Returning from the full-screen model studio lands here with a tab hint —
+  // restore the Data Models tab (the studio's "Back" passes `state.tab`).
+  const { pickHeader } = db;
+  useEffect(() => {
+    const st = location.state as { tab?: string } | null;
+    if (st?.tab === 'datamodels') pickHeader('datamodels');
+  }, [location.state, pickHeader]);
 
   // Pull the selection + its stable handles out of the per-render `db` object so
   // the sync effects below depend on plain identifiers.

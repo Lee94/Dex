@@ -1,4 +1,6 @@
-import type { SemanticModel } from './types';
+import type { Relationship, SemanticModel } from './types';
+
+const RELATIONSHIPS: Relationship[] = ['many_to_one', 'one_to_many', 'one_to_one'];
 
 /**
  * Structural validation of a semantic model: duplicate names, dangling joins,
@@ -40,6 +42,12 @@ export function validateModel(model: SemanticModel): string[] {
     for (const j of cube.joins ?? []) {
       if (!cubeNames.has(j.to)) {
         errors.push(`Join "${cube.name}" → "${j.to}" targets an unknown cube.`);
+      }
+      if (!RELATIONSHIPS.includes(j.relationship)) {
+        errors.push(`Join "${cube.name}" → "${j.to}" has an invalid relationship.`);
+      }
+      if (!j.sql || !j.sql.trim()) {
+        errors.push(`Join "${cube.name}" → "${j.to}" needs an ON condition (sql).`);
       }
     }
   }

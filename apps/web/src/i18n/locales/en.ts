@@ -10,6 +10,7 @@
 export const en = {
   common: {
     cancel: 'Cancel',
+    back: 'Back',
     delete: 'Delete',
     retry: 'Retry',
     remove: 'Remove',
@@ -21,6 +22,13 @@ export const en = {
 
   language: {
     label: 'Language',
+  },
+
+  // Friendly wrapper for LLM provider errors (esp. auth/key failures) — surfaced
+  // by both the analyst thread and the data-model studio assistant.
+  llmError: {
+    auth: (detail: string) =>
+      `LLM authorization failed (${detail}). Check that ANTHROPIC_API_KEY in apps/agent/.env is valid (the provider rejected the key), then restart the agent.`,
   },
 
   sidebar: {
@@ -97,7 +105,6 @@ export const en = {
     workedFor: 'Worked for ',
     thinking: 'Thinking…',
     somethingWrong: 'Something went wrong.',
-    apiKeyHint: ' — set ANTHROPIC_API_KEY in apps/agent/.env and restart the agent.',
     loadingChart: 'Loading chart…',
   },
 
@@ -222,6 +229,33 @@ export const en = {
     errNeedName: 'Give the connection a name.',
   },
 
+  addProject: {
+    title: 'New semantic project',
+    name: 'Name',
+    namePh: 'B2B semantic project',
+    description: 'Description',
+    descriptionPh: 'What this project models…',
+    source: 'Data connection',
+    sourceHint: 'Models in this project are built from this connection’s tables.',
+    create: 'Create project',
+    creating: 'Creating…',
+    errNeedName: 'Give the project a name.',
+  },
+
+  addJoin: {
+    title: 'Add relation',
+    add: 'Add relation',
+    target: 'Related model',
+    relationship: 'Relationship',
+    on: 'Join condition (ON)',
+    thisColumn: (cube: string) => `Column in ${cube}…`,
+    targetColumn: (cube: string) => `Column in ${cube}…`,
+    manualHint: 'Write the ON condition, e.g. orders.customer_id = customers.id.',
+    noTargets: 'No other models to relate to yet.',
+    errNeedTarget: 'Pick a model to relate to.',
+    errNeedCondition: 'Set the join condition.',
+  },
+
   addModel: {
     title: 'New data model',
     baseTable: 'Base table',
@@ -297,10 +331,57 @@ export const en = {
     },
   },
 
+  modelStudio: {
+    dataRoot: 'Data',
+    files: 'Files',
+    newModel: 'New model',
+    noFiles: 'No models yet — create one with +.',
+    selectFile: 'Select a model from the sidebar, or create one with +.',
+    agent: 'Agent',
+    foldDefinitions: 'Fold definitions',
+    publish: 'Publish',
+    publishing: 'Publishing…',
+    publishNothing: 'Nothing to publish.',
+    publishFailed: (name: string) => `Couldn’t publish ${name}.`,
+    fileCount: (n: number) => `${n} ${n === 1 ? 'file' : 'files'}`,
+    errorCount: (n: number) => `${n} ${n === 1 ? 'error' : 'errors'}`,
+    warningCount: (n: number) => `${n} ${n === 1 ? 'warning' : 'warnings'}`,
+    untitled: 'untitled',
+    newTemplate: 'name: my_model\nsql: my_table\nmeasures:\n  - name: count\n    type: count\n',
+    readOnlyBuiltin: 'Built-in models are read-only.',
+    loadFailed: 'Couldn’t load this model.',
+    closeFile: 'Close',
+    hidePanel: 'Hide assistant',
+    showPanel: 'Show assistant',
+    newChat: 'New chat',
+    saveHint: 'Press ⌘S / Ctrl+S to save a draft.',
+    unsavedTitle: 'Close without saving?',
+    unsavedMessage: (name: string) => `${name} has unsaved changes that aren’t published.`,
+    unsavedConfirm: 'Close anyway',
+    agentSub: 'Ask questions, write code, and build models.',
+    learnMore: 'Learn more',
+    tryAsking: 'Try asking the agent to…',
+    agentPlaceholder: 'Ask, edit, create…',
+    auto: 'Auto',
+    agentActions: {
+      createModels: 'Create new semantic models',
+      createJoins: 'Create joins between models',
+      addMembers: 'Add dimensions and measures',
+      fromProjects: 'Use @ to build models from projects',
+    },
+  },
+
   dataModels: {
     semanticProjects: 'Semantic projects',
     allSemanticProjects: 'All semantic projects',
+    newProject: 'New project',
+    deleteProjectTitle: 'Delete semantic project',
+    deleteProjectBefore: 'Delete the project ',
+    deleteProjectAfter:
+      '? This removes the project and all of its models; the underlying data is not affected.',
+    deleteProjectLabel: 'Delete project',
     newModel: 'New model',
+    editModels: 'Edit models',
     edit: 'Edit',
     endorsed: 'Endorsed',
     demo: 'DEMO',

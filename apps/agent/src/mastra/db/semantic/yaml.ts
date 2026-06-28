@@ -1,18 +1,30 @@
 import { parse, stringify, YAMLParseError } from 'yaml';
 import { IDENTIFIER } from '../guard';
 import { validateModel } from './validate';
-import type { Cube, Dimension, DimensionType, Format, Measure, MeasureType } from './types';
+import type {
+  Cube,
+  Dimension,
+  DimensionType,
+  Format,
+  Join,
+  Measure,
+  MeasureType,
+  Relationship,
+} from './types';
 
 /**
- * cube.js-style YAML for user-defined semantic models (v3.1).
+ * cube.js-style YAML for user-defined semantic models (v3.1; joins v3.4).
  *
  * The YAML is an **isomorphic serialization of a `Cube`** — top-level keys map
- * straight to the `Cube` interface (name / sql / measures / dimensions). This
- * keeps round-tripping trivial and lets the existing `validateModel` do the
+ * straight to the `Cube` interface (name / sql / measures / dimensions / joins).
+ * This keeps round-tripping trivial and lets the existing `validateModel` do the
  * structural checks. `parseCubeYaml` collects errors (with line/col where the
  * YAML library provides them) instead of throwing, so callers can surface them
- * (HTTP 400 → Monaco markers). User cubes are standalone: `joins` are rejected,
- * `endorsed` is forced false.
+ * (HTTP 400 → Monaco markers). User cubes may now declare `joins` (cube.js-style
+ * relations); `endorsed` is forced false. `parseCubeYaml` validates a join's
+ * *shape* (target/relationship/sql), while target-existence + owning-column
+ * checks need the project's other cubes and run in the route via
+ * `assertJoinsValid`.
  */
 
 const MEASURE_TYPES: MeasureType[] = [
@@ -26,6 +38,10 @@ const MEASURE_TYPES: MeasureType[] = [
 ];
 const DIMENSION_TYPES: DimensionType[] = ['categorical', 'temporal', 'numeric'];
 const FORMATS: Format[] = ['number', 'integer', 'currency', 'percent'];
+const RELATIONSHIPS: Relationship[] = ['many_to_one', 'one_to_many', 'one_to_one'];
+
+/** Matches a `<cube>.<column>` reference token inside a join's ON condition. */
+const REF_TOKEN = '([A-Za-z_][A-Za-z0-9_]*)\\.([A-Za-z_][A-Za-z0-9_]*)';
 
 export interface CubeYamlError {
   message: string;
@@ -79,6 +95,10 @@ export function cubeToYaml(cube: Cube): string {
         sql: d.sql,
       }),
     ),
+    joins:
+      cube.joins && cube.joins.length > 0
+        ? cube.joins.map((j) => clean({ to: j.to, relationship: j.relationship, sql: j.sql }))
+        : undefined,
   });
   return stringify(doc);
 }
@@ -113,9 +133,6 @@ export function parseCubeYaml(text: string): ParseCubeResult {
     errors.push({
       message: 'sql must be a base table name (identifier); subqueries are not allowed.',
     });
-  }
-  if (Array.isArray(raw.joins) && raw.joins.length > 0) {
-    errors.push({ message: 'User models cannot define joins.' });
   }
 
   const measures: Measure[] = [];
@@ -191,6 +208,23 @@ export function parseCubeYaml(text: string): ParseCubeResult {
     );
   });
 
+  const joins: Join[] = [];
+  const rawJoins = Array.isArray(raw.joins) ? raw.joins : [];
+  rawJoins.forEach((rj, i) => {
+    if (rj == null || typeof rj !== 'object' || Array.isArray(rj)) {
+      errors.push({ message: `joins[${i}] must be a mapping.` });
+      return;
+    }
+    const j = rj as Record<string, unknown>;
+    joins.push(
+      clean({
+        to: str(j.to).trim(),
+        relationship: str(j.relationship).trim() as Relationship,
+        sql: str(j.sql).trim(),
+      }) as Join,
+    );
+  });
+
   if (errors.length > 0) return { errors };
 
   const cube: Cube = clean({
@@ -201,12 +235,20 @@ export function parseCubeYaml(text: string): ParseCubeResult {
     endorsed: false,
     measures,
     dimensions,
-    joins: [],
+    joins,
   }) as Cube;
+
+  // Join *shape* checks (target/relationship/sql well-formed). Target-existence
+  // and owning-column checks need the project's other cubes, so they run later
+  // in the route via `assertJoinsValid`.
+  const joinErrors = validateJoins(cube);
+  if (joinErrors.length > 0) return { errors: joinErrors.map((message) => ({ message })) };
 
   // Final structural pass (e.g. a non-count measure missing its `sql`, duplicate
   // member names) reuses the same validator the built-in model is checked with.
-  const structural = validateModel({ cubes: [cube], metrics: [] });
+  // Joins are stripped here so a relation to a sibling cube isn't mis-flagged as
+  // "unknown cube" when this cube is validated in isolation.
+  const structural = validateModel({ cubes: [{ ...cube, joins: [] }], metrics: [] });
   if (structural.length > 0) return { errors: structural.map((message) => ({ message })) };
 
   return { cube, errors: [] };
@@ -229,4 +271,75 @@ export function assertColumnsExist(cube: Cube, columnNames: Set<string>): void {
   };
   for (const m of cube.measures) check(m.sql, `measure "${m.name}"`);
   for (const d of cube.dimensions) check(d.sql, `dimension "${d.name}"`);
+}
+
+/**
+ * Validate a cube's joins (cube.js-style relations). Returns human-readable
+ * error strings (empty = valid). Structural checks always run; the two
+ * context-dependent checks run only when their context is supplied — the route
+ * has both, the pure YAML parse has neither:
+ *   - `knownCubeNames` → the target cube must exist in the same project.
+ *   - `ownColumns` → columns this cube references in the ON condition must exist.
+ *
+ * Mirrors `assertColumnsExist`: only `<thisCube>.<col>` refs on the owning side
+ * are checked; the target side + complex SQL are left to `assertReadOnly` +
+ * runtime, matching how cube.js treats the ON `sql` as an opaque template.
+ */
+export function validateJoins(
+  cube: Cube,
+  ctx: { ownColumns?: Set<string>; knownCubeNames?: Set<string> } = {},
+): string[] {
+  const errors: string[] = [];
+  for (const j of cube.joins ?? []) {
+    const label = j.to ? `join to "${j.to}"` : 'join';
+    if (!j.to || !IDENTIFIER.test(j.to)) {
+      errors.push(`A ${label} needs a target model (to).`);
+      continue;
+    }
+    if (j.to === cube.name) errors.push(`Join "${cube.name}" cannot target itself.`);
+    if (!RELATIONSHIPS.includes(j.relationship)) {
+      errors.push(`${label}: relationship must be one of ${RELATIONSHIPS.join(', ')}.`);
+    }
+    const onSql = (j.sql ?? '').trim();
+    if (!onSql) {
+      errors.push(`${label}: sql (the ON condition) is required.`);
+      continue;
+    }
+    // Walk every `<alias>.<col>` token: the ON condition must reference both this
+    // cube and the target, and any column on this cube's side must really exist.
+    let refsOwn = false;
+    let refsTarget = false;
+    let missingCol: string | null = null;
+    const re = new RegExp(REF_TOKEN, 'g');
+    let mt: RegExpExecArray | null;
+    while ((mt = re.exec(onSql)) !== null) {
+      const [, alias, col] = mt;
+      if (alias === cube.name) {
+        refsOwn = true;
+        if (ctx.ownColumns && !ctx.ownColumns.has(col)) missingCol = col;
+      } else if (alias === j.to) {
+        refsTarget = true;
+      }
+    }
+    if (!refsOwn || !refsTarget) {
+      errors.push(`${label}: sql must reference both ${cube.name}.<col> and ${j.to}.<col>.`);
+    }
+    if (missingCol) {
+      errors.push(`${label}: column "${missingCol}" does not exist in ${cube.sql}.`);
+    }
+    if (ctx.knownCubeNames && !ctx.knownCubeNames.has(j.to)) {
+      errors.push(`Join target "${j.to}" is not a model in this project.`);
+    }
+  }
+  return errors;
+}
+
+/** Throwing wrapper around `validateJoins` for the route's create/patch flow. */
+export function assertJoinsValid(
+  cube: Cube,
+  ownColumns: Set<string>,
+  knownCubeNames: Set<string>,
+): void {
+  const errors = validateJoins(cube, { ownColumns, knownCubeNames });
+  if (errors.length > 0) throw new Error(errors.join('\n'));
 }

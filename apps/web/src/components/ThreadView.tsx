@@ -16,6 +16,7 @@ import { Composer } from '@/components/Composer';
 import { Markdown } from '@/components/Markdown';
 import { ResultCard } from '@/components/ResultCard';
 import { splitUserMessage, type ProjectContext } from '@/lib/attachments';
+import { llmErrorMessage } from '@/lib/llmError';
 import { useT, type Dict } from '@/i18n';
 import styles from './ThreadView.module.css';
 
@@ -390,10 +391,7 @@ function AssistantBlock({ msg }: { msg: AssistantMessage }) {
             color="var(--dex-danger)"
             style={{ flex: 'none', marginTop: 1 }}
           />
-          <span>
-            {msg.errorText || t.thread.somethingWrong}
-            {/api key|401|unauthor/i.test(msg.errorText || '') ? t.thread.apiKeyHint : ''}
-          </span>
+          <span>{llmErrorMessage(msg.errorText || '', t) || t.thread.somethingWrong}</span>
         </div>
       ) : null}
     </div>

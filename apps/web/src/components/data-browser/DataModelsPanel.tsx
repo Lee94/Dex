@@ -1,17 +1,27 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Icon } from '@/lib/icons';
 import { Button, IconButton, Pill, ConfirmDialog } from '@/components/ui';
-import { typeColorVar, type ModelStatus, type SemanticModel } from '@/lib/dataSources';
+import {
+  typeColorVar,
+  type ModelStatus,
+  type SemanticModel,
+  type SemanticProject,
+} from '@/lib/dataSources';
 import type { DataBrowserState } from '@/hooks/useDataBrowser';
 import { DataGrid } from './Detail';
-import { ModelEditor } from './model-editor/ModelEditor';
+import { AddProjectDialog } from './AddProjectDialog';
 import { useT } from '@/i18n';
 import styles from './dataBrowser.module.css';
 
-/** Data Models tab: semantic projects → models → measures/dimensions/joins,
- *  plus the full-screen model editor (create / draft / publish). */
+/** Path to the full-screen model studio for a project, optionally pre-opening a file. */
+function studioPath(projectId: string, query: string): string {
+  return `/data/models/${encodeURIComponent(projectId)}${query}`;
+}
+
+/** Data Models tab: semantic projects → models → measures/dimensions/joins.
+ *  Creating / editing a model jumps to the full-page studio (`/data/models/:id`). */
 export function DataModelsPanel({ db }: { db: DataBrowserState }) {
-  if (db.editorModel) return <ModelEditor db={db} />;
   if (db.modelDetail) return <ModelDetail db={db} />;
   if (db.projectDetail) return <ProjectDetail db={db} />;
   return <ProjectList db={db} />;
@@ -30,10 +40,15 @@ function StatusBadge({ status, builtin }: { status?: ModelStatus; builtin?: bool
 
 function ProjectList({ db }: { db: DataBrowserState }) {
   const t = useT();
+  const [addOpen, setAddOpen] = useState(false);
   return (
     <div className={styles.detailScroll}>
       <div className={styles.detailHeaderRow}>
         <span className={styles.detailTitle}>{t.dataModels.semanticProjects}</span>
+        <Button variant="green" style={{ marginLeft: 'auto' }} onClick={() => setAddOpen(true)}>
+          <Icon name="plus" size={13} color="#fff" />
+          {t.dataModels.newProject}
+        </Button>
       </div>
       {db.projectsLoading ? (
         <div className={styles.center}>
@@ -47,34 +62,82 @@ function ProjectList({ db }: { db: DataBrowserState }) {
       ) : (
         <div className={styles.dmGrid}>
           {db.projects.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className={styles.dmCard}
-              onClick={() => void db.openProject(p.id)}
-            >
-              <div className={styles.dmCardHead}>
-                <Icon name="layers" size={16} color="var(--dex-accent)" />
-                <span className={styles.dmCardName}>{p.name}</span>
-                {p.demo ? <span className={styles.demoBadge}>{t.dataModels.demo}</span> : null}
-              </div>
-              {p.description ? <div className={styles.dmCardDesc}>{p.description}</div> : null}
-              <div className={styles.dmCardMeta}>
-                <Icon name="data" size={12} color="var(--dex-icon-faint)" />
-                <span className={styles.dmCardMetaText}>
-                  {p.source.name} · {t.dataModels.modelCount(p.modelCount)}
-                </span>
-              </div>
-            </button>
+            <ProjectCard key={p.id} project={p} db={db} />
           ))}
         </div>
       )}
+      {addOpen ? (
+        <AddProjectDialog
+          sources={db.sources}
+          onClose={() => setAddOpen(false)}
+          onSubmit={db.createProject}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** A project card in the semantic-projects grid — opens on click, deletes on
+ *  hover-trash (the built-in `dex` project can't be deleted). */
+function ProjectCard({ project, db }: { project: SemanticProject; db: DataBrowserState }) {
+  const t = useT();
+  const [confirming, setConfirming] = useState(false);
+  const isBuiltin = project.id === 'dex';
+  return (
+    <div className={styles.dmCard}>
+      <button
+        type="button"
+        className={styles.dmCardBtn}
+        onClick={() => void db.openProject(project.id)}
+      >
+        <div className={styles.dmCardHead}>
+          <Icon name="layers" size={16} color="var(--dex-accent)" />
+          <span className={styles.dmCardName}>{project.name}</span>
+          {project.demo ? <span className={styles.demoBadge}>{t.dataModels.demo}</span> : null}
+        </div>
+        {project.description ? (
+          <div className={styles.dmCardDesc}>{project.description}</div>
+        ) : null}
+        <div className={styles.dmCardMeta}>
+          <Icon name="data" size={12} color="var(--dex-icon-faint)" />
+          <span className={styles.dmCardMetaText}>
+            {project.source.name} · {t.dataModels.modelCount(project.modelCount)}
+          </span>
+        </div>
+      </button>
+      {isBuiltin ? null : (
+        <IconButton
+          icon="trash"
+          size={13}
+          color="var(--dex-icon-subtle)"
+          title={t.dataModels.deleteProjectLabel}
+          hover="mid"
+          className={`${styles.rowDelete} ${styles.dmCardDelete}`}
+          onClick={() => setConfirming(true)}
+        />
+      )}
+      {confirming ? (
+        <ConfirmDialog
+          title={t.dataModels.deleteProjectTitle}
+          message={
+            <>
+              {t.dataModels.deleteProjectBefore}
+              <strong>{project.name}</strong>
+              {t.dataModels.deleteProjectAfter}
+            </>
+          }
+          confirmLabel={t.dataModels.deleteProjectLabel}
+          onConfirm={() => db.removeProject(project.id)}
+          onClose={() => setConfirming(false)}
+        />
+      ) : null}
     </div>
   );
 }
 
 function ProjectDetail({ db }: { db: DataBrowserState }) {
   const t = useT();
+  const navigate = useNavigate();
   const project = db.projectDetail!;
 
   return (
@@ -92,10 +155,10 @@ function ProjectDetail({ db }: { db: DataBrowserState }) {
         <Button
           variant="green"
           style={{ marginLeft: 'auto' }}
-          onClick={() => db.openEditor({ mode: 'new' })}
+          onClick={() => navigate(studioPath(project.id, ''))}
         >
-          <Icon name="plus" size={13} color="#fff" />
-          {t.dataModels.newModel}
+          <Icon name="edit" size={13} color="#fff" />
+          {t.dataModels.editModels}
         </Button>
       </div>
       {project.description ? (
@@ -165,6 +228,7 @@ function ModelCard({ model, db }: { model: SemanticModel; db: DataBrowserState }
 
 function ModelDetail({ db }: { db: DataBrowserState }) {
   const t = useT();
+  const navigate = useNavigate();
   const project = db.projectDetail;
   const model = db.modelDetail!;
   const [confirming, setConfirming] = useState(false);
@@ -192,7 +256,9 @@ function ModelDetail({ db }: { db: DataBrowserState }) {
           <div className={styles.headerActions}>
             <Button
               variant="ghost"
-              onClick={() => db.openEditor({ mode: 'edit', modelId: model.id })}
+              onClick={() =>
+                navigate(studioPath(project?.id ?? 'dex', `?open=${encodeURIComponent(model.id)}`))
+              }
             >
               <Icon name="edit" size={13} color="var(--dex-icon)" />
               {t.dataModels.edit}

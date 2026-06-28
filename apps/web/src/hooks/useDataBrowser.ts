@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   addDataSource,
-  createSemanticModel,
+  createSemanticProject,
   deleteDataSource,
   deleteSemanticModel,
-  discardModelDraft,
+  deleteSemanticProject,
   fetchPreview,
   fetchSchemaTree,
   fetchSemanticModel,
@@ -12,27 +12,22 @@ import {
   fetchTableDetail,
   listDataSources,
   listSemanticProjects,
-  publishSemanticModel,
   refreshMetadata,
   updateMetadata,
-  updateSemanticModel,
-  type CreateModelInput,
   type DataSource,
   type MetadataPatch,
   type NewConnectionInput,
+  type NewProjectInput,
   type PreviewResult,
   type SchemaNode,
   type SemanticModel,
   type SemanticProject,
   type TableDetail,
-  type UpdateModelPatch,
 } from '@/lib/dataSources';
 
 export type HeaderTab = 'recommended' | 'warehouse' | 'datamodels' | 'curation';
 export type DetailTab = 'columns' | 'preview';
 export type DmTab = 'preview' | 'dims';
-/** The data-model editor target: a brand-new model, or editing an existing one. */
-export type EditorTarget = { mode: 'new' } | { mode: 'edit'; modelId: string };
 
 const tableKey = (connId: string, table: string) => `${connId}::${table}`;
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -77,7 +72,6 @@ export function useDataBrowser() {
   const [modelDetail, setModelDetail] = useState<SemanticModel | null>(null);
   const [modelLoading, setModelLoading] = useState(false);
   const [dmTab, setDmTab] = useState<DmTab>('dims');
-  const [editorModel, setEditorModel] = useState<EditorTarget | null>(null);
 
   // --- loaders ---
   const refreshSources = useCallback(async () => {
@@ -321,13 +315,7 @@ export function useDataBrowser() {
   );
 
   // --- data models ---
-  const loadProjects = useCallback(async () => {
-    let has = false;
-    setProjects((prev) => {
-      has = prev.length > 0;
-      return prev;
-    });
-    if (has) return;
+  const refreshProjects = useCallback(async () => {
     setProjectsLoading(true);
     setProjectsError(null);
     try {
@@ -338,6 +326,35 @@ export function useDataBrowser() {
       setProjectsLoading(false);
     }
   }, []);
+
+  const loadProjects = useCallback(async () => {
+    let has = false;
+    setProjects((prev) => {
+      has = prev.length > 0;
+      return prev;
+    });
+    if (has) return;
+    await refreshProjects();
+  }, [refreshProjects]);
+
+  const createProject = useCallback(
+    async (input: NewProjectInput): Promise<SemanticProject> => {
+      const created = await createSemanticProject(input);
+      await refreshProjects();
+      return created;
+    },
+    [refreshProjects],
+  );
+
+  const removeProject = useCallback(
+    async (projectId: string) => {
+      await deleteSemanticProject(projectId);
+      setProjectDetail((cur) => (cur?.id === projectId ? null : cur));
+      setModelDetail(null);
+      await refreshProjects();
+    },
+    [refreshProjects],
+  );
 
   const pickHeader = useCallback(
     (tab: HeaderTab) => {
@@ -390,53 +407,6 @@ export function useDataBrowser() {
     setProjectDetail(detail);
     if (list) setProjects(list);
   }, []);
-
-  // --- model editor (create / draft / publish / discard) ---
-  const openEditor = useCallback((target: EditorTarget) => setEditorModel(target), []);
-  const closeEditor = useCallback(() => setEditorModel(null), []);
-
-  const createModel = useCallback(
-    async (input: CreateModelInput): Promise<SemanticModel> => {
-      const projectId = projectDetail?.id ?? 'dex';
-      const created = await createSemanticModel(projectId, input);
-      await reloadProject(projectId);
-      return created;
-    },
-    [projectDetail, reloadProject],
-  );
-
-  const saveModelDraft = useCallback(
-    async (modelId: string, patch: UpdateModelPatch): Promise<SemanticModel | null> => {
-      const projectId = projectDetail?.id ?? 'dex';
-      const updated = await updateSemanticModel(projectId, modelId, { ...patch, action: 'save' });
-      await reloadProject(projectId);
-      return updated;
-    },
-    [projectDetail, reloadProject],
-  );
-
-  const publishModel = useCallback(
-    async (
-      modelId: string,
-      patch: Omit<UpdateModelPatch, 'action'> = {},
-    ): Promise<SemanticModel | null> => {
-      const projectId = projectDetail?.id ?? 'dex';
-      const updated = await publishSemanticModel(projectId, modelId, patch);
-      await reloadProject(projectId);
-      return updated;
-    },
-    [projectDetail, reloadProject],
-  );
-
-  const discardDraft = useCallback(
-    async (modelId: string): Promise<SemanticModel | null> => {
-      const projectId = projectDetail?.id ?? 'dex';
-      const updated = await discardModelDraft(projectId, modelId);
-      await reloadProject(projectId);
-      return updated;
-    },
-    [projectDetail, reloadProject],
-  );
 
   const removeModel = useCallback(
     async (modelId: string) => {
@@ -518,6 +488,8 @@ export function useDataBrowser() {
     projectDetail,
     openProject,
     backToProjects,
+    createProject,
+    removeProject,
     modelDetail,
     modelLoading,
     openModel,
@@ -525,14 +497,6 @@ export function useDataBrowser() {
     removeModel,
     dmTab,
     setDmTab,
-    // model editor
-    editorModel,
-    openEditor,
-    closeEditor,
-    createModel,
-    saveModelDraft,
-    publishModel,
-    discardDraft,
   };
 }
 

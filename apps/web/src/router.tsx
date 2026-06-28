@@ -21,6 +21,15 @@ export const router = createBrowserRouter([
       // Full-screen thread — outside the Shell (no sidebar).
       { path: 'threads/:id', element: <ThreadRoute /> },
 
+      // Full-screen semantic-model studio — outside the Shell (no sidebar).
+      // Code-split: it pulls in Monaco, loaded only when the editor is opened.
+      {
+        path: 'data/models/:projectId',
+        lazy: async () => ({
+          Component: (await import('@/routes/ModelStudioRoute')).ModelStudioRoute,
+        }),
+      },
+
       // Everything else lives inside the Shell (sidebar + main panel).
       {
         element: <ShellLayout />,

@@ -12,6 +12,7 @@ export { compileSemanticQuery } from './compile';
 export { validateModel, assertValidModel } from './validate';
 export * from './types';
 export * from './store';
+export * from './projects-store';
 export * from './yaml';
 
 // Fail fast on a structurally broken model (duplicate names, dangling joins,
@@ -41,12 +42,25 @@ export async function loadMergedModel(): Promise<SemanticModel> {
     metrics: [...model.metrics],
   };
   for (const m of stored) {
+    // The analyst agent queries the built-in warehouse, so only the built-in
+    // `dex` project's models are merged into its model. Models in other projects
+    // (bound to other data sources) are organizational — visible in the UI but
+    // not compiled into the agent's default semantic model.
+    if (m.projectId !== 'dex') continue;
     const cube = m.published; // the agent only ever sees the published version
     if (!cube) continue; // draft / never-published → invisible to the agent
     if (builtinNames.has(cube.name)) continue; // never shadow a built-in cube
     if (merged.cubes.some((c) => c.name === cube.name)) continue;
     const candidate: SemanticModel = { cubes: [...merged.cubes, cube], metrics: merged.metrics };
-    if (validateModel(candidate).length === 0) merged.cubes.push(cube);
+    const issues = validateModel(candidate);
+    if (issues.length === 0) {
+      merged.cubes.push(cube);
+    } else {
+      // A published cube that no longer validates against the merged model (e.g.
+      // a join whose target was later deleted) is dropped so it can't break the
+      // whole model — but warn, since it silently disappears from the agent.
+      console.warn(`[semantic] skipping published model "${cube.name}": ${issues.join('; ')}`);
+    }
   }
   return merged;
 }

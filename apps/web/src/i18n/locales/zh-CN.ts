@@ -9,6 +9,7 @@ import type { Dict } from './en';
 export const zhCN: Dict = {
   common: {
     cancel: '取消',
+    back: '返回',
     delete: '删除',
     retry: '重试',
     remove: '移除',
@@ -20,6 +21,11 @@ export const zhCN: Dict = {
 
   language: {
     label: '语言',
+  },
+
+  llmError: {
+    auth: (detail) =>
+      `LLM 鉴权失败（${detail}）。请检查 apps/agent/.env 的 ANTHROPIC_API_KEY 是否有效（提供方拒绝了该 key），然后重启 agent。`,
   },
 
   sidebar: {
@@ -91,7 +97,6 @@ export const zhCN: Dict = {
     workedFor: '耗时 ',
     thinking: '思考中…',
     somethingWrong: '出错了。',
-    apiKeyHint: ' —— 请在 apps/agent/.env 中设置 ANTHROPIC_API_KEY 并重启 agent。',
     loadingChart: '正在加载图表…',
   },
 
@@ -212,6 +217,33 @@ export const zhCN: Dict = {
     errNeedName: '请为连接命名。',
   },
 
+  addProject: {
+    title: '新建语义项目',
+    name: '名称',
+    namePh: 'B2B 语义项目',
+    description: '描述',
+    descriptionPh: '这个项目建模什么…',
+    source: '数据连接',
+    sourceHint: '该项目下的模型将基于此连接的表构建。',
+    create: '创建项目',
+    creating: '创建中…',
+    errNeedName: '请为项目命名。',
+  },
+
+  addJoin: {
+    title: '添加关联',
+    add: '添加关联',
+    target: '关联模型',
+    relationship: '关系',
+    on: '关联条件（ON）',
+    thisColumn: (cube: string) => `${cube} 中的列…`,
+    targetColumn: (cube: string) => `${cube} 中的列…`,
+    manualHint: '填写 ON 条件，例如 orders.customer_id = customers.id。',
+    noTargets: '暂时没有可关联的其他模型。',
+    errNeedTarget: '请选择要关联的模型。',
+    errNeedCondition: '请设置关联条件。',
+  },
+
   addModel: {
     title: '新建数据模型',
     baseTable: '基础表',
@@ -287,10 +319,56 @@ export const zhCN: Dict = {
     },
   },
 
+  modelStudio: {
+    dataRoot: '数据',
+    files: '文件',
+    newModel: '新建模型',
+    noFiles: '还没有模型 —— 用 + 新建一个。',
+    selectFile: '从左侧选择一个模型，或用 + 新建一个。',
+    agent: '助手',
+    foldDefinitions: '折叠定义',
+    publish: '发布',
+    publishing: '发布中…',
+    publishNothing: '没有可发布的内容。',
+    publishFailed: (name) => `无法发布 ${name}。`,
+    fileCount: (n) => `${n} 个文件`,
+    errorCount: (n) => `${n} 个错误`,
+    warningCount: (n) => `${n} 个警告`,
+    untitled: '未命名',
+    newTemplate: 'name: my_model\nsql: my_table\nmeasures:\n  - name: count\n    type: count\n',
+    readOnlyBuiltin: '内置模型为只读。',
+    loadFailed: '无法加载该模型。',
+    closeFile: '关闭',
+    hidePanel: '隐藏助手',
+    showPanel: '显示助手',
+    newChat: '新对话',
+    saveHint: '按 ⌘S / Ctrl+S 保存草稿。',
+    unsavedTitle: '不保存就关闭？',
+    unsavedMessage: (name) => `${name} 有尚未发布的修改。`,
+    unsavedConfirm: '仍然关闭',
+    agentSub: '提问、写代码、构建模型。',
+    learnMore: '了解更多',
+    tryAsking: '试着让助手…',
+    agentPlaceholder: '提问、编辑、创建…',
+    auto: '自动',
+    agentActions: {
+      createModels: '创建新的语义模型',
+      createJoins: '在模型之间创建关联',
+      addMembers: '添加维度和度量',
+      fromProjects: '用 @ 从项目构建模型',
+    },
+  },
+
   dataModels: {
     semanticProjects: '语义项目',
     allSemanticProjects: '全部语义项目',
+    newProject: '新建项目',
+    deleteProjectTitle: '删除语义项目',
+    deleteProjectBefore: '删除项目 ',
+    deleteProjectAfter: '？这将移除该项目及其下所有模型；底层数据不受影响。',
+    deleteProjectLabel: '删除项目',
     newModel: '新建模型',
+    editModels: '编辑模型',
     edit: '编辑',
     endorsed: '已认证',
     demo: '示例',

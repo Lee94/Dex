@@ -25,6 +25,8 @@ export type ModelStatus = 'draft' | 'published' | 'draft_pending';
 
 export interface StoredModel {
   id: string;
+  /** The semantic project this model belongs to (`dex` for the built-in project). */
+  projectId: string;
   /** The base table the cube reads from (the current edit view's `cube.sql`). */
   baseTable: string;
   /** Current name (follows the draft when there's a pending edit). */
@@ -90,6 +92,8 @@ async function migrate(): Promise<void> {
   await addColumn('published_def', 'published_def TEXT');
   await addColumn('draft_def', 'draft_def TEXT');
   await addColumn('updated_at', 'updated_at INTEGER');
+  // v3.3: scope models to a semantic project (legacy rows → the built-in `dex`).
+  await addColumn('project_id', 'project_id TEXT');
   // Back-fill only on the first migration (legacy rows have always been
   // agent-visible → treat them as published). Skipping this in steady state
   // keeps migrate() write-free, so it never contends for the write lock.
@@ -125,6 +129,7 @@ function rowToStored(row: Record<string, Cell>): StoredModel | null {
   if (!view) return null; // empty/corrupt row — skip rather than crash the load
   return {
     id: String(row.id),
+    projectId: String(row.project_id ?? 'dex'),
     name: String(row.name),
     baseTable: String(row.base_table ?? view.sql),
     published,
@@ -134,12 +139,28 @@ function rowToStored(row: Record<string, Cell>): StoredModel | null {
   };
 }
 
-export async function listStoredModels(): Promise<StoredModel[]> {
+/** List stored models, optionally scoped to one semantic project (legacy rows
+ *  with a null `project_id` count as the built-in `dex` project). */
+export async function listStoredModels(projectId?: string): Promise<StoredModel[]> {
   await ensureSchema();
-  const res = await dexStore.execute('SELECT * FROM dex_semantic_models ORDER BY created_at ASC');
+  const res = projectId
+    ? await dexStore.execute({
+        sql: "SELECT * FROM dex_semantic_models WHERE COALESCE(project_id, 'dex') = ? ORDER BY created_at ASC",
+        args: [projectId],
+      })
+    : await dexStore.execute('SELECT * FROM dex_semantic_models ORDER BY created_at ASC');
   return (res.rows as unknown as Record<string, Cell>[])
     .map(rowToStored)
     .filter((x): x is StoredModel => x !== null);
+}
+
+/** Remove every model in a project (used when a project is deleted). */
+export async function deleteModelsByProject(projectId: string): Promise<void> {
+  await ensureSchema();
+  await dexStore.execute({
+    sql: "DELETE FROM dex_semantic_models WHERE COALESCE(project_id, 'dex') = ?",
+    args: [projectId],
+  });
 }
 
 export async function getStoredModelByName(name: string): Promise<StoredModel | null> {
@@ -154,7 +175,11 @@ export async function getStoredModelByName(name: string): Promise<StoredModel | 
 
 /** Create a model. By default it's a draft (agent can't see it); pass
  *  `publish` to make it immediately published. */
-export async function createModel(cube: Cube, publish = false): Promise<StoredModel> {
+export async function createModel(
+  cube: Cube,
+  publish = false,
+  projectId = 'dex',
+): Promise<StoredModel> {
   await ensureSchema();
   const id = randomUUID();
   const now = Date.now();
@@ -162,8 +187,8 @@ export async function createModel(cube: Cube, publish = false): Promise<StoredMo
   const draft = publish ? null : cube;
   await dexStore.execute({
     sql: `INSERT INTO dex_semantic_models
-            (id, name, base_table, definition, published_def, draft_def, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            (id, name, base_table, definition, published_def, draft_def, project_id, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id,
       cube.name,
@@ -171,12 +196,14 @@ export async function createModel(cube: Cube, publish = false): Promise<StoredMo
       JSON.stringify(cube),
       published ? JSON.stringify(published) : null,
       draft ? JSON.stringify(draft) : null,
+      projectId,
       now,
       now,
     ],
   });
   return {
     id,
+    projectId,
     name: cube.name,
     baseTable: cube.sql,
     published,

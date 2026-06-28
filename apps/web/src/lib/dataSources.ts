@@ -91,6 +91,12 @@ export interface SemanticJoin {
   to: string;
   relationship?: string;
 }
+/** A cube.js-style relation as authored (matches the agent's `Join`). */
+export interface CubeJoinDef {
+  to: string;
+  relationship: string;
+  sql: string;
+}
 /** Versioned-draft status (v3.1). `draft_pending` = published + an unpublished edit. */
 export type ModelStatus = 'draft' | 'published' | 'draft_pending';
 
@@ -118,6 +124,7 @@ export interface CubeDef {
   sql: string;
   measures: CubeMeasureDef[];
   dimensions: CubeDimensionDef[];
+  joins?: CubeJoinDef[];
 }
 
 export interface SemanticModel {
@@ -150,6 +157,7 @@ export interface NewModelInput {
   table: string;
   measures: { name: string; title?: string; type: MeasureKind; column?: string }[];
   dimensions: { name: string; column: string; type: DimensionKind }[];
+  joins?: CubeJoinDef[];
 }
 
 /** Create payload: a GUI form or a raw YAML cube; `publish` skips the draft. */
@@ -167,6 +175,7 @@ export interface UpdateModelPatch {
   table?: string;
   measures?: NewModelInput['measures'];
   dimensions?: NewModelInput['dimensions'];
+  joins?: CubeJoinDef[];
   action?: 'save' | 'publish' | 'discard';
 }
 export interface SemanticProject {
@@ -174,9 +183,19 @@ export interface SemanticProject {
   name: string;
   demo: boolean;
   description: string | null;
+  /** The bound data connection's id (`builtin` for the `dex` project) — used to
+   *  fetch base-table columns when authoring joins. */
+  sourceId: string;
   source: { name: string; kind: ConnectorKind };
   modelCount: number;
   models?: SemanticModel[];
+}
+
+/** Create payload for a new semantic project (bound to a data connection). */
+export interface NewProjectInput {
+  name: string;
+  description?: string;
+  sourceId: string;
 }
 
 export interface NewConnectionInput {
@@ -257,6 +276,19 @@ export function fetchSemanticProject(projectId: string): Promise<SemanticProject
   return apiFetch<{ project: SemanticProject }>(
     `/semantic/projects/${encodeURIComponent(projectId)}`,
   ).then((r) => r.project);
+}
+
+export function createSemanticProject(input: NewProjectInput): Promise<SemanticProject> {
+  return apiFetch<{ project: SemanticProject }>('/semantic/projects', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  }).then((r) => r.project);
+}
+
+export function deleteSemanticProject(projectId: string): Promise<void> {
+  return apiFetch<{ ok: boolean }>(`/semantic/projects/${encodeURIComponent(projectId)}`, {
+    method: 'DELETE',
+  }).then(() => undefined);
 }
 
 export function fetchSemanticModel(projectId: string, modelId: string): Promise<SemanticModel> {
