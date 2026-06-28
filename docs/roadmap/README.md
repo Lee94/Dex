@@ -52,10 +52,20 @@ files in this folder hold the detail (goal, scope, technical approach, and a
 | [v2.2.0](./v2.2.0-charts-and-viz.md)         | Charts & viz             | Notebook   | ❌ Cancelled      | Superseded by the v3.0 pivot; charts now render inline in the thread.                                            |
 | [v2.3.0](./v2.3.0-python-kernel.md)          | Python & kernel          | Notebook   | ❌ Cancelled      | Superseded by the v3.0 pivot.                                                                                    |
 | [v3.0.0](./v3.0.0-projects.md)               | Projects + Threads pivot | Thread     | ✅ Shipped        | Remove the notebook; introduce Projects (thread containers with shared context). Charts kept, decoupled.         |
+| [v3.1.0](./v3.1.0-result-grid.md)            | Interactive result grid  | Thread     | 📋 Planned        | Sort/filter/virtualized result tables + a fullscreen vinci `detail` grid; kill the inert buttons.                |
+| [v3.2.0](./v3.2.0-conversational-controls.md)| Conversational controls  | Thread     | 📋 Planned        | Edit/resend, regenerate, suggested follow-ups, and per-step retry.                                               |
+| [v3.3.0](./v3.3.0-editable-viz.md)           | Editable charts & tables | Thread     | 📋 Planned        | NL "edit in words" + `@vinci/designer` editing (chart type/axes, table pivot) + chart export.                    |
+| [v3.4.0](./v3.4.0-pin-and-report.md)         | Pinning & reports        | Thread     | 📋 Planned        | Pin results into a report, export (Markdown/PDF), and a working read-only Share link.                            |
+| [v3.5.0](./v3.5.0-collaboration.md)          | Collaboration            | Collab     | 📋 Planned        | Identity + permissions, comments/@mentions, permissioned sharing (strategic; split into sub-milestones).         |
 
 The **Thread** track is the product. The **Notebook** track (v2.x) was a spike that
 the **v3.0 pivot retired** in favor of **Projects** (thread containers with shared
-context) — see [v3.0.0](./v3.0.0-projects.md).
+context) — see [v3.0.0](./v3.0.0-projects.md). The **v3.1–v3.5** plan then closes
+the gap to Hex on the *post-answer* experience: the agent's "question → answer"
+path is strong, but results are currently inert (no grid interaction, no rework,
+read-only charts, nothing durable/shareable). These versions are sequenced by ROI
+— front-end-only wins first (v3.1), then conversation rework (v3.2) and chart
+editing (v3.3), then durable artifacts (v3.4), and finally collaboration (v3.5).
 
 ## How the milestones build on each other
 
@@ -68,9 +78,20 @@ THREAD MODE (the center)
                      └─► v1.0 tests + CI
                             └─► v1.1 external context ─► v1.2 specialized agents ─► v1.3 scheduling
                                    └─► v3.0 Projects + Threads pivot
+                                          └─► v3.1 result grid ─► v3.2 conversational controls
+                                                 └─► v3.3 editable viz ─► v3.4 pinning & reports
+                                                        └─► v3.5 collaboration
 
 NOTEBOOK (v2.x) ─ removed/cancelled in the v3.0 pivot
 ```
+
+The **v3.1–v3.5** arc hardens the *post-answer* thread experience against the Hex
+reference: interactive grids (v3.1), reworkable conversations (v3.2), editable
+charts/tables (v3.3), durable & shareable reports (v3.4), and multi-user
+collaboration (v3.5). v3.1–v3.3 are largely front-end and reuse the existing
+vinci stack (`@vinci/viewer`/`@vinci/designer`) without touching the agent stream
+contract; v3.4 reintroduces a lightweight persistence layer (not the retired
+notebook); v3.5 is the strategic multi-user track.
 
 The plan leads with **features**, then hardens. **v0.2–v0.4** make Dex a real,
 data-backed product; **v0.5** sharpens the payoff (better results); **v0.6–v0.7**
@@ -106,8 +127,8 @@ CI). **v3.0** then pivots the product to **Projects + Threads**, retiring the
 ## Icebox 💡 (valuable, but not yet scheduled)
 
 - **Canvas surface** — implement `design/hex-tech/project/Canvas.dc.html` (a
-  free-form board of results).
-- **Multi-user & auth** — accounts, per-user threads, sharing / permalinks.
+  free-form board of results). _(v3.4 ships an ordered report/pin list; the
+  free-form board stays icebox.)_
 - **More warehouses** — BigQuery / Snowflake / DuckDB connectors on the v0.3
   connector interface.
 - **Semantic-layer pre-aggregations** — materialized rollups + caching for the
@@ -116,7 +137,9 @@ CI). **v3.0** then pivots the product to **Projects + Threads**, retiring the
 - **Cross-project context** — the agent reading other projects' threads/results as
   reference context (Hex `ExploreProjects`).
 
-> Two former icebox items graduated onto the Thread track: **multiple/specialized
-> agents → [v1.2](./v1.2.0-specialized-agents.md)**, and **scheduled refreshes &
-> alerts → [v1.3](./v1.3.0-scheduling-alerts.md)**. Observability already shipped
-> with v0.1's AI tracing.
+> Former icebox items that graduated onto the Thread track: **multiple/specialized
+> agents → [v1.2](./v1.2.0-specialized-agents.md)**, **scheduled refreshes &
+> alerts → [v1.3](./v1.3.0-scheduling-alerts.md)**, and **multi-user & auth →
+> [v3.5](./v3.5.0-collaboration.md)** (sharing/permalinks start in
+> [v3.4](./v3.4.0-pin-and-report.md)). Observability already shipped with v0.1's
+> AI tracing.
