@@ -126,6 +126,20 @@ export const en = {
       `${m} minute${m === 1 ? '' : 's'} ${s} second${s === 1 ? '' : 's'}`,
   },
 
+  // Chart card actions — v3.3 (editable charts)
+  chart: {
+    edit: 'Edit chart',
+    editPlaceholder: 'Describe a change, e.g. “make it a bar chart”',
+    apply: 'Apply',
+    exportSvg: 'Download SVG',
+    exportData: 'Export data as CSV',
+    csv: 'CSV',
+    svg: 'SVG',
+    // The follow-up message an edit sends to the agent.
+    reviseMessage: (label: string, instruction: string) =>
+      `Revise the chart${label ? ` "${label}"` : ''}: ${instruction}. Rebuild it from the same data.`,
+  },
+
   // Friendly timeline labels for the Hex-named tools (keyed by tool name), plus
   // the fallbacks `stepLabel` uses when a tool is unmapped.
   steps: {

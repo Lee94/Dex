@@ -215,11 +215,20 @@ function cardFor(step: ToolStep, key: string) {
  * over the upstream result's rows (resolved by `sourceOutputName`). The chart spec
  * (the vinci DSL) rides on the delegation tool result — there is no notebook.
  */
-function VizCard({ viz, source }: { viz: VizCellRef; source?: SqlResult }) {
+function VizCard({
+  viz,
+  source,
+  onEdit,
+}: {
+  viz: VizCellRef;
+  source?: SqlResult;
+  /** Natural-language chart revision → sent to the agent as a follow-up (v3.3). */
+  onEdit?: (message: string) => void;
+}) {
   const t = useT();
   return (
     <Suspense fallback={<div className={styles.answerText}>{t.thread.loadingChart}</div>}>
-      <ThreadChart dsl={viz.dsl} source={source} label={viz.label} />
+      <ThreadChart dsl={viz.dsl} source={source} label={viz.label} onEdit={onEdit} />
     </Suspense>
   );
 }
@@ -381,7 +390,7 @@ function AssistantBlock({
     const viz = vizById.get(id);
     if (viz) {
       const source = viz.sourceOutputName ? outputResults.get(viz.sourceOutputName) : undefined;
-      return <VizCard key={key} viz={viz} source={source} />;
+      return <VizCard key={key} viz={viz} source={source} onEdit={streaming ? undefined : onSend} />;
     }
     return null;
   };
@@ -485,6 +494,7 @@ function AssistantBlock({
           key={v.cellId}
           viz={v}
           source={v.sourceOutputName ? outputResults.get(v.sourceOutputName) : undefined}
+          onEdit={streaming ? undefined : onSend}
         />
       ))}
 

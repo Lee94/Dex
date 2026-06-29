@@ -13,6 +13,66 @@
   font-weight: 600;
   color: var(--dex-text-muted);
 }
+.barSpacer {
+  flex: 1;
+}
+.toolBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--dex-ring-strong);
+  border-radius: var(--bp-border-radius);
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--dex-text-muted);
+  cursor: pointer;
+  font-family: var(--dex-mono);
+}
+.toolBtn:hover {
+  background: var(--dex-subtle-bg);
+}
+.toolOn {
+  background: var(--dex-subtle-bg);
+}
+
+.editRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.editInput {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--dex-ring-input);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--dex-text-strong);
+  background: var(--dex-surface);
+  outline: none;
+}
+.editInput:focus {
+  border-color: var(--dex-accent);
+}
+.applyBtn {
+  flex: none;
+  border: none;
+  background: var(--dex-accent);
+  color: #fff;
+  border-radius: 6px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.applyBtn:hover {
+  filter: brightness(1.05);
+}
 .surface {
   height: 440px;
   border-radius: 8px;

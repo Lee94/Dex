@@ -117,6 +117,19 @@ export const zhCN: Dict = {
     minutesSeconds: (m, s) => `${m} 分 ${s} 秒`,
   },
 
+  // 图表卡片操作 — v3.3（可编辑图表）
+  chart: {
+    edit: '编辑图表',
+    editPlaceholder: '描述修改，例如"改成柱状图"',
+    apply: '应用',
+    exportSvg: '下载 SVG',
+    exportData: '导出数据为 CSV',
+    csv: 'CSV',
+    svg: 'SVG',
+    reviseMessage: (label: string, instruction: string) =>
+      `修改图表${label ? `"${label}"` : ''}：${instruction}。基于相同的数据重新生成。`,
+  },
+
   steps: {
     GetCurrentDateTime: '查询了当前日期',
     ListDataConnections: '列出了数据连接',
