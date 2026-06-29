@@ -32,36 +32,36 @@ files in this folder hold the detail (goal, scope, technical approach, and a
 
 ## Timeline
 
-| Version                                      | Theme                    | Track      | Status            | One-liner                                                                                                        |
-| -------------------------------------------- | ------------------------ | ---------- | ----------------- | ---------------------------------------------------------------------------------------------------------------- |
-| [v0.1.0](./v0.1.0-threads-mvp.md)            | Threads MVP              | Thread     | ✅ Shipped        | Agentic SQL analyst + Blueprint "Dex" thread UI wired to the live agent.                                         |
-| [v0.2.0](./v0.2.0-persistence.md)            | Persistence              | Thread     | ✅ Shipped        | Conversation memory + saved/named threads that survive a refresh.                                                |
-| [v0.3.0](./v0.3.0-live-warehouses.md)        | Live warehouses          | Data       | ✅ Shipped        | Real Postgres connections behind a clean connector interface.                                                    |
-| [v0.4.0](./v0.4.0-semantic-layer.md)         | Semantic layer           | Data       | ✅ Shipped        | A CubeJS-style model (cubes, measures, dimensions, joins) the agent queries for trusted metrics.                 |
-| [v0.5.0](./v0.5.0-richer-results.md)         | Richer results           | Thread     | ✅ Shipped        | Chart-type selection, time-series charts, and table/CSV export on result cards.                                  |
-| [v0.6.0](./v0.6.0-data-sources.md)           | Data sources & catalog   | Data       | ✅ Shipped        | A Data browser: register connections, browse schema/tables + previews, explore the model, curate metadata.       |
-| [v0.7.0](./v0.7.0-data-management.md)        | Data management          | Data       | ✅ Shipped        | Delete connections, add/delete data models, attach a database/table/model to a question from the composer "+".   |
-| [v0.8.0](./v0.8.0-catalog-aware-agent.md)    | Catalog-aware agent      | Thread     | ✅ Shipped        | The agent reads the curated catalog (descriptions/endorsed, honors `includedForAi`) and can list/target sources. |
-| [v0.9.0](./v0.9.0-agent-knowledge-memory.md) | Agent knowledge & memory | Thread     | ✅ Shipped        | Org guides the agent consults + durable cross-thread memory of preferences (+ review suggestions).               |
-| [v1.0.0](./v1.0.0-quality-foundation.md)     | Quality foundation       | Foundation | ✅ Shipped        | Automated tests (Vitest / RTL) + CI (GitHub Actions) — the prototype graduates into a tested 1.0 product.        |
-| [v1.1.0](./v1.1.0-external-context.md)       | External context         | Thread     | ✅ Shipped        | Web search/extract + reading uploaded files — Thread mode reaches beyond the warehouse.                          |
-| [v1.2.0](./v1.2.0-specialized-agents.md)     | Specialized agents       | Thread     | ✅ Shipped        | A planner + specialist sub-agents (data discovery, visualization) the analyst delegates to.                      |
-| [v1.3.0](./v1.3.0-scheduling-alerts.md)      | Scheduling & alerts      | Thread     | ✅ Shipped        | Scheduled re-runs with email/Slack delivery + alerts, and recall across past threads.                            |
-| [v2.0.0](./v2.0.0-notebook-editor.md)        | NotebookEditor           | Notebook   | ❌ Removed (v3.0) | The cell-based notebook + Hex agent model. Shipped as a spike, then removed in the v3.0 pivot.                   |
-| [v2.1.0](./v2.1.0-richer-cells.md)           | Richer cells & cell ops  | Notebook   | ❌ Cancelled      | Superseded by the v3.0 pivot to Projects + Threads.                                                              |
-| [v2.2.0](./v2.2.0-charts-and-viz.md)         | Charts & viz             | Notebook   | ❌ Cancelled      | Superseded by the v3.0 pivot; charts now render inline in the thread.                                            |
-| [v2.3.0](./v2.3.0-python-kernel.md)          | Python & kernel          | Notebook   | ❌ Cancelled      | Superseded by the v3.0 pivot.                                                                                    |
-| [v3.0.0](./v3.0.0-projects.md)               | Projects + Threads pivot | Thread     | ✅ Shipped        | Remove the notebook; introduce Projects (thread containers with shared context). Charts kept, decoupled.         |
-| [v3.1.0](./v3.1.0-result-grid.md)            | Interactive result grid  | Thread     | ✅ Shipped        | Sort/filter/progressive-paged result grid + a fullscreen Modal; removed the inert buttons.                       |
-| [v3.2.0](./v3.2.0-conversational-controls.md)| Conversational controls  | Thread     | ✅ Shipped        | Edit/resend, regenerate, retry-on-error, and result-derived suggested follow-ups.                               |
-| [v3.3.0](./v3.3.0-editable-viz.md)           | Editable charts          | Thread     | ✅ Shipped        | NL "edit in words" (re-delegates to the viz sub-agent) + chart export (SVG/CSV). Designer direct-edit deferred.  |
-| [v3.4.0](./v3.4.0-pin-and-report.md)         | Pinning & reports        | Thread     | ✅ Shipped        | Pin results/charts into a read-only report; reorder, Markdown export, copy-link Share.                           |
-| [v3.5.0](./v3.5.0-collaboration.md)          | Collaboration            | Collab     | 📋 Planned        | Identity + permissions, comments/@mentions, permissioned sharing (strategic; split into sub-milestones).         |
+| Version                                       | Theme                    | Track      | Status            | One-liner                                                                                                        |
+| --------------------------------------------- | ------------------------ | ---------- | ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| [v0.1.0](./v0.1.0-threads-mvp.md)             | Threads MVP              | Thread     | ✅ Shipped        | Agentic SQL analyst + Blueprint "Dex" thread UI wired to the live agent.                                         |
+| [v0.2.0](./v0.2.0-persistence.md)             | Persistence              | Thread     | ✅ Shipped        | Conversation memory + saved/named threads that survive a refresh.                                                |
+| [v0.3.0](./v0.3.0-live-warehouses.md)         | Live warehouses          | Data       | ✅ Shipped        | Real Postgres connections behind a clean connector interface.                                                    |
+| [v0.4.0](./v0.4.0-semantic-layer.md)          | Semantic layer           | Data       | ✅ Shipped        | A CubeJS-style model (cubes, measures, dimensions, joins) the agent queries for trusted metrics.                 |
+| [v0.5.0](./v0.5.0-richer-results.md)          | Richer results           | Thread     | ✅ Shipped        | Chart-type selection, time-series charts, and table/CSV export on result cards.                                  |
+| [v0.6.0](./v0.6.0-data-sources.md)            | Data sources & catalog   | Data       | ✅ Shipped        | A Data browser: register connections, browse schema/tables + previews, explore the model, curate metadata.       |
+| [v0.7.0](./v0.7.0-data-management.md)         | Data management          | Data       | ✅ Shipped        | Delete connections, add/delete data models, attach a database/table/model to a question from the composer "+".   |
+| [v0.8.0](./v0.8.0-catalog-aware-agent.md)     | Catalog-aware agent      | Thread     | ✅ Shipped        | The agent reads the curated catalog (descriptions/endorsed, honors `includedForAi`) and can list/target sources. |
+| [v0.9.0](./v0.9.0-agent-knowledge-memory.md)  | Agent knowledge & memory | Thread     | ✅ Shipped        | Org guides the agent consults + durable cross-thread memory of preferences (+ review suggestions).               |
+| [v1.0.0](./v1.0.0-quality-foundation.md)      | Quality foundation       | Foundation | ✅ Shipped        | Automated tests (Vitest / RTL) + CI (GitHub Actions) — the prototype graduates into a tested 1.0 product.        |
+| [v1.1.0](./v1.1.0-external-context.md)        | External context         | Thread     | ✅ Shipped        | Web search/extract + reading uploaded files — Thread mode reaches beyond the warehouse.                          |
+| [v1.2.0](./v1.2.0-specialized-agents.md)      | Specialized agents       | Thread     | ✅ Shipped        | A planner + specialist sub-agents (data discovery, visualization) the analyst delegates to.                      |
+| [v1.3.0](./v1.3.0-scheduling-alerts.md)       | Scheduling & alerts      | Thread     | ✅ Shipped        | Scheduled re-runs with email/Slack delivery + alerts, and recall across past threads.                            |
+| [v2.0.0](./v2.0.0-notebook-editor.md)         | NotebookEditor           | Notebook   | ❌ Removed (v3.0) | The cell-based notebook + Hex agent model. Shipped as a spike, then removed in the v3.0 pivot.                   |
+| [v2.1.0](./v2.1.0-richer-cells.md)            | Richer cells & cell ops  | Notebook   | ❌ Cancelled      | Superseded by the v3.0 pivot to Projects + Threads.                                                              |
+| [v2.2.0](./v2.2.0-charts-and-viz.md)          | Charts & viz             | Notebook   | ❌ Cancelled      | Superseded by the v3.0 pivot; charts now render inline in the thread.                                            |
+| [v2.3.0](./v2.3.0-python-kernel.md)           | Python & kernel          | Notebook   | ❌ Cancelled      | Superseded by the v3.0 pivot.                                                                                    |
+| [v3.0.0](./v3.0.0-projects.md)                | Projects + Threads pivot | Thread     | ✅ Shipped        | Remove the notebook; introduce Projects (thread containers with shared context). Charts kept, decoupled.         |
+| [v3.1.0](./v3.1.0-result-grid.md)             | Interactive result grid  | Thread     | ✅ Shipped        | Sort/filter/progressive-paged result grid + a fullscreen Modal; removed the inert buttons.                       |
+| [v3.2.0](./v3.2.0-conversational-controls.md) | Conversational controls  | Thread     | ✅ Shipped        | Edit/resend, regenerate, retry-on-error, and result-derived suggested follow-ups.                                |
+| [v3.3.0](./v3.3.0-editable-viz.md)            | Editable charts          | Thread     | ✅ Shipped        | NL "edit in words" (re-delegates to the viz sub-agent) + chart export (SVG/CSV). Designer direct-edit deferred.  |
+| [v3.4.0](./v3.4.0-pin-and-report.md)          | Pinning & reports        | Thread     | ✅ Shipped        | Pin results/charts into a read-only report; reorder, Markdown export, copy-link Share.                           |
+| [v3.5.0](./v3.5.0-collaboration.md)           | Collaboration            | Collab     | 📋 Planned        | Identity + permissions, comments/@mentions, permissioned sharing (strategic; split into sub-milestones).         |
 
 The **Thread** track is the product. The **Notebook** track (v2.x) was a spike that
 the **v3.0 pivot retired** in favor of **Projects** (thread containers with shared
 context) — see [v3.0.0](./v3.0.0-projects.md). The **v3.1–v3.5** plan then closes
-the gap to Hex on the *post-answer* experience: the agent's "question → answer"
+the gap to Hex on the _post-answer_ experience: the agent's "question → answer"
 path is strong, but results are currently inert (no grid interaction, no rework,
 read-only charts, nothing durable/shareable). These versions are sequenced by ROI
 — front-end-only wins first (v3.1), then conversation rework (v3.2) and chart
@@ -92,7 +92,7 @@ THREAD MODE (the center)
 NOTEBOOK (v2.x) ─ removed/cancelled in the v3.0 pivot
 ```
 
-The **v3.1–v3.5** arc hardens the *post-answer* thread experience against the Hex
+The **v3.1–v3.5** arc hardens the _post-answer_ thread experience against the Hex
 reference: interactive grids (v3.1), reworkable conversations (v3.2), editable
 charts/tables (v3.3), durable & shareable reports (v3.4), and multi-user
 collaboration (v3.5). v3.1–v3.3 are largely front-end and reuse the existing

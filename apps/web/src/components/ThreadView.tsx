@@ -573,7 +573,9 @@ function AssistantBlock({
       ) : null}
 
       {/* suggested follow-ups — only under the latest settled answer */}
-      {isLast && msg.status === 'done' && !streaming ? <FollowUps msg={msg} onSend={onSend} /> : null}
+      {isLast && msg.status === 'done' && !streaming ? (
+        <FollowUps msg={msg} onSend={onSend} />
+      ) : null}
     </div>
   );
 }

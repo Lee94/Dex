@@ -37,7 +37,12 @@ export function Modal({
       >
         <div className={styles.modalHeader}>
           <span className={styles.modalTitle}>{title}</span>
-          <button type="button" className={styles.modalClose} title={t.common.close} onClick={onClose}>
+          <button
+            type="button"
+            className={styles.modalClose}
+            title={t.common.close}
+            onClick={onClose}
+          >
             <Icon name="cross" size={15} color="var(--dex-icon)" />
           </button>
         </div>

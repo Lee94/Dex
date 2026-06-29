@@ -26,7 +26,10 @@ function downloadFile(content: string, filename: string, type: string): void {
 }
 
 const safeName = (label?: string) =>
-  (label || 'chart').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'chart';
+  (label || 'chart')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || 'chart';
 
 /**
  * A chart embedded in a thread. The visualization sub-agent authored a vinci
@@ -94,7 +97,8 @@ export default function ThreadChart({
     }
   };
 
-  const exportCsv = () => downloadFile(toCsv(source), `${safeName(label)}.csv`, 'text/csv;charset=utf-8');
+  const exportCsv = () =>
+    downloadFile(toCsv(source), `${safeName(label)}.csv`, 'text/csv;charset=utf-8');
   const exportSvg = () => {
     const svg = surfaceRef.current?.querySelector('svg');
     if (!svg) return;
@@ -119,10 +123,20 @@ export default function ThreadChart({
             {t.chart.edit}
           </button>
         ) : null}
-        <button type="button" className={styles.toolBtn} title={t.chart.exportSvg} onClick={exportSvg}>
+        <button
+          type="button"
+          className={styles.toolBtn}
+          title={t.chart.exportSvg}
+          onClick={exportSvg}
+        >
           {t.chart.svg}
         </button>
-        <button type="button" className={styles.toolBtn} title={t.chart.exportData} onClick={exportCsv}>
+        <button
+          type="button"
+          className={styles.toolBtn}
+          title={t.chart.exportData}
+          onClick={exportCsv}
+        >
           {t.chart.csv}
         </button>
         {onPin ? (

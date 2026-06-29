@@ -19,7 +19,10 @@ import styles from './ReportRoute.module.css';
 const ThreadChart = lazy(() => import('@/components/thread/ThreadChart'));
 
 const safeName = (s: string) =>
-  (s || 'report').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'report';
+  (s || 'report')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || 'report';
 
 function downloadFile(content: string, filename: string, type: string): void {
   const blob = new Blob([content], { type });
@@ -99,7 +102,11 @@ export function ReportRoute() {
   };
 
   const exportMd = () =>
-    downloadFile(reportToMarkdown(title, pins), `${safeName(title)}.md`, 'text/markdown;charset=utf-8');
+    downloadFile(
+      reportToMarkdown(title, pins),
+      `${safeName(title)}.md`,
+      'text/markdown;charset=utf-8',
+    );
 
   return (
     <div className={styles.root}>

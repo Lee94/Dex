@@ -182,7 +182,11 @@ export function ResultCard({
       </div>
 
       {expanded ? (
-        <Modal title={title || t.resultCard.title} size="fullscreen" onClose={() => setExpanded(false)}>
+        <Modal
+          title={title || t.resultCard.title}
+          size="fullscreen"
+          onClose={() => setExpanded(false)}
+        >
           <DataGrid columns={columns} rows={rows} fill />
         </Modal>
       ) : null}

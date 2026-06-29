@@ -80,7 +80,9 @@ export function reportToMarkdown(title: string, pins: Pin[]): string {
         lines.push(`| ${cols.join(' | ')} |`);
         lines.push(`| ${cols.map(() => '---').join(' | ')} |`);
         for (const r of rows.slice(0, 100)) {
-          lines.push(`| ${cols.map((c) => mdCell((r as Record<string, unknown>)[c])).join(' | ')} |`);
+          lines.push(
+            `| ${cols.map((c) => mdCell((r as Record<string, unknown>)[c])).join(' | ')} |`,
+          );
         }
         if (rows.length > 100) lines.push('', `_…and ${rows.length - 100} more rows._`);
       }

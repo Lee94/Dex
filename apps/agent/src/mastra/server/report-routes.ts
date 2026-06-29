@@ -50,7 +50,9 @@ export const reportRoutes = [
     handler: async (c) => {
       const threadId = c.req.param('threadId');
       const body = (await c.req.json().catch(() => ({}))) as { ids?: unknown };
-      const ids = Array.isArray(body.ids) ? body.ids.filter((x): x is string => typeof x === 'string') : [];
+      const ids = Array.isArray(body.ids)
+        ? body.ids.filter((x): x is string => typeof x === 'string')
+        : [];
       const pins = await reorderPins(threadId, ids);
       return c.json({ pins });
     },

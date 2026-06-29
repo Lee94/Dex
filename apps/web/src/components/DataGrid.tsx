@@ -131,7 +131,9 @@ export function DataGrid({
                     <span className={styles.thInner}>
                       <span className={styles.thLabel}>{c}</span>
                       <Icon
-                        name={active ? (sort!.dir === 'asc' ? 'chevronUp' : 'chevronDown') : 'caretDown'}
+                        name={
+                          active ? (sort!.dir === 'asc' ? 'chevronUp' : 'chevronDown') : 'caretDown'
+                        }
                         size={11}
                         color={active ? 'var(--dex-icon)' : 'var(--dex-icon-faint)'}
                         style={active ? undefined : { opacity: 0.4 }}
@@ -183,11 +185,7 @@ export function DataGrid({
           >
             {t.resultCard.showMore(Math.min(PAGE, remaining))}
           </button>
-          <button
-            type="button"
-            className={styles.moreBtn}
-            onClick={() => setLimit(sorted.length)}
-          >
+          <button type="button" className={styles.moreBtn} onClick={() => setLimit(sorted.length)}>
             {t.resultCard.showAll(sorted.length)}
           </button>
         </div>

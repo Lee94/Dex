@@ -320,14 +320,10 @@ export function useThreads() {
       if (!trimmed) return;
       const thread = threads.find((t) => t.id === threadId);
       if (!thread) return;
-      const idx = thread.messages.findIndex(
-        (m) => m.id === userMessageId && m.role === 'user',
-      );
+      const idx = thread.messages.findIndex((m) => m.id === userMessageId && m.role === 'user');
       if (idx < 0) return;
       // user-turn ordinal of the target (0-based) — stable across UI/store
-      const userTurnIndex = thread.messages
-        .slice(0, idx)
-        .filter((m) => m.role === 'user').length;
+      const userTurnIndex = thread.messages.slice(0, idx).filter((m) => m.role === 'user').length;
       // truncate the UI immediately
       patchThread(threadId, (t) => ({ ...t, messages: t.messages.slice(0, idx) }));
       // truncate server memory (best-effort; a failure just leaves stale history)
