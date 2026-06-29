@@ -25,9 +25,15 @@ jobs:
       - name: Install agent
         run: npm ci
         working-directory: apps/agent
+      # apps/web depends on private @vinci/@fd/@van/… packages from
+      # npm.fineres.com; apps/web/.npmrc authenticates with ${FINERES_TOKEN}.
+      # The token must be set as a repo Actions secret (Settings → Secrets and
+      # variables → Actions → FINERES_TOKEN) or this install 401s.
       - name: Install web
         run: npm ci
         working-directory: apps/web
+        env:
+          FINERES_TOKEN: ${{ secrets.FINERES_TOKEN }}
 
       # Repo-wide checks.
       - name: Format check
