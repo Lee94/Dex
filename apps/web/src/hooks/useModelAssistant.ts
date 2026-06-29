@@ -11,7 +11,39 @@ export interface CubeProposal {
   yaml: string;
 }
 
+/** The data connection a semantic project is bound to. The assistant must author
+ *  cubes only from this connection's tables. */
+export interface AssistantSource {
+  id: string;
+  name: string;
+  dialect: string;
+  builtin: boolean;
+}
+
 const uid = () => crypto.randomUUID();
+
+/**
+ * A leading instruction that pins the stateless studio agent to the project's
+ * bound data connection. We prepend it to the first user message on every send
+ * (it never enters the displayed `messages`, so the UI stays clean). Without it
+ * the agent's discovery tools default to the built-in warehouse and it authors
+ * cubes from an unrelated database's tables. Mirrors the analyst's
+ * `contextPrefix` datasource handling.
+ */
+function sourcePreamble(source: AssistantSource): string {
+  if (source.builtin) {
+    return (
+      'This data model is bound to the built-in sample warehouse — author it only from that ' +
+      "warehouse's tables; do not target any other data connection.\n\n"
+    );
+  }
+  return (
+    `This data model is bound to data connection "${source.name}" (id: ${source.id}, a ${source.dialect} ` +
+    `database). Pass dataConnectionId "${source.id}" to EVERY tool call (FindTableSchemas, ViewTables) ` +
+    'and author the cube only from this connection. Never query the built-in warehouse or any other ' +
+    'connection — their tables are unrelated and must not appear in this model.\n\n'
+  );
+}
 
 /** Coerce an unknown error (string / Error / structured chunk payload) into a
  *  readable message — stream error payloads are often objects, not strings. */
@@ -37,13 +69,24 @@ function errText(e: unknown): string {
  * (the reply) and a `propose_cube` tool-result (the generated cube/YAML, handed to
  * the editor via `onProposal`).
  */
-export function useModelAssistant(opts: { onProposal: (p: CubeProposal) => void }) {
+export function useModelAssistant(opts: {
+  onProposal: (p: CubeProposal) => void;
+  source?: AssistantSource;
+}) {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const stopRef = useRef<(() => void) | null>(null);
   const onProposalRef = useRef(opts.onProposal);
   onProposalRef.current = opts.onProposal;
+  // Current bound source, read inside `send` without widening its deps.
+  const sourceRef = useRef(opts.source);
+  sourceRef.current = opts.source;
+  // Always-current view of `messages` so `send` can read the latest history
+  // without depending on it (and without relying on a setState updater's side
+  // effect — see the note in `send`).
+  const messagesRef = useRef<AssistantMessage[]>(messages);
+  messagesRef.current = messages;
 
   const patch = (id: string, fn: (m: AssistantMessage) => AssistantMessage) =>
     setMessages((prev) => prev.map((m) => (m.id === id ? fn(m) : m)));
@@ -56,12 +99,15 @@ export function useModelAssistant(opts: { onProposal: (p: CubeProposal) => void 
 
       const userMsg: AssistantMessage = { id: uid(), role: 'user', text: trimmed };
       const assistantId = uid();
-      // Full history (stateless): everything so far + this turn.
-      let history: AssistantMessage[] = [];
-      setMessages((prev) => {
-        history = [...prev, userMsg];
-        return [...history, { id: assistantId, role: 'assistant', text: '' }];
-      });
+      // Full history (stateless): everything so far + this turn. Build it from the
+      // ref (the latest committed messages), NOT from a variable assigned inside a
+      // `setMessages` updater — React may defer that updater past the `stream()`
+      // call below, leaving `history` empty and sending a `messages: []` request
+      // that the provider rejects with 400 ("messages: at least one message is
+      // required"). The ref also avoids a stale `messages` closure (`send` only
+      // depends on `streaming`).
+      const history: AssistantMessage[] = [...messagesRef.current, userMsg];
+      setMessages([...history, { id: assistantId, role: 'assistant', text: '' }]);
       setStreaming(true);
 
       let aborted = false;
@@ -73,10 +119,19 @@ export function useModelAssistant(opts: { onProposal: (p: CubeProposal) => void 
       };
 
       try {
+        // Pin the agent to the project's bound data connection by prepending a
+        // source preamble to the first (user) message. Built fresh each send from
+        // the ref, so it's never stored in the displayed history and can't double up.
+        const agentMessages = history.map((m) => ({ role: m.role, content: m.text }));
+        const source = sourceRef.current;
+        if (source && agentMessages.length > 0) {
+          agentMessages[0] = {
+            ...agentMessages[0],
+            content: sourcePreamble(source) + agentMessages[0].content,
+          };
+        }
         const response = await semanticModelAgent.stream(
-          history.map((m) => ({ role: m.role, content: m.text })) as Parameters<
-            typeof semanticModelAgent.stream
-          >[0],
+          agentMessages as Parameters<typeof semanticModelAgent.stream>[0],
         );
         cancelBody = () => {
           try {

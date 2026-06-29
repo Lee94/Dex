@@ -1,10 +1,8 @@
 import { Agent } from '@mastra/core/agent';
 import { model } from '../model';
 import { getActiveProvider } from '../db/queries';
-import { listDatasourcesTool } from '../tools/list-datasources';
 import { findTableSchemasTool } from '../tools/find-table-schemas';
 import { viewTablesTool } from '../tools/view-tables';
-import { inspectSemanticDataTool } from '../tools/inspect-semantic-data';
 import { getCurrentDatetimeTool } from '../tools/get-current-datetime';
 import { proposeCubeTool } from '../tools/propose-cube';
 
@@ -46,20 +44,27 @@ dimensions:
 
 Rules: the cube is standalone — do NOT write joins. Never set \`endorsed\`. Reference columns as \`<cube name>.<column>\` (the base table is aliased as the cube name). A \`count\` measure may omit \`sql\` (→ COUNT(*)).
 
+You are bound to ONE data connection — the user's message states which, with its id and dialect. Pass that dataConnectionId to EVERY ViewTables / FindTableSchemas call and author the cube ONLY from that connection's real tables and columns. You have NO access to any other data connection, nor to other semantic models or cubes (e.g. the built-in Dex semantic model) — never query, reference, read, or copy from them; their tables are unrelated and must not appear in this model. Every measure/dimension must resolve to a column you confirmed exists in the base table of the bound connection.
+
 How you work:
-1. Understand the goal. Use ViewTables / FindTableSchemas to confirm the real table and its actual columns — never invent column names. Use InspectSemanticData to see existing cubes so you avoid duplicate names and match their style. Use ListDataConnections / GetCurrentDateTime if relevant.
+1. Understand the goal. Use ViewTables / FindTableSchemas (always with the bound dataConnectionId) to confirm the real table and its actual columns — never invent column names. Use GetCurrentDateTime if relevant.
 2. Author or edit the cube YAML, then call **propose_cube** with the full YAML. If it returns errors, fix them and call propose_cube again within your step budget.
 3. Reply with one short line describing what you proposed (e.g. "Proposed an order_items model with revenue and units sold by category.").
 
 Do NOT claim the model is saved — you only propose it. The user reviews your proposal in the editor and decides whether to save it as a draft or publish it. Keep your reply to one or two short sentences; the editor shows the YAML.`,
   model,
   tools: {
-    ListDataConnections: listDatasourcesTool,
     FindTableSchemas: findTableSchemasTool,
     ViewTables: viewTablesTool,
-    InspectSemanticData: inspectSemanticDataTool,
     GetCurrentDateTime: getCurrentDatetimeTool,
     propose_cube: proposeCubeTool,
   },
-  defaultOptions: { maxSteps: 12 },
+  // Discovery here is multi-round (FindTableSchemas/ViewTables are each called
+  // several times) and a request often spans more than one table,
+  // so 12 steps ran out mid-build — the run hit the budget with finishReason
+  // 'tool-calls' (still wanting to call tools) and ended abruptly, before authoring
+  // every cube and writing the closing summary. 40 gives room to discover, propose
+  // each cube, repair validation errors, and finish even on batch (multi-table)
+  // requests. (The analyst runs at 20.)
+  defaultOptions: { maxSteps: 40 },
 });

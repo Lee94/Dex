@@ -235,6 +235,12 @@ function textOfParts(parts: StoredPart[]): string {
 export function reconstructMessages(messages: readonly StoredMessage[]): ChatMessage[] {
   const out: ChatMessage[] = [];
   let current: AssistantMessage | null = null;
+  // The whole assistant turn is usually persisted as a single message, so its
+  // start/finish createdAt are identical (elapsed would round to 0). The turn's
+  // real working time is from the user's question to the assistant's answer, so
+  // anchor `startedAt` to the preceding user message — matching the live path,
+  // which stamps startedAt at send time.
+  let lastUserAt: number | null = null;
 
   const flush = () => {
     if (current) {
@@ -248,6 +254,7 @@ export function reconstructMessages(messages: readonly StoredMessage[]): ChatMes
 
     if (msg.role === 'user') {
       flush();
+      lastUserAt = toMs(msg.createdAt);
       out.push({
         id: msg.id ?? uid(),
         role: 'user',
@@ -259,7 +266,10 @@ export function reconstructMessages(messages: readonly StoredMessage[]): ChatMes
     if (msg.role !== 'assistant') continue; // ignore system / signal
 
     if (!current) {
-      const started = toMs(msg.createdAt);
+      const assistantAt = toMs(msg.createdAt);
+      // Prefer the user-message time, but only if it's actually earlier (guards
+      // against a missing createdAt where toMs falls back to Date.now()).
+      const started = lastUserAt != null && lastUserAt < assistantAt ? lastUserAt : assistantAt;
       current = {
         id: msg.id ?? uid(),
         role: 'assistant',
@@ -268,7 +278,7 @@ export function reconstructMessages(messages: readonly StoredMessage[]): ChatMes
         steps: [],
         status: 'done',
         startedAt: started,
-        finishedAt: started,
+        finishedAt: assistantAt,
       };
     }
 

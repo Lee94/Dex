@@ -4,7 +4,7 @@ import { IconButton } from '@/components/ui';
 import { Markdown } from '@/components/Markdown';
 import { useT } from '@/i18n';
 import { llmErrorMessage } from '@/lib/llmError';
-import { useModelAssistant } from '@/hooks/useModelAssistant';
+import { useModelAssistant, type AssistantSource } from '@/hooks/useModelAssistant';
 import styles from './modelStudio.module.css';
 
 /**
@@ -15,13 +15,16 @@ import styles from './modelStudio.module.css';
 export function StudioAgentPanel({
   onClose,
   onProposal,
+  source,
 }: {
   onClose: () => void;
   onProposal: (yaml: string) => void;
+  source?: AssistantSource;
 }) {
   const t = useT();
   const { messages, streaming, error, send, stop, reset } = useModelAssistant({
     onProposal: (p) => onProposal(p.yaml),
+    source,
   });
   const [input, setInput] = useState('');
 

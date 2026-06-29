@@ -123,6 +123,14 @@ function projectStoredModel(m: Awaited<ReturnType<typeof listStoredModels>>[numb
   return projectCube(summary, { builtin: false, status: statusOf(m), baseTable: m.baseTable });
 }
 
+/** Count models the UI surfaces in a project — never-published drafts are hidden
+ *  (they aren't live to the agent), so they're excluded from the project's count
+ *  too, keeping the card count consistent with the filtered detail list.
+ *  `draft_pending` (published + a pending edit) still counts: it has a live version. */
+function visibleModelCount(models: { status: ModelStatus }[]): number {
+  return models.filter((m) => m.status !== 'draft').length;
+}
+
 /** The built-in `dex` project: hand-authored cubes + any user models scoped to it. */
 async function buildDexProject() {
   const builtin = getBuiltinDataSource();
@@ -142,7 +150,7 @@ async function buildDexProject() {
     description: 'Governed metrics, cubes, measures and dimensions (v0.4 semantic layer).',
     sourceId: 'builtin',
     source: { name: builtin.name, kind: builtin.dialect },
-    modelCount: models.length,
+    modelCount: visibleModelCount(models),
     metrics: builtinSummary.metrics,
     models,
   };
@@ -159,7 +167,7 @@ async function buildUserProject(p: StoredProject) {
     description: p.description,
     sourceId: p.sourceId,
     source,
-    modelCount: models.length,
+    modelCount: visibleModelCount(models),
     metrics: [] as ReturnType<typeof describeModelSummary>['metrics'],
     models,
   };

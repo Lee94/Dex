@@ -165,9 +165,15 @@ function ProjectDetail({ db }: { db: DataBrowserState }) {
         <div className={styles.descEditable}>{project.description}</div>
       ) : null}
       <div className={styles.dmGrid}>
-        {(project.models ?? []).map((m) => (
-          <ModelCard key={m.id} model={m} db={db} />
-        ))}
+        {/* Hide never-published drafts: a `draft` model has no published version,
+            so it isn't live to the agent and shouldn't appear in the workspace.
+            `draft_pending` (published + an unpublished edit) stays — its published
+            version is still queryable. Built-ins have no status (treated published). */}
+        {(project.models ?? [])
+          .filter((m) => m.status !== 'draft')
+          .map((m) => (
+            <ModelCard key={m.id} model={m} db={db} />
+          ))}
       </div>
     </div>
   );

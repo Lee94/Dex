@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon, type IconName } from '@/lib/icons';
 import { IconButton, Pill, ConfirmDialog } from '@/components/ui';
 import { useT } from '@/i18n';
-import { useModelStudio, type SemanticModel } from '@/hooks/useModelStudio';
+import { useModelStudio, type StudioDirEntry } from '@/hooks/useModelStudio';
 import { StudioYamlEditor, type YamlEditorHandle } from './StudioYamlEditor';
 import { StudioAgentPanel } from './StudioAgentPanel';
 import { AddJoinDialog } from './AddJoinDialog';
@@ -42,13 +42,16 @@ export function ModelStudio({
 
   // Seed the initial tab once the project has loaded. Entry routes may target a
   // specific file (?open=) or a brand-new model (?new=); otherwise this opens the
-  // first existing model so the studio lands in "edit" mode, never auto-creating.
+  // first existing model (drafts included — autosave makes a refresh re-list them)
+  // so the studio lands in "edit" mode, never auto-creating. The files guard skips
+  // the auto-open when tabs are already present — e.g. localStorage-restored
+  // unsaved drafts, or a tab the user opened during load.
   useEffect(() => {
     if (seeded.current || s.loading) return;
     seeded.current = true;
     if (initialNew) s.openNew(t.modelStudio.newTemplate);
     else if (initialOpen) s.openModel(initialOpen);
-    else if (s.models.length > 0) s.openModel(s.models[0].id);
+    else if (s.files.length === 0 && s.models.length > 0) s.openModel(s.models[0].id);
   }, [s, initialNew, initialOpen, t.modelStudio.newTemplate]);
 
   const active = s.activeFile;
@@ -137,16 +140,16 @@ export function ModelStudio({
               <div className={styles.filesCenter}>
                 <div className={styles.spinner} />
               </div>
-            ) : s.models.length === 0 ? (
+            ) : s.directory.length === 0 ? (
               <div className={styles.filesEmpty}>{t.modelStudio.noFiles}</div>
             ) : (
-              s.models.map((m) => (
+              s.directory.map((entry) => (
                 <FileRow
-                  key={m.id}
-                  model={m}
-                  activeKey={s.activeKey}
-                  onOpen={() => s.openModel(m.id)}
-                  onDelete={() => void s.removeModel(m.id)}
+                  key={entry.key}
+                  entry={entry}
+                  onOpen={() => s.openEntry(entry)}
+                  onClose={() => requestClose(entry.key)}
+                  onDelete={() => void s.removeModel(entry.modelId!)}
                 />
               ))
             )}
@@ -240,6 +243,16 @@ export function ModelStudio({
           <StudioAgentPanel
             onClose={() => setPanelOpen(false)}
             onProposal={(yaml) => s.applyProposal(yaml, t.modelStudio.newTemplate)}
+            source={
+              s.project
+                ? {
+                    id: s.project.sourceId,
+                    name: s.project.source.name,
+                    dialect: s.project.source.kind,
+                    builtin: s.project.sourceId === 'builtin',
+                  }
+                : undefined
+            }
           />
         ) : null}
       </div>
@@ -292,33 +305,45 @@ export function ModelStudio({
   );
 }
 
-/** A file row in the Files list — opens the model on click, deletes on hover-trash. */
+/** A row in the Files directory. Opens its tab on click. An unsaved new file
+ *  closes via the tab-close (unsaved-changes) flow; a persisted user model
+ *  deletes on hover-trash. Built-ins are read-only (no action). */
 function FileRow({
-  model,
-  activeKey,
+  entry,
   onOpen,
+  onClose,
   onDelete,
 }: {
-  model: SemanticModel;
-  activeKey: string | null;
+  entry: StudioDirEntry;
   onOpen: () => void;
+  onClose: () => void;
   onDelete: () => void;
 }) {
   const t = useT();
   const [confirming, setConfirming] = useState(false);
-  const pending = model.status === 'draft' || model.status === 'draft_pending';
+  const pending = entry.unsaved || entry.status === 'draft' || entry.status === 'draft_pending';
   return (
-    <div className={`${styles.fileRow} ${activeKey === model.id ? styles.fileRowActive : ''}`}>
+    <div className={`${styles.fileRow} ${entry.active ? styles.fileRowActive : ''}`}>
       <button type="button" className={styles.fileRowBtn} onClick={onOpen}>
         <Icon name="notebook" size={14} color="var(--dex-icon-subtle)" />
-        <span className={styles.fileName}>{model.name}.yml</span>
-        {!model.builtin && pending ? (
+        <span className={styles.fileName}>{entry.name}.yml</span>
+        {!entry.builtin && pending ? (
           <Pill tone="draft">
-            {model.status === 'draft_pending' ? t.modelEditor.draftPending : t.modelEditor.draft}
+            {entry.status === 'draft_pending' ? t.modelEditor.draftPending : t.modelEditor.draft}
           </Pill>
         ) : null}
       </button>
-      {!model.builtin ? (
+      {entry.builtin ? null : entry.unsaved ? (
+        <IconButton
+          icon="cross"
+          size={12}
+          color="var(--dex-icon-subtle)"
+          title={t.modelStudio.closeFile}
+          hover="mid"
+          className={styles.fileDelete}
+          onClick={onClose}
+        />
+      ) : (
         <IconButton
           icon="trash"
           size={12}
@@ -328,14 +353,14 @@ function FileRow({
           className={styles.fileDelete}
           onClick={() => setConfirming(true)}
         />
-      ) : null}
+      )}
       {confirming ? (
         <ConfirmDialog
           title={t.dataModels.deleteTitle}
           message={
             <>
               {t.dataModels.deleteBefore}
-              <strong>{model.name}</strong>
+              <strong>{entry.name}</strong>
               {t.dataModels.deleteAfter}
             </>
           }

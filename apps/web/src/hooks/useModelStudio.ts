@@ -31,7 +31,20 @@ export interface StudioFile {
   saving: boolean;
 }
 
+/** One row in the Files directory — a persisted model OR an open-but-unsaved file. */
+export interface StudioDirEntry {
+  key: string; // tab key to focus when clicked
+  modelId: string | null; // null for an unsaved new file
+  name: string; // bare display name (no `.yml`)
+  status: ModelStatus;
+  builtin: boolean;
+  endorsed: boolean;
+  unsaved: boolean; // true = new file not yet persisted
+  active: boolean; // its tab is the active one
+}
+
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const stripYml = (t: string) => t.replace(/\.yml$/, '');
 const yamlErrors = (e: unknown): YamlMarker[] =>
   e instanceof ApiError && e.info && typeof e.info === 'object' && 'yamlErrors' in e.info
     ? ((e.info as { yamlErrors?: YamlMarker[] }).yamlErrors ?? [])
@@ -41,6 +54,73 @@ const yamlErrors = (e: unknown): YamlMarker[] =>
 function fileTitle(yaml: string, fallback: string): string {
   const m = /^name:\s*([A-Za-z_][A-Za-z0-9_]*)/m.exec(yaml);
   return `${m ? m[1] : fallback}.yml`;
+}
+
+// How long the editor stays idle before an edited file is auto-saved to the
+// server as a draft. Each keystroke resets the timer, so we save on a pause.
+export const AUTOSAVE_MS = 1200;
+
+// --- unsaved-draft localStorage fallback ------------------------------------
+// Autosave persists *valid* drafts to the server, but a brand-new file whose YAML
+// is still incomplete/invalid (e.g. an unknown base table) can't land there yet.
+// We mirror such unsaved new files (modelId === null) to localStorage per project
+// and rehydrate them on mount, so in-progress work survives a reload until it's
+// valid enough to save server-side — at which point this local copy is cleared.
+
+const DRAFTS_PREFIX = 'dex.modelStudio.drafts.';
+
+interface PersistedDraft {
+  key: string;
+  title: string;
+  yaml: string;
+}
+
+/** Read a project's unsaved new-file drafts back into editor tabs (best-effort). */
+function loadPersistedDrafts(projectId: string): StudioFile[] {
+  try {
+    const raw = localStorage.getItem(DRAFTS_PREFIX + projectId);
+    if (!raw) return [];
+    const arr = JSON.parse(raw) as PersistedDraft[];
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((d) => d && typeof d.key === 'string' && typeof d.yaml === 'string')
+      .map((d) => ({
+        key: d.key,
+        modelId: null,
+        title: d.title || 'untitled.yml',
+        yaml: d.yaml,
+        savedYaml: '', // stays dirty until it lands on the server
+        status: 'draft' as ModelStatus,
+        builtin: false,
+        loading: false,
+        loadError: null,
+        saveError: null,
+        markers: [],
+        saving: false,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/** Persist the project's unsaved new files (clears the key when there are none). */
+function savePersistedDrafts(projectId: string, drafts: PersistedDraft[]): void {
+  try {
+    if (drafts.length === 0) localStorage.removeItem(DRAFTS_PREFIX + projectId);
+    else localStorage.setItem(DRAFTS_PREFIX + projectId, JSON.stringify(drafts));
+  } catch {
+    /* storage unavailable (private mode / quota) — drafts just won't survive a reload */
+  }
+}
+
+/** Next `new:<n>` counter value above any restored draft keys (avoids key reuse). */
+function nextDraftCounter(files: StudioFile[]): number {
+  let max = -1;
+  for (const f of files) {
+    const m = /^new:(\d+)$/.exec(f.key);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return max + 1;
 }
 
 /**
@@ -53,10 +133,13 @@ export function useModelStudio(projectId: string, untitledLabel: string) {
   const [project, setProject] = useState<SemanticProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [files, setFiles] = useState<StudioFile[]>([]);
-  const [activeKey, setActiveKey] = useState<string | null>(null);
+  // Rehydrate localStorage-fallback drafts (unsaved new files) once, on mount.
+  const restored = useRef<StudioFile[] | null>(null);
+  if (restored.current === null) restored.current = loadPersistedDrafts(projectId);
+  const [files, setFiles] = useState<StudioFile[]>(restored.current);
+  const [activeKey, setActiveKey] = useState<string | null>(restored.current[0]?.key ?? null);
   const [publishing, setPublishing] = useState(false);
-  const newCounter = useRef(0);
+  const newCounter = useRef(nextDraftCounter(restored.current));
 
   const patchFile = useCallback(
     (key: string, fn: (f: StudioFile) => StudioFile) =>
@@ -90,6 +173,18 @@ export function useModelStudio(projectId: string, untitledLabel: string) {
     };
   }, [projectId]);
 
+  // Mirror still-unsaved new files (modelId === null) to localStorage as a fallback
+  // for drafts the server can't accept yet. A file that lands on the server (modelId
+  // set) or is closed drops out of this set, clearing its local copy.
+  useEffect(() => {
+    savePersistedDrafts(
+      projectId,
+      files
+        .filter((f) => f.modelId == null)
+        .map((f) => ({ key: f.key, title: f.title, yaml: f.yaml })),
+    );
+  }, [files, projectId]);
+
   // Lazy-load a model's YAML the first time its tab opens.
   const loadFile = useCallback(
     async (key: string, modelId: string) => {
@@ -115,9 +210,14 @@ export function useModelStudio(projectId: string, untitledLabel: string) {
   const openModel = useCallback(
     (modelId: string) => {
       let existing = false;
+      let focusKey = modelId;
       setFiles((prev) => {
-        if (prev.some((f) => f.key === modelId)) {
+        // Match by tab key OR modelId: a model saved from a `new:<n>` tab keeps that
+        // key, so the directory (keyed by model id) must still find its open tab.
+        const found = prev.find((f) => f.key === modelId || f.modelId === modelId);
+        if (found) {
           existing = true;
+          focusKey = found.key;
           return prev;
         }
         return [
@@ -138,7 +238,7 @@ export function useModelStudio(projectId: string, untitledLabel: string) {
           },
         ];
       });
-      setActiveKey(modelId);
+      setActiveKey(focusKey);
       if (!existing) void loadFile(modelId, modelId);
     },
     [loadFile],
@@ -219,6 +319,9 @@ export function useModelStudio(projectId: string, untitledLabel: string) {
           });
           patchFile(file.key, (f) => ({
             ...f,
+            // A rename changes the stored id (id === cube name); follow it so the
+            // next save targets the right model instead of 404-ing on the old name.
+            modelId: updated?.id ?? f.modelId,
             savedYaml: f.yaml,
             status: updated?.status ?? 'published',
             saving: false,
@@ -247,6 +350,24 @@ export function useModelStudio(projectId: string, untitledLabel: string) {
     },
     [files, persist, reloadProject],
   );
+
+  // Auto-save edited files to the server as drafts once typing pauses, so an
+  // in-progress model survives a reload. Saved files stay drafts (invisible to
+  // the agent until published). A keystroke resets the timer; a YAML the server
+  // rejected (saveError) is retried only after the user edits it again — editYaml
+  // clears saveError — so an invalid draft never busy-loops the API. Saving every
+  // dirty file (not just the active tab) means switching tabs can't lose edits.
+  useEffect(() => {
+    if (publishing) return;
+    const dirty = files.filter(
+      (f) => !f.builtin && !f.saving && !f.loadError && !f.saveError && f.yaml !== f.savedYaml,
+    );
+    if (dirty.length === 0) return;
+    const id = setTimeout(() => {
+      for (const f of dirty) void saveFile(f.key);
+    }, AUTOSAVE_MS);
+    return () => clearTimeout(id);
+  }, [files, publishing, saveFile]);
 
   /** Project-level publish: save+publish every open file that has unpublished work,
    *  then publish any remaining draft models that aren't open. */
@@ -283,10 +404,18 @@ export function useModelStudio(projectId: string, untitledLabel: string) {
   const removeModel = useCallback(
     async (modelId: string) => {
       await deleteSemanticModel(projectId, modelId);
-      closeFile(modelId);
+      // Close the open tab for this model — its key may be `new:<n>` (saved from a
+      // new tab), so match on modelId rather than assuming key === modelId.
+      setFiles((prev) => {
+        const closed = prev.find((f) => f.modelId === modelId);
+        if (!closed) return prev;
+        const next = prev.filter((f) => f.key !== closed.key);
+        setActiveKey((cur) => (cur === closed.key ? (next[next.length - 1]?.key ?? null) : cur));
+        return next;
+      });
       await reloadProject();
     },
-    [projectId, closeFile, reloadProject],
+    [projectId, reloadProject],
   );
 
   /** Drop an assistant proposal's YAML into the active file (or open a new one). */
@@ -338,12 +467,62 @@ export function useModelStudio(projectId: string, untitledLabel: string) {
   );
 
   const activeFile = files.find((f) => f.key === activeKey) ?? null;
-  const models = project?.models ?? [];
+  const models = useMemo(() => project?.models ?? [], [project]);
   const errorCount = useMemo(() => files.reduce((n, f) => n + f.markers.length, 0), [files]);
   const openModelIds = useMemo(
     () => new Set(files.map((f) => f.modelId).filter(Boolean) as string[]),
     [files],
   );
+
+  /** Focus an existing directory entry's tab (re-loading it if it's a persisted
+   *  model that isn't open yet). */
+  const openEntry = useCallback(
+    (e: StudioDirEntry) => {
+      if (e.modelId) openModel(e.modelId);
+      else setActiveKey(e.key);
+    },
+    [openModel],
+  );
+
+  /** The Files directory: persisted models PLUS any open unsaved new file, so a
+   *  brand-new tab shows up in the tree immediately. An open file's live `name:`
+   *  (from its YAML) drives the display name, keeping the row and tab in sync. */
+  const directory = useMemo<StudioDirEntry[]>(() => {
+    const activeModelId = activeFile?.modelId ?? null;
+    const modelIds = new Set(models.map((m) => m.id));
+    const openByModel = new Map(
+      files.filter((f) => f.modelId).map((f) => [f.modelId as string, f]),
+    );
+    const persisted: StudioDirEntry[] = models.map((m) => {
+      const open = openByModel.get(m.id);
+      return {
+        key: open?.key ?? m.id,
+        modelId: m.id,
+        name: open ? stripYml(open.title) : m.name,
+        status: open?.status ?? m.status ?? 'published',
+        builtin: !!m.builtin,
+        endorsed: !!m.endorsed,
+        unsaved: false,
+        active: activeModelId === m.id,
+      };
+    });
+    // Open files not (yet) in the persisted list: a brand-new file (modelId null),
+    // or one just saved/renamed before `reloadProject` lands. Showing them here
+    // keeps the directory and tabs in lockstep with no flicker.
+    const extras: StudioDirEntry[] = files
+      .filter((f) => f.modelId == null || !modelIds.has(f.modelId))
+      .map((f) => ({
+        key: f.key,
+        modelId: f.modelId,
+        name: stripYml(f.title),
+        status: f.status,
+        builtin: false,
+        endorsed: false,
+        unsaved: f.modelId == null,
+        active: f.modelId ? activeModelId === f.modelId : activeKey === f.key,
+      }));
+    return [...persisted, ...extras];
+  }, [models, files, activeFile, activeKey]);
 
   return {
     project,
@@ -351,6 +530,7 @@ export function useModelStudio(projectId: string, untitledLabel: string) {
     error,
     files,
     models,
+    directory,
     activeKey,
     activeFile,
     openModelIds,
@@ -358,6 +538,7 @@ export function useModelStudio(projectId: string, untitledLabel: string) {
     errorCount,
     setActiveKey,
     openModel,
+    openEntry,
     openNew,
     closeFile,
     editYaml,

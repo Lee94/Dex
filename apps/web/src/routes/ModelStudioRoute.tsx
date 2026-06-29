@@ -14,6 +14,7 @@ export function ModelStudioRoute() {
   if (!projectId) return null;
   return (
     <ModelStudio
+      key={projectId}
       projectId={projectId}
       initialOpen={params.get('open') ?? undefined}
       initialNew={params.get('new') === '1'}
