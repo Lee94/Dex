@@ -16,15 +16,18 @@ export function StudioAgentPanel({
   onClose,
   onProposal,
   source,
+  projectId,
 }: {
   onClose: () => void;
   onProposal: (yaml: string) => void;
   source?: AssistantSource;
+  projectId: string;
 }) {
   const t = useT();
   const { messages, streaming, error, send, stop, reset } = useModelAssistant({
     onProposal: (p) => onProposal(p.yaml),
     source,
+    projectId,
   });
   const [input, setInput] = useState('');
 

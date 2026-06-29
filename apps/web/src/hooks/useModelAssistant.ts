@@ -24,25 +24,26 @@ const uid = () => crypto.randomUUID();
 
 /**
  * A leading instruction that pins the stateless studio agent to the project's
- * bound data connection. We prepend it to the first user message on every send
- * (it never enters the displayed `messages`, so the UI stays clean). Without it
- * the agent's discovery tools default to the built-in warehouse and it authors
- * cubes from an unrelated database's tables. Mirrors the analyst's
- * `contextPrefix` datasource handling.
+ * bound data connection and tells it which project it's in. We prepend it to the
+ * first user message on every send (it never enters the displayed `messages`, so
+ * the UI stays clean). Without the connection clause the agent's discovery tools
+ * default to the built-in warehouse and author cubes from an unrelated database;
+ * without the projectId clause it can't list/join the project's other models.
+ * Mirrors the analyst's `contextPrefix` datasource handling.
  */
-function sourcePreamble(source: AssistantSource): string {
-  if (source.builtin) {
-    return (
-      'This data model is bound to the built-in sample warehouse — author it only from that ' +
-      "warehouse's tables; do not target any other data connection.\n\n"
-    );
-  }
-  return (
-    `This data model is bound to data connection "${source.name}" (id: ${source.id}, a ${source.dialect} ` +
-    `database). Pass dataConnectionId "${source.id}" to EVERY tool call (FindTableSchemas, ViewTables) ` +
-    'and author the cube only from this connection. Never query the built-in warehouse or any other ' +
-    'connection — their tables are unrelated and must not appear in this model.\n\n'
-  );
+function sourcePreamble(source: AssistantSource, projectId?: string): string {
+  const connection = source.builtin
+    ? 'This data model is bound to the built-in sample warehouse — author its own table only from ' +
+      "that warehouse's tables; do not target any other data connection. "
+    : `This data model is bound to data connection "${source.name}" (id: ${source.id}, a ${source.dialect} ` +
+      `database). Pass dataConnectionId "${source.id}" to EVERY ViewTables / FindTableSchemas call and ` +
+      "author this cube's own table only from this connection; never query the built-in warehouse or " +
+      'any other connection. ';
+  const project = projectId
+    ? `This model belongs to project "${projectId}". Pass projectId "${projectId}" to ListProjectModels ` +
+      '(to find other models in this project to join to) and to propose_cube. '
+    : '';
+  return `${connection}${project}\n\n`;
 }
 
 /** Coerce an unknown error (string / Error / structured chunk payload) into a
@@ -72,6 +73,7 @@ function errText(e: unknown): string {
 export function useModelAssistant(opts: {
   onProposal: (p: CubeProposal) => void;
   source?: AssistantSource;
+  projectId?: string;
 }) {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
@@ -79,9 +81,11 @@ export function useModelAssistant(opts: {
   const stopRef = useRef<(() => void) | null>(null);
   const onProposalRef = useRef(opts.onProposal);
   onProposalRef.current = opts.onProposal;
-  // Current bound source, read inside `send` without widening its deps.
+  // Current bound source + project, read inside `send` without widening its deps.
   const sourceRef = useRef(opts.source);
   sourceRef.current = opts.source;
+  const projectIdRef = useRef(opts.projectId);
+  projectIdRef.current = opts.projectId;
   // Always-current view of `messages` so `send` can read the latest history
   // without depending on it (and without relying on a setState updater's side
   // effect — see the note in `send`).
@@ -127,7 +131,7 @@ export function useModelAssistant(opts: {
         if (source && agentMessages.length > 0) {
           agentMessages[0] = {
             ...agentMessages[0],
-            content: sourcePreamble(source) + agentMessages[0].content,
+            content: sourcePreamble(source, projectIdRef.current) + agentMessages[0].content,
           };
         }
         const response = await semanticModelAgent.stream(

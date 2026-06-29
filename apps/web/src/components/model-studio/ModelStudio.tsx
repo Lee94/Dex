@@ -243,6 +243,7 @@ export function ModelStudio({
           <StudioAgentPanel
             onClose={() => setPanelOpen(false)}
             onProposal={(yaml) => s.applyProposal(yaml, t.modelStudio.newTemplate)}
+            projectId={projectId}
             source={
               s.project
                 ? {

@@ -5,7 +5,7 @@ import { compileSemanticQuery } from './compile';
 import { model } from './model';
 import { assertValidModel, validateModel } from './validate';
 import { listStoredModels } from './store';
-import type { CompileResult, SemanticModel, SemanticQuery } from './types';
+import type { Cube, CompileResult, SemanticModel, SemanticQuery } from './types';
 
 export { model } from './model';
 export { compileSemanticQuery } from './compile';
@@ -63,6 +63,62 @@ export async function loadMergedModel(): Promise<SemanticModel> {
     }
   }
   return merged;
+}
+
+/** A project's cube as a join target — enough for the semantic-model assistant
+ *  to pick a `to:` and learn the target's base table (it then confirms the join
+ *  key columns via FindTableSchemas). */
+export interface ProjectCubeInfo {
+  name: string;
+  baseTable: string;
+  title?: string;
+  description?: string;
+  endorsed: boolean;
+  dimensions: { name: string; sql: string }[];
+  measures: { name: string; type: string }[];
+}
+
+const toCubeInfo = (c: Cube): ProjectCubeInfo => ({
+  name: c.name,
+  baseTable: c.sql,
+  title: c.title,
+  description: c.description,
+  endorsed: !!c.endorsed,
+  dimensions: c.dimensions.map((d) => ({ name: d.name, sql: d.sql })),
+  measures: c.measures.map((m) => ({ name: m.name, type: m.type })),
+});
+
+/**
+ * The cubes in a semantic project: the built-in cubes (only for the `dex`
+ * project) plus the project's stored models in their current (`draft ?? published`)
+ * view. This is the canonical "what can a model in this project join to" set —
+ * `routes.ts` and the `ListProjectModels` tool both read it so the join-target
+ * rules can't drift. Falls back to just the built-ins if the store is unavailable.
+ */
+export async function listProjectCubes(projectId: string): Promise<ProjectCubeInfo[]> {
+  const cubes: ProjectCubeInfo[] = projectId === 'dex' ? model.cubes.map(toCubeInfo) : [];
+  try {
+    for (const m of await listStoredModels(projectId)) {
+      const view = m.draft ?? m.published;
+      if (view) cubes.push(toCubeInfo(view));
+    }
+  } catch {
+    /* store unavailable → built-ins only */
+  }
+  return cubes;
+}
+
+/** The set of cube names a model in `projectId` may join to, excluding
+ *  `exceptName` (the model being edited). Derived from {@link listProjectCubes}. */
+export async function projectCubeNameSet(
+  projectId: string,
+  exceptName?: string,
+): Promise<Set<string>> {
+  const names = new Set<string>();
+  for (const c of await listProjectCubes(projectId)) {
+    if (c.name !== exceptName) names.add(c.name);
+  }
+  return names;
 }
 
 /** The result a semantic query returns — the same shape `run_sql` returns, plus

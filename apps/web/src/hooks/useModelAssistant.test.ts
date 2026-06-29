@@ -44,11 +44,12 @@ describe('useModelAssistant.send', () => {
     expect(h.calls[0]).toEqual([{ role: 'user', content: 'create a cube' }]);
   });
 
-  it('pins the agent to the bound non-builtin source by prefixing the first message', async () => {
+  it('pins the agent to the bound non-builtin source + project by prefixing the first message', async () => {
     const { result } = renderHook(() =>
       useModelAssistant({
         onProposal: () => {},
         source: { id: 'ds-1', name: 'fay', dialect: 'postgres', builtin: false },
+        projectId: 'proj-7',
       }),
     );
 
@@ -59,10 +60,12 @@ describe('useModelAssistant.send', () => {
     const sent = h.calls[0];
     // The user turn is preserved, but its content is prefixed with a preamble
     // that forces the bound dataConnectionId so the agent can't fall back to the
-    // built-in warehouse (the bug: it read the sample DB's tables instead).
+    // built-in warehouse (the bug: it read the sample DB's tables instead), and
+    // the projectId so it can list/join the project's other models.
     expect(sent).toHaveLength(1);
     expect(sent[0].role).toBe('user');
     expect(sent[0].content).toContain('dataConnectionId "ds-1"');
+    expect(sent[0].content).toContain('projectId "proj-7"');
     expect(sent[0].content).toContain('build a trades cube');
     // The displayed message stays clean (no preamble leaks into the UI).
     expect(result.current.messages[0].text).toBe('build a trades cube');

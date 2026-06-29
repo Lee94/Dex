@@ -41,6 +41,7 @@ import {
   assertColumnsExist,
   assertJoinsValid,
   validateJoins,
+  projectCubeNameSet,
   listStoredProjects,
   getStoredProject,
   createProject,
@@ -313,16 +314,12 @@ function hasBodyDefinition(body: ModelBody): boolean {
   return Array.isArray(body.measures) || (body.source === 'yaml' && typeof body.yaml === 'string');
 }
 
-/** The set of cube names a model in `projectId` may join to: the built-in cubes
- *  (only for the `dex` project) plus every other stored model in the same
- *  project, by its current name. `exceptName` drops the model being edited. */
+/** The set of cube names a model in `projectId` may join to (built-ins for `dex`
+ *  + the project's stored models), excluding the model being edited. Delegates to
+ *  the shared `projectCubeNameSet` so the join-target rule has one source of truth
+ *  (the `ListProjectModels` tool reads the same). */
 async function projectCubeNames(projectId: string, exceptName?: string): Promise<Set<string>> {
-  const names = new Set<string>();
-  if (projectId === 'dex') for (const c of model.cubes) names.add(c.name);
-  for (const m of await listStoredModels(projectId)) {
-    if (m.name !== exceptName) names.add(m.name);
-  }
-  return names;
+  return projectCubeNameSet(projectId, exceptName);
 }
 
 /**

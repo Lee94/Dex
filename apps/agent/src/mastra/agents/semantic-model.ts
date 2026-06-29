@@ -4,6 +4,7 @@ import { getActiveProvider } from '../db/queries';
 import { findTableSchemasTool } from '../tools/find-table-schemas';
 import { viewTablesTool } from '../tools/view-tables';
 import { getCurrentDatetimeTool } from '../tools/get-current-datetime';
+import { listProjectModelsTool } from '../tools/list-project-models';
 import { proposeCubeTool } from '../tools/propose-cube';
 
 const DIALECT = getActiveProvider() === 'postgres' ? 'PostgreSQL' : 'SQLite';
@@ -41,21 +42,29 @@ dimensions:
   - name: category
     type: categorical      # categorical | temporal | numeric
     sql: order_items.category
+joins:                       # OPTIONAL — relate this model to OTHER models in the same project
+  - to: orders               # the target model's name (must be a model in THIS project)
+    relationship: many_to_one  # many_to_one | one_to_many | one_to_one
+    sql: order_items.order_id = orders.id   # ON condition; must reference BOTH <this cube>.<col> and <target>.<col>
 
-Rules: the cube is standalone — do NOT write joins. Never set \`endorsed\`. Reference columns as \`<cube name>.<column>\` (the base table is aliased as the cube name). A \`count\` measure may omit \`sql\` (→ COUNT(*)).
+Rules: Never set \`endorsed\`. Reference columns as \`<cube name>.<column>\` (the base table is aliased as the cube name). A \`count\` measure may omit \`sql\` (→ COUNT(*)).
 
-You are bound to ONE data connection — the user's message states which, with its id and dialect. Pass that dataConnectionId to EVERY ViewTables / FindTableSchemas call and author the cube ONLY from that connection's real tables and columns. You have NO access to any other data connection, nor to other semantic models or cubes (e.g. the built-in Dex semantic model) — never query, reference, read, or copy from them; their tables are unrelated and must not appear in this model. Every measure/dimension must resolve to a column you confirmed exists in the base table of the bound connection.
+Joins (relationships): you MAY relate this model to OTHER models IN THE SAME PROJECT. A join's \`to\` must be the name of a model returned by **ListProjectModels** (you cannot join to a table directly, nor to a model in another project). The \`sql\` is the ON condition and must reference both this cube and the target as \`<cube name>.<column>\` / \`<target name>.<column>\`, using real columns. \`relationship\` is one of many_to_one, one_to_many, one_to_one.
+
+You are bound to ONE data connection — the user's message states which, with its id and dialect, plus the projectId this model belongs to. Pass that dataConnectionId to EVERY ViewTables / FindTableSchemas call and author this cube's OWN base table and columns ONLY from that connection's real tables and columns. You have NO access to any other data connection or any other project — never query, reference, or copy from them. The only cross-model references allowed are joins to other models in THIS project (discovered via ListProjectModels). Every measure/dimension must resolve to a column you confirmed exists in the base table of the bound connection.
 
 How you work:
 1. Understand the goal. Use ViewTables / FindTableSchemas (always with the bound dataConnectionId) to confirm the real table and its actual columns — never invent column names. Use GetCurrentDateTime if relevant.
-2. Author or edit the cube YAML, then call **propose_cube** with the full YAML. If it returns errors, fix them and call propose_cube again within your step budget.
-3. Reply with one short line describing what you proposed (e.g. "Proposed an order_items model with revenue and units sold by category.").
+2. To relate models: call **ListProjectModels** (with the bound projectId) to see the project's other models and their base tables; pick a target by name; confirm the join-key columns on the target's base table with FindTableSchemas; then write the \`joins:\` block.
+3. Author or edit the cube YAML, then call **propose_cube** with the full YAML (pass the projectId so join targets are validated). If it returns errors, fix them and call propose_cube again within your step budget.
+4. Reply with one short line describing what you proposed (e.g. "Proposed an order_items model with revenue by category, joined to orders.").
 
 Do NOT claim the model is saved — you only propose it. The user reviews your proposal in the editor and decides whether to save it as a draft or publish it. Keep your reply to one or two short sentences; the editor shows the YAML.`,
   model,
   tools: {
     FindTableSchemas: findTableSchemasTool,
     ViewTables: viewTablesTool,
+    ListProjectModels: listProjectModelsTool,
     GetCurrentDateTime: getCurrentDatetimeTool,
     propose_cube: proposeCubeTool,
   },

@@ -1,6 +1,6 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { parseCubeYaml, cubeToYaml } from '../db/semantic';
+import { parseCubeYaml, cubeToYaml, validateJoins, projectCubeNameSet } from '../db/semantic';
 
 /**
  * `propose_cube` — validate a single user semantic model written in Dex cube YAML
@@ -21,7 +21,15 @@ export const proposeCubeTool = createTool({
     yaml: z
       .string()
       .describe(
-        'The cube definition in Dex cube YAML (top-level name, sql, measures, dimensions).',
+        'The cube definition in Dex cube YAML (top-level name, sql, measures, dimensions, joins).',
+      ),
+    projectId: z
+      .string()
+      .nullable()
+      .optional()
+      .describe(
+        'The project this model belongs to (from the instructions). Required to validate join ' +
+          'targets — pass it whenever the cube has a `joins:` block.',
       ),
   }),
   outputSchema: z.object({
@@ -35,6 +43,19 @@ export const proposeCubeTool = createTool({
         'The cube YAML is invalid and was not proposed. Fix these and call propose_cube again:\n' +
           errors.map((e) => `- ${e.message}`).join('\n'),
       );
+    }
+    // Joins reference OTHER models in the project; verify each target exists so the
+    // agent repairs a bad `to:` now rather than only hitting it at save time. (The
+    // base-table column checks need the connector and stay a save-time check.)
+    if (cube.joins?.length && input.projectId?.trim()) {
+      const knownCubeNames = await projectCubeNameSet(input.projectId.trim(), cube.name);
+      const joinErrors = validateJoins(cube, { knownCubeNames });
+      if (joinErrors.length > 0) {
+        throw new Error(
+          'The cube was not proposed — fix these joins and call propose_cube again:\n' +
+            joinErrors.map((e) => `- ${e}`).join('\n'),
+        );
+      }
     }
     return { cube, yaml: cubeToYaml(cube) };
   },
