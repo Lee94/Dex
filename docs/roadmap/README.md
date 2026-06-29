@@ -52,10 +52,10 @@ files in this folder hold the detail (goal, scope, technical approach, and a
 | [v2.2.0](./v2.2.0-charts-and-viz.md)         | Charts & viz             | Notebook   | ❌ Cancelled      | Superseded by the v3.0 pivot; charts now render inline in the thread.                                            |
 | [v2.3.0](./v2.3.0-python-kernel.md)          | Python & kernel          | Notebook   | ❌ Cancelled      | Superseded by the v3.0 pivot.                                                                                    |
 | [v3.0.0](./v3.0.0-projects.md)               | Projects + Threads pivot | Thread     | ✅ Shipped        | Remove the notebook; introduce Projects (thread containers with shared context). Charts kept, decoupled.         |
-| [v3.1.0](./v3.1.0-result-grid.md)            | Interactive result grid  | Thread     | 📋 Planned        | Sort/filter/virtualized result tables + a fullscreen vinci `detail` grid; kill the inert buttons.                |
-| [v3.2.0](./v3.2.0-conversational-controls.md)| Conversational controls  | Thread     | 📋 Planned        | Edit/resend, regenerate, suggested follow-ups, and per-step retry.                                               |
-| [v3.3.0](./v3.3.0-editable-viz.md)           | Editable charts & tables | Thread     | 📋 Planned        | NL "edit in words" + `@vinci/designer` editing (chart type/axes, table pivot) + chart export.                    |
-| [v3.4.0](./v3.4.0-pin-and-report.md)         | Pinning & reports        | Thread     | 📋 Planned        | Pin results into a report, export (Markdown/PDF), and a working read-only Share link.                            |
+| [v3.1.0](./v3.1.0-result-grid.md)            | Interactive result grid  | Thread     | ✅ Shipped        | Sort/filter/progressive-paged result grid + a fullscreen Modal; removed the inert buttons.                       |
+| [v3.2.0](./v3.2.0-conversational-controls.md)| Conversational controls  | Thread     | ✅ Shipped        | Edit/resend, regenerate, retry-on-error, and result-derived suggested follow-ups.                               |
+| [v3.3.0](./v3.3.0-editable-viz.md)           | Editable charts          | Thread     | ✅ Shipped        | NL "edit in words" (re-delegates to the viz sub-agent) + chart export (SVG/CSV). Designer direct-edit deferred.  |
+| [v3.4.0](./v3.4.0-pin-and-report.md)         | Pinning & reports        | Thread     | ✅ Shipped        | Pin results/charts into a read-only report; reorder, Markdown export, copy-link Share.                           |
 | [v3.5.0](./v3.5.0-collaboration.md)          | Collaboration            | Collab     | 📋 Planned        | Identity + permissions, comments/@mentions, permissioned sharing (strategic; split into sub-milestones).         |
 
 The **Thread** track is the product. The **Notebook** track (v2.x) was a spike that
@@ -66,6 +66,13 @@ path is strong, but results are currently inert (no grid interaction, no rework,
 read-only charts, nothing durable/shareable). These versions are sequenced by ROI
 — front-end-only wins first (v3.1), then conversation rework (v3.2) and chart
 editing (v3.3), then durable artifacts (v3.4), and finally collaboration (v3.5).
+
+> **Verification note (v3.1–v3.4).** The agent-side changes (the v3.4 pins store +
+> `/reports` routes) are typechecked and unit-tested locally. The web-side changes
+> couldn't be built in the authoring sandbox (the `@vinci/*` packages need the
+> private `npm.fineres.com` registry token, absent there), so web `typecheck` /
+> `build` / Vitest must be confirmed in CI, where the token is available. The
+> changes were written against the existing types/patterns and reviewed by hand.
 
 ## How the milestones build on each other
 
