@@ -155,6 +155,43 @@ export async function deleteThread(threadId: string): Promise<void> {
   await thread.delete({ agentId: AGENT_ID });
 }
 
+/**
+ * Truncate a thread's server-side memory from a given user turn onward (v3.2).
+ * Deletes the `userTurnIndex`-th user message (0-based) and every stored message
+ * after it, so an edit/resend or regenerate doesn't leave stale turns that memory
+ * would replay. Identifies the cut point by user-turn ordinal (1:1 and ordered
+ * between the UI and the store), not by id — live UI ids don't match stored ids.
+ */
+export async function truncateThreadFromUserTurn(
+  threadId: string,
+  userTurnIndex: number,
+): Promise<void> {
+  const thread = mastra.getMemoryThread({ threadId, agentId: AGENT_ID });
+  const res = await thread.listMessages({
+    perPage: MESSAGES_PER_PAGE,
+    page: 0,
+    orderBy: { field: 'createdAt', direction: 'ASC' },
+  });
+  const msgs = (res.messages ?? []) as Array<{ id?: string; role?: string }>;
+  let seen = -1;
+  let cut = -1;
+  for (let i = 0; i < msgs.length; i++) {
+    if (msgs[i].role === 'user') {
+      seen++;
+      if (seen === userTurnIndex) {
+        cut = i;
+        break;
+      }
+    }
+  }
+  if (cut < 0) return; // nothing stored for that turn yet
+  const ids = msgs
+    .slice(cut)
+    .map((m) => m.id)
+    .filter((id): id is string => typeof id === 'string');
+  if (ids.length) await thread.deleteMessages(ids, { agentId: AGENT_ID });
+}
+
 // ---------------------------------------------------------------------------
 // Reconstruction: stored Mastra messages -> UI ChatMessage[]
 // ---------------------------------------------------------------------------

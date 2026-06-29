@@ -83,6 +83,18 @@ export function contextPrefix(attachments: Attachment[], project?: ProjectContex
   return `${CONTEXT_SENTINEL}\n${lines.join('\n')}\n\n`;
 }
 
+/**
+ * Split a stored user message into its context preamble (including the trailing
+ * blank line, or '' when absent) and the editable question body. Lets the edit
+ * UI rewrite only the question while preserving the attached-context preamble.
+ */
+export function splitPreamble(text: string): { preamble: string; body: string } {
+  if (!text.startsWith(CONTEXT_SENTINEL)) return { preamble: '', body: text };
+  const sep = text.indexOf('\n\n');
+  if (sep === -1) return { preamble: text, body: '' };
+  return { preamble: text.slice(0, sep + 2), body: text.slice(sep + 2) };
+}
+
 /** A context item recovered from a stored user message, for display as a chip. */
 export interface ContextChip {
   /** "Data source" | "Table" | "Semantic model" */

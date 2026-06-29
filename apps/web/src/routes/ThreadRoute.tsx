@@ -16,7 +16,8 @@ const ThreadView = lazy(() =>
  */
 export function ThreadRoute() {
   const { id } = useParams<{ id: string }>();
-  const { threads, listLoading, loadMessages, sendMessage, stop } = useThreadsContext();
+  const { threads, listLoading, loadMessages, sendMessage, editMessage, regenerate, stop } =
+    useThreadsContext();
   const { projects } = useProjectsContext();
   const navigate = useNavigate();
 
@@ -53,6 +54,8 @@ export function ThreadRoute() {
         onSend={(text) => sendMessage(thread.id, text)}
         onStop={stop}
         onRetryLoad={() => void loadMessages(thread.id)}
+        onEdit={(messageId, text) => void editMessage(thread.id, messageId, text)}
+        onRegenerate={(messageId) => void regenerate(thread.id, messageId)}
       />
     </Suspense>
   );

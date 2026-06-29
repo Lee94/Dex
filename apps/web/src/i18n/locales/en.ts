@@ -107,6 +107,17 @@ export const en = {
     thinking: 'Thinking…',
     somethingWrong: 'Something went wrong.',
     loadingChart: 'Loading chart…',
+    // Conversational controls — v3.2
+    edit: 'Edit message',
+    editSave: 'Save & resend',
+    regenerate: 'Regenerate',
+    retry: 'Retry',
+    followUpsLabel: 'Suggested follow-ups',
+    followUps: {
+      overTime: 'How has this changed over time?',
+      breakdownBy: (col: string) => `Break this down by ${col}`,
+      topDrivers: 'What’s driving these results?',
+    },
   },
 
   duration: {

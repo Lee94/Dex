@@ -12,9 +12,10 @@ import {
   newThreadId,
   relativeTime,
   titleFromText,
+  truncateThreadFromUserTurn,
   updateThreadMeta,
 } from '@/lib/threads';
-import type { AssistantMessage, ChatMessage, Thread, ToolStep } from '@/types';
+import type { AssistantMessage, ChatMessage, Thread, ToolStep, UserMessage } from '@/types';
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
 
@@ -308,6 +309,68 @@ export function useThreads() {
     [threads, patchThread, patchAssistant],
   );
 
+  // --- edit & resend / regenerate (v3.2) ---
+  //
+  // Both reduce to: truncate the conversation to just before a user turn (dropping
+  // that turn + everything after, locally and in server memory so memory won't
+  // replay stale turns), then send the (possibly edited) text as a fresh turn.
+  const resendFromUserMessage = useCallback(
+    async (threadId: string, userMessageId: string, text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      const thread = threads.find((t) => t.id === threadId);
+      if (!thread) return;
+      const idx = thread.messages.findIndex(
+        (m) => m.id === userMessageId && m.role === 'user',
+      );
+      if (idx < 0) return;
+      // user-turn ordinal of the target (0-based) — stable across UI/store
+      const userTurnIndex = thread.messages
+        .slice(0, idx)
+        .filter((m) => m.role === 'user').length;
+      // truncate the UI immediately
+      patchThread(threadId, (t) => ({ ...t, messages: t.messages.slice(0, idx) }));
+      // truncate server memory (best-effort; a failure just leaves stale history)
+      try {
+        await truncateThreadFromUserTurn(threadId, userTurnIndex);
+      } catch (err) {
+        console.error('Failed to truncate thread history', err);
+      }
+      await sendMessage(threadId, trimmed);
+    },
+    [threads, patchThread, sendMessage],
+  );
+
+  /** Edit a user message's text and re-run the conversation from there. */
+  const editMessage = useCallback(
+    (threadId: string, userMessageId: string, newText: string) =>
+      resendFromUserMessage(threadId, userMessageId, newText),
+    [resendFromUserMessage],
+  );
+
+  /** Re-run the turn that produced an assistant message (same user question). */
+  const regenerate = useCallback(
+    (threadId: string, assistantMessageId: string) => {
+      const thread = threads.find((t) => t.id === threadId);
+      if (!thread) return Promise.resolve();
+      const aIdx = thread.messages.findIndex(
+        (m) => m.id === assistantMessageId && m.role === 'assistant',
+      );
+      if (aIdx < 0) return Promise.resolve();
+      let user: UserMessage | undefined;
+      for (let i = aIdx - 1; i >= 0; i--) {
+        const m = thread.messages[i];
+        if (m.role === 'user') {
+          user = m;
+          break;
+        }
+      }
+      if (!user) return Promise.resolve();
+      return resendFromUserMessage(threadId, user.id, user.text);
+    },
+    [threads, resendFromUserMessage],
+  );
+
   return {
     threads,
     listLoading,
@@ -319,6 +382,8 @@ export function useThreads() {
     removeThread,
     moveThreadToProject,
     sendMessage,
+    editMessage,
+    regenerate,
     stop,
   };
 }

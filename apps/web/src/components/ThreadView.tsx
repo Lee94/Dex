@@ -5,17 +5,19 @@ import {
   isSqlResult,
   outputNameOf,
   resultProvenance,
+  toNum,
   vizCellsOf,
   type AssistantMessage,
   type SqlResult,
   type Thread,
   type ToolStep,
+  type UserMessage,
   type VizCellRef,
 } from '@/types';
 import { Composer } from '@/components/Composer';
 import { Markdown } from '@/components/Markdown';
 import { ResultCard } from '@/components/ResultCard';
-import { splitUserMessage, type ProjectContext } from '@/lib/attachments';
+import { splitPreamble, splitUserMessage, type ProjectContext } from '@/lib/attachments';
 import { llmErrorMessage } from '@/lib/llmError';
 import { useT, type Dict } from '@/i18n';
 import styles from './ThreadView.module.css';
@@ -29,6 +31,8 @@ export function ThreadView({
   onSend,
   onStop,
   onRetryLoad,
+  onEdit,
+  onRegenerate,
   project,
 }: {
   thread: Thread;
@@ -36,6 +40,10 @@ export function ThreadView({
   onSend: (text: string) => void;
   onStop: () => void;
   onRetryLoad: () => void;
+  /** Edit a user message's text and re-run the conversation from there (v3.2). */
+  onEdit: (messageId: string, text: string) => void;
+  /** Re-run the turn that produced an assistant message (v3.2). */
+  onRegenerate: (messageId: string) => void;
   /** Shared context of the thread's project, folded into the first message. */
   project?: ProjectContext | null;
 }) {
@@ -70,11 +78,18 @@ export function ThreadView({
             </div>
           )}
 
-          {thread.messages.map((m) =>
+          {thread.messages.map((m, i) =>
             m.role === 'user' ? (
-              <UserRow key={m.id} text={m.text} />
+              <UserRow key={m.id} msg={m} onEdit={onEdit} streaming={streaming} />
             ) : (
-              <AssistantBlock key={m.id} msg={m} />
+              <AssistantBlock
+                key={m.id}
+                msg={m}
+                isLast={i === thread.messages.length - 1}
+                streaming={streaming}
+                onSend={onSend}
+                onRegenerate={onRegenerate}
+              />
             ),
           )}
           <div ref={bottomRef} />
@@ -216,9 +231,66 @@ function ctxIcon(kind: string): string {
   return 'data';
 }
 
-/** A user turn: data-context chips (parsed from the stored preamble) + question. */
-function UserRow({ text }: { text: string }) {
-  const { chips, body } = splitUserMessage(text);
+/** A user turn: data-context chips (parsed from the stored preamble) + question.
+ *  Hover reveals an edit affordance; editing rewrites the question and re-runs the
+ *  conversation from this turn (preserving the attached-context preamble). */
+function UserRow({
+  msg,
+  onEdit,
+  streaming,
+}: {
+  msg: UserMessage;
+  onEdit: (messageId: string, text: string) => void;
+  streaming: boolean;
+}) {
+  const t = useT();
+  const { chips, body } = splitUserMessage(msg.text);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(body);
+
+  const cancel = () => {
+    setEditing(false);
+    setDraft(body);
+  };
+  const save = () => {
+    const next = draft.trim();
+    setEditing(false);
+    if (!next || next === body) return;
+    onEdit(msg.id, splitPreamble(msg.text).preamble + next);
+  };
+
+  if (editing) {
+    return (
+      <div className={styles.userRow}>
+        <div className={styles.userEdit}>
+          <textarea
+            className={styles.userEditInput}
+            value={draft}
+            autoFocus
+            rows={Math.min(8, Math.max(2, draft.split('\n').length))}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                save();
+              } else if (e.key === 'Escape') {
+                cancel();
+              }
+            }}
+          />
+          <div className={styles.userEditActions}>
+            <Button variant="ghost" onClick={cancel}>
+              {t.common.cancel}
+            </Button>
+            <Button variant="green" onClick={save}>
+              {t.thread.editSave}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.userRow}>
       <div className={styles.userBubble}>
@@ -234,11 +306,53 @@ function UserRow({ text }: { text: string }) {
         ) : null}
         {body ? <span className={styles.userText}>{body}</span> : null}
       </div>
+      {!streaming ? (
+        <button
+          type="button"
+          className={styles.editBtn}
+          title={t.thread.edit}
+          onClick={() => {
+            setDraft(body);
+            setEditing(true);
+          }}
+        >
+          <Icon name="edit" size={13} color="var(--dex-icon-subtle)" />
+        </button>
+      ) : null}
     </div>
   );
 }
 
-function AssistantBlock({ msg }: { msg: AssistantMessage }) {
+/** Heuristic follow-up questions derived from the turn's last SQL result. */
+function followUpsFor(msg: AssistantMessage, t: Dict): string[] {
+  let result: SqlResult | undefined;
+  for (const s of msg.steps) if (isSqlResult(s.result)) result = s.result;
+  if (!result) return [];
+  const cols = result.columns;
+  const rows = result.rows;
+  const isNumeric = (c: string) => rows.some((r) => toNum(r[c]) !== null);
+  const dateCol = cols.find((c) => /date|month|day|year|time|week|quarter/i.test(c));
+  const catCol = cols.find((c) => c !== dateCol && !isNumeric(c));
+  const out: string[] = [];
+  if (dateCol) out.push(t.thread.followUps.overTime);
+  if (catCol) out.push(t.thread.followUps.breakdownBy(catCol));
+  if (out.length < 3) out.push(t.thread.followUps.topDrivers);
+  return out.slice(0, 3);
+}
+
+function AssistantBlock({
+  msg,
+  isLast,
+  streaming,
+  onSend,
+  onRegenerate,
+}: {
+  msg: AssistantMessage;
+  isLast: boolean;
+  streaming: boolean;
+  onSend: (text: string) => void;
+  onRegenerate: (messageId: string) => void;
+}) {
   const t = useT();
   const [open, setOpen] = useState(true);
   // Shown SQL/semantic results (ShowSql / ShowSemanticTable), keyed by their id.
@@ -384,8 +498,54 @@ function AssistantBlock({ msg }: { msg: AssistantMessage }) {
             style={{ flex: 'none', marginTop: 1 }}
           />
           <span>{llmErrorMessage(msg.errorText || '', t) || t.thread.somethingWrong}</span>
+          {!streaming ? (
+            <button
+              type="button"
+              className={styles.errorRetry}
+              onClick={() => onRegenerate(msg.id)}
+            >
+              {t.thread.retry}
+            </button>
+          ) : null}
         </div>
       ) : null}
+
+      {/* turn actions (regenerate) — once the turn has settled */}
+      {msg.status === 'done' && msg.text && !streaming ? (
+        <div className={styles.assistantActions}>
+          <button
+            type="button"
+            className={styles.actionBtn}
+            title={t.thread.regenerate}
+            onClick={() => onRegenerate(msg.id)}
+          >
+            <Icon name="refresh" size={12} color="var(--dex-icon-subtle)" />
+            {t.thread.regenerate}
+          </button>
+        </div>
+      ) : null}
+
+      {/* suggested follow-ups — only under the latest settled answer */}
+      {isLast && msg.status === 'done' && !streaming ? <FollowUps msg={msg} onSend={onSend} /> : null}
+    </div>
+  );
+}
+
+/** Clickable follow-up question chips derived from the turn's result. */
+function FollowUps({ msg, onSend }: { msg: AssistantMessage; onSend: (text: string) => void }) {
+  const t = useT();
+  const suggestions = followUpsFor(msg, t);
+  if (suggestions.length === 0) return null;
+  return (
+    <div className={styles.followUps}>
+      <span className={styles.followUpsLabel}>{t.thread.followUpsLabel}</span>
+      <div className={styles.followUpChips}>
+        {suggestions.map((q) => (
+          <button key={q} type="button" className={styles.followUpChip} onClick={() => onSend(q)}>
+            {q}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

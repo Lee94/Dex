@@ -99,6 +99,17 @@ export const zhCN: Dict = {
     thinking: '思考中…',
     somethingWrong: '出错了。',
     loadingChart: '正在加载图表…',
+    // 对话控制 — v3.2
+    edit: '编辑消息',
+    editSave: '保存并重新发送',
+    regenerate: '重新生成',
+    retry: '重试',
+    followUpsLabel: '推荐追问',
+    followUps: {
+      overTime: '随时间如何变化？',
+      breakdownBy: (col: string) => `按${col}拆分`,
+      topDrivers: '是什么在驱动这些结果？',
+    },
   },
 
   duration: {
