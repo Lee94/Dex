@@ -17,6 +17,7 @@ export const zhCN: Dict = {
     settings: '设置',
     working: '处理中…',
     nothingHere: '这里还什么都没有。',
+    close: '关闭',
   },
 
   language: {
@@ -159,12 +160,20 @@ export const zhCN: Dict = {
     copy: '复制',
     copied: '已复制',
     expand: '展开',
+    fullscreen: '全屏查看',
     copySql: '复制 SQL',
     noRows: '没有返回任何行。',
     rowCount: (n, truncated) =>
       `${n.toLocaleString()} 行${truncated ? '（仅显示前 1,000 行）' : ''}`,
     trustedDefinition: '可信定义',
     readOnly: '只读',
+    // 表格交互（排序/筛选/分页）— v3.1
+    searchPlaceholder: '筛选行…',
+    noMatch: '没有匹配筛选条件的行。',
+    matchRows: (n) => `${n.toLocaleString()} 行`,
+    showMore: (n) => `再显示 ${n} 行`,
+    showAll: (n) => `显示全部 ${n.toLocaleString()} 行`,
+    sortHint: '按此列排序',
   },
 
   dataBrowser: {

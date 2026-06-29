@@ -1,16 +1,10 @@
 import { useState } from 'react';
 import { Icon } from '@/lib/icons';
-import { IconButton, Pill } from '@/components/ui';
-import { isSqlResult, toCsv, toNum } from '@/types';
+import { IconButton, Pill, Modal } from '@/components/ui';
+import { isSqlResult, toCsv } from '@/types';
+import { DataGrid } from './DataGrid';
 import { useT } from '@/i18n';
 import styles from './ResultCard.module.css';
-
-function fmt(v: unknown): string {
-  const n = toNum(v);
-  if (n !== null) return n.toLocaleString();
-  if (v === null || v === undefined) return '';
-  return String(v);
-}
 
 /** Copy text to the clipboard, falling back to a hidden textarea. */
 async function copyText(text: string): Promise<void> {
@@ -61,6 +55,7 @@ export function ResultCard({
   const t = useT();
   const [showSql, setShowSql] = useState(false);
   const [copied, setCopied] = useState<'' | 'csv' | 'sql'>('');
+  const [expanded, setExpanded] = useState(false);
 
   if (!isSqlResult(result)) {
     return <pre className={styles.json}>{JSON.stringify(result, null, 2)}</pre>;
@@ -110,13 +105,16 @@ export function ResultCard({
           </button>
         ) : null}
 
-        <IconButton
-          icon="maximize"
-          size={14}
-          color="var(--dex-icon)"
-          title={t.resultCard.expand}
-          hover="mid"
-        />
+        {!isEmpty ? (
+          <IconButton
+            icon="maximize"
+            size={14}
+            color="var(--dex-icon)"
+            title={t.resultCard.fullscreen}
+            hover="mid"
+            onClick={() => setExpanded(true)}
+          />
+        ) : null}
       </div>
 
       {sql && showSql ? (
@@ -139,7 +137,7 @@ export function ResultCard({
           <span>{t.resultCard.noRows}</span>
         </div>
       ) : (
-        <DataTable columns={columns} rows={rows} />
+        <DataGrid columns={columns} rows={rows} />
       )}
 
       {/* footer */}
@@ -159,45 +157,12 @@ export function ResultCard({
           {t.resultCard.readOnly}
         </Pill>
       </div>
-    </div>
-  );
-}
 
-function DataTable({ columns, rows }: { columns: string[]; rows: Array<Record<string, unknown>> }) {
-  return (
-    <div className={styles.tableWrap}>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            {columns.map((c) => (
-              <th key={c} className={styles.th}>
-                {c}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i}>
-              {columns.map((c) => {
-                const n = toNum(r[c]);
-                return (
-                  <td
-                    key={c}
-                    className={styles.td}
-                    style={{
-                      fontFamily: n !== null ? 'var(--dex-mono)' : 'inherit',
-                      textAlign: n !== null ? 'right' : 'left',
-                    }}
-                  >
-                    {fmt(r[c])}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {expanded ? (
+        <Modal title={title || t.resultCard.title} size="fullscreen" onClose={() => setExpanded(false)}>
+          <DataGrid columns={columns} rows={rows} fill />
+        </Modal>
+      ) : null}
     </div>
   );
 }

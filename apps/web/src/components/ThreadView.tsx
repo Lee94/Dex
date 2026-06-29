@@ -112,14 +112,6 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
       <div className={styles.headerDivider} />
       <span className={styles.headerTitle}>{title}</span>
       <span className={styles.headerSpacer} />
-      <IconButton
-        icon="translate"
-        size={16}
-        color="var(--dex-icon)"
-        title={t.thread.translate}
-        hover="mid"
-        padding={6}
-      />
       <Button variant="ghost">
         <Icon name="share" size={14} color="var(--dex-icon)" />
         {t.thread.share}

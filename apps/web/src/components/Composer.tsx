@@ -1,6 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
 import { Icon } from '@/lib/icons';
-import { IconButton } from '@/components/ui';
 import { ContextPicker } from '@/components/ContextPicker';
 import { contextPrefix, type Attachment, type ProjectContext } from '@/lib/attachments';
 import { useT } from '@/i18n';
@@ -107,18 +106,6 @@ export function Composer({
             ) : null}
           </div>
           <span className={styles.spacer} />
-          <IconButton
-            icon="cog"
-            size={15}
-            color="var(--dex-text-subtle)"
-            title={t.composer.settings}
-            hover="mid"
-            padding={6}
-          />
-          <button className={styles.auto}>
-            {t.composer.auto}
-            <Icon name="caretDown" size={12} color="var(--dex-text-subtle)" />
-          </button>
           {streaming ? (
             <button className={styles.stop} onClick={onStop} title={t.composer.stop}>
               <span className={styles.stopGlyph} />

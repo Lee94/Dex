@@ -18,6 +18,7 @@ export const en = {
     settings: 'Settings',
     working: 'Working…',
     nothingHere: 'Nothing here yet.',
+    close: 'Close',
   },
 
   language: {
@@ -170,12 +171,20 @@ export const en = {
     copy: 'Copy',
     copied: 'Copied',
     expand: 'Expand',
+    fullscreen: 'Open fullscreen',
     copySql: 'Copy SQL',
     noRows: 'No rows returned.',
     rowCount: (n: number, truncated: boolean) =>
       `${n.toLocaleString()} ${n === 1 ? 'row' : 'rows'}${truncated ? ' (showing first 1,000)' : ''}`,
     trustedDefinition: 'Trusted definition',
     readOnly: 'Read-only',
+    // Grid (sort/filter/paging) — v3.1
+    searchPlaceholder: 'Filter rows…',
+    noMatch: 'No rows match your filter.',
+    matchRows: (n: number) => `${n.toLocaleString()} ${n === 1 ? 'row' : 'rows'}`,
+    showMore: (n: number) => `Show ${n} more`,
+    showAll: (n: number) => `Show all ${n.toLocaleString()}`,
+    sortHint: 'Sort by this column',
   },
 
   dataBrowser: {

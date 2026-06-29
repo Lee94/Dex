@@ -179,6 +179,74 @@
   margin-top: 18px;
 }
 
+/* ---- Modal ---- */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 20, 24, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  padding: 24px;
+}
+.modalPanel {
+  width: 760px;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  background: var(--dex-surface);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+.modalPanelFull {
+  width: calc(100vw - 48px);
+  height: calc(100vh - 48px);
+  max-width: 1400px;
+  display: flex;
+  flex-direction: column;
+  background: var(--dex-surface);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+.modalHeader {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 18px;
+  box-shadow: var(--dex-divider-bottom-soft);
+}
+.modalTitle {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dex-text);
+}
+.modalClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 5px;
+}
+.modalClose:hover {
+  background: var(--dex-subtle-bg);
+}
+.modalBody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ---- Avatar ---- */
 .avatar {
   display: inline-flex;
