@@ -12,6 +12,7 @@ import { knowledgeRoutes } from './server/knowledge-routes';
 import { uploadRoutes } from './server/upload-routes';
 import { taskRoutes } from './server/task-routes';
 import { projectRoutes } from './server/project-routes';
+import { reportRoutes } from './server/report-routes';
 import { startScheduler } from './db/scheduler';
 
 export const mastra = new Mastra({
@@ -58,6 +59,7 @@ export const mastra = new Mastra({
       ...uploadRoutes,
       ...taskRoutes,
       ...projectRoutes,
+      ...reportRoutes,
     ],
   },
 });

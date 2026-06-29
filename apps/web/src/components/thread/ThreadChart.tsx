@@ -5,6 +5,7 @@ import { Icon } from '@/lib/icons';
 import { toCsv, type SqlResult } from '@/types';
 import { compileSurface } from '@/vinci/compileSurface';
 import { loadVan } from '@/vinci/loadVan';
+import type { PinInput } from '@/lib/reports';
 import { useT } from '@/i18n';
 import styles from './ThreadChart.module.css';
 
@@ -44,17 +45,21 @@ export default function ThreadChart({
   source,
   label,
   onEdit,
+  onPin,
 }: {
   dsl?: unknown;
   source?: SqlResult;
   label?: string;
   /** Send a natural-language revision back to the agent (v3.3). */
   onEdit?: (instruction: string) => void;
+  /** Pin this chart into the thread's report (v3.4). */
+  onPin?: (input: PinInput) => void;
 }) {
   const t = useT();
   const surfaceRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [instruction, setInstruction] = useState('');
+  const [pinned, setPinned] = useState(false);
 
   const dslKey = dsl ? JSON.stringify(dsl) : '';
   const sig = `${source?.columns.join(',') ?? ''}|${source?.rowCount ?? 0}`;
@@ -120,6 +125,20 @@ export default function ThreadChart({
         <button type="button" className={styles.toolBtn} title={t.chart.exportData} onClick={exportCsv}>
           {t.chart.csv}
         </button>
+        {onPin ? (
+          <button
+            type="button"
+            className={styles.toolBtn}
+            title={t.chart.pin}
+            onClick={() => {
+              onPin({ kind: 'chart', title: label || 'Chart', payload: { dsl, source, label } });
+              setPinned(true);
+              window.setTimeout(() => setPinned(false), 1400);
+            }}
+          >
+            {pinned ? t.chart.pinned : t.chart.pin}
+          </button>
+        ) : null}
       </div>
 
       {editing && onEdit ? (

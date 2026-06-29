@@ -135,9 +135,28 @@ export const en = {
     exportData: 'Export data as CSV',
     csv: 'CSV',
     svg: 'SVG',
+    pin: 'Pin',
+    pinned: 'Pinned ✓',
     // The follow-up message an edit sends to the agent.
     reviseMessage: (label: string, instruction: string) =>
       `Revise the chart${label ? ` "${label}"` : ''}: ${instruction}. Rebuild it from the same data.`,
+  },
+
+  // Report / pins surface — v3.4
+  report: {
+    title: 'Report',
+    backToThread: 'Back to thread',
+    copyLink: 'Copy link',
+    linkCopied: 'Link copied ✓',
+    exportMarkdown: 'Export Markdown',
+    readOnly: 'Read-only report',
+    loading: 'Loading report…',
+    loadFailed: 'Couldn’t load this report.',
+    empty: 'Nothing pinned yet. Pin a result or chart from the thread to build a report.',
+    removePin: 'Remove from report',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    pinCount: (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`,
   },
 
   // Friendly timeline labels for the Hex-named tools (keyed by tool name), plus
@@ -195,6 +214,8 @@ export const en = {
     copyTable: 'Copy table to clipboard',
     copy: 'Copy',
     copied: 'Copied',
+    pin: 'Pin',
+    pinned: 'Pinned ✓',
     expand: 'Expand',
     fullscreen: 'Open fullscreen',
     copySql: 'Copy SQL',

@@ -21,6 +21,15 @@ export const router = createBrowserRouter([
       // Full-screen thread — outside the Shell (no sidebar).
       { path: 'threads/:id', element: <ThreadRoute /> },
 
+      // Full-screen, read-only report (pinned results/charts) — outside the Shell.
+      // Code-split: pulls in the vinci chart stack only when a report is opened.
+      {
+        path: 'reports/:threadId',
+        lazy: async () => ({
+          Component: (await import('@/routes/ReportRoute')).ReportRoute,
+        }),
+      },
+
       // Full-screen semantic-model studio — outside the Shell (no sidebar).
       // Code-split: it pulls in Monaco, loaded only when the editor is opened.
       {

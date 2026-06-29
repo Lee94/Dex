@@ -126,8 +126,27 @@ export const zhCN: Dict = {
     exportData: '导出数据为 CSV',
     csv: 'CSV',
     svg: 'SVG',
+    pin: '固定',
+    pinned: '已固定 ✓',
     reviseMessage: (label: string, instruction: string) =>
       `修改图表${label ? `"${label}"` : ''}：${instruction}。基于相同的数据重新生成。`,
+  },
+
+  // 报告 / 固定项 — v3.4
+  report: {
+    title: '报告',
+    backToThread: '返回会话',
+    copyLink: '复制链接',
+    linkCopied: '链接已复制 ✓',
+    exportMarkdown: '导出 Markdown',
+    readOnly: '只读报告',
+    loading: '正在加载报告…',
+    loadFailed: '无法加载该报告。',
+    empty: '还没有固定任何内容。在会话中固定结果或图表即可生成报告。',
+    removePin: '从报告中移除',
+    moveUp: '上移',
+    moveDown: '下移',
+    pinCount: (n) => `${n} 项`,
   },
 
   steps: {
@@ -183,6 +202,8 @@ export const zhCN: Dict = {
     copyTable: '复制表格到剪贴板',
     copy: '复制',
     copied: '已复制',
+    pin: '固定',
+    pinned: '已固定 ✓',
     expand: '展开',
     fullscreen: '全屏查看',
     copySql: '复制 SQL',

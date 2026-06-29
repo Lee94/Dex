@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useThreadsContext } from '@/contexts/ThreadsContext';
 import { useProjectsContext } from '@/contexts/ProjectsContext';
+import { createPin } from '@/lib/reports';
 
 // Code-split the thread view (and its chart/result rendering) — loaded only when
 // a thread is opened.
@@ -56,6 +57,8 @@ export function ThreadRoute() {
         onRetryLoad={() => void loadMessages(thread.id)}
         onEdit={(messageId, text) => void editMessage(thread.id, messageId, text)}
         onRegenerate={(messageId) => void regenerate(thread.id, messageId)}
+        onPin={(input) => void createPin(thread.id, input).catch((e) => console.error(e))}
+        onShare={() => navigate(`/reports/${thread.id}`)}
       />
     </Suspense>
   );

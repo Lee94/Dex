@@ -18,6 +18,7 @@ import { Composer } from '@/components/Composer';
 import { Markdown } from '@/components/Markdown';
 import { ResultCard } from '@/components/ResultCard';
 import { splitPreamble, splitUserMessage, type ProjectContext } from '@/lib/attachments';
+import type { PinInput } from '@/lib/reports';
 import { llmErrorMessage } from '@/lib/llmError';
 import { useT, type Dict } from '@/i18n';
 import styles from './ThreadView.module.css';
@@ -33,6 +34,8 @@ export function ThreadView({
   onRetryLoad,
   onEdit,
   onRegenerate,
+  onPin,
+  onShare,
   project,
 }: {
   thread: Thread;
@@ -44,6 +47,10 @@ export function ThreadView({
   onEdit: (messageId: string, text: string) => void;
   /** Re-run the turn that produced an assistant message (v3.2). */
   onRegenerate: (messageId: string) => void;
+  /** Pin a result/chart into the thread's report (v3.4). */
+  onPin: (input: PinInput) => void;
+  /** Open the thread's report (the Share affordance) (v3.4). */
+  onShare: () => void;
   /** Shared context of the thread's project, folded into the first message. */
   project?: ProjectContext | null;
 }) {
@@ -61,7 +68,7 @@ export function ThreadView({
 
   return (
     <div className={styles.root}>
-      <Header title={thread.title} onBack={onBack} />
+      <Header title={thread.title} onBack={onBack} onShare={onShare} />
 
       <div ref={scrollRef} className={styles.scroll}>
         <div className={styles.page}>
@@ -89,6 +96,7 @@ export function ThreadView({
                 streaming={streaming}
                 onSend={onSend}
                 onRegenerate={onRegenerate}
+                onPin={onPin}
               />
             ),
           )}
@@ -106,7 +114,15 @@ export function ThreadView({
   );
 }
 
-function Header({ title, onBack }: { title: string; onBack: () => void }) {
+function Header({
+  title,
+  onBack,
+  onShare,
+}: {
+  title: string;
+  onBack: () => void;
+  onShare: () => void;
+}) {
   const t = useT();
   return (
     <div className={styles.header}>
@@ -127,7 +143,7 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
       <div className={styles.headerDivider} />
       <span className={styles.headerTitle}>{title}</span>
       <span className={styles.headerSpacer} />
-      <Button variant="ghost">
+      <Button variant="ghost" onClick={onShare}>
         <Icon name="share" size={14} color="var(--dex-icon)" />
         {t.thread.share}
       </Button>
@@ -201,12 +217,19 @@ function cellIdOf(result: unknown): string | undefined {
   return undefined;
 }
 
-function cardFor(step: ToolStep, key: string) {
+function cardFor(step: ToolStep, key: string, onPin?: (input: PinInput) => void) {
   const prov = resultProvenance(step.result);
   const sql = prov.sql ?? (typeof step.args.sql === 'string' ? step.args.sql : undefined);
   const title = typeof step.args.label === 'string' ? step.args.label : undefined;
   return (
-    <ResultCard key={key} result={step.result} sql={sql} endorsed={prov.endorsed} title={title} />
+    <ResultCard
+      key={key}
+      result={step.result}
+      sql={sql}
+      endorsed={prov.endorsed}
+      title={title}
+      onPin={onPin}
+    />
   );
 }
 
@@ -219,16 +242,19 @@ function VizCard({
   viz,
   source,
   onEdit,
+  onPin,
 }: {
   viz: VizCellRef;
   source?: SqlResult;
   /** Natural-language chart revision → sent to the agent as a follow-up (v3.3). */
   onEdit?: (message: string) => void;
+  /** Pin this chart into the thread's report (v3.4). */
+  onPin?: (input: PinInput) => void;
 }) {
   const t = useT();
   return (
     <Suspense fallback={<div className={styles.answerText}>{t.thread.loadingChart}</div>}>
-      <ThreadChart dsl={viz.dsl} source={source} label={viz.label} onEdit={onEdit} />
+      <ThreadChart dsl={viz.dsl} source={source} label={viz.label} onEdit={onEdit} onPin={onPin} />
     </Suspense>
   );
 }
@@ -355,12 +381,14 @@ function AssistantBlock({
   streaming,
   onSend,
   onRegenerate,
+  onPin,
 }: {
   msg: AssistantMessage;
   isLast: boolean;
   streaming: boolean;
   onSend: (text: string) => void;
   onRegenerate: (messageId: string) => void;
+  onPin: (input: PinInput) => void;
 }) {
   const t = useT();
   const [open, setOpen] = useState(true);
@@ -386,11 +414,19 @@ function AssistantBlock({
   // a vinci chart over its upstream SQL cell's rows.
   const renderCell = (id: string, key: string): ReactNode => {
     const step = cellById.get(id);
-    if (step) return cardFor(step, key);
+    if (step) return cardFor(step, key, onPin);
     const viz = vizById.get(id);
     if (viz) {
       const source = viz.sourceOutputName ? outputResults.get(viz.sourceOutputName) : undefined;
-      return <VizCard key={key} viz={viz} source={source} onEdit={streaming ? undefined : onSend} />;
+      return (
+        <VizCard
+          key={key}
+          viz={viz}
+          source={source}
+          onEdit={streaming ? undefined : onSend}
+          onPin={onPin}
+        />
+      );
     }
     return null;
   };
@@ -486,7 +522,7 @@ function AssistantBlock({
       {msg.text ? renderAnswer() : null}
 
       {/* governed/legacy result cards below the answer */}
-      {belowCards.map((s) => cardFor(s, s.toolCallId))}
+      {belowCards.map((s) => cardFor(s, s.toolCallId, onPin))}
 
       {/* charts the answer didn't embed inline — still always shown */}
       {belowViz.map((v) => (
@@ -495,6 +531,7 @@ function AssistantBlock({
           viz={v}
           source={v.sourceOutputName ? outputResults.get(v.sourceOutputName) : undefined}
           onEdit={streaming ? undefined : onSend}
+          onPin={onPin}
         />
       ))}
 

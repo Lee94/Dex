@@ -3,6 +3,7 @@ import { Icon } from '@/lib/icons';
 import { IconButton, Pill, Modal } from '@/components/ui';
 import { isSqlResult, toCsv } from '@/types';
 import { DataGrid } from './DataGrid';
+import type { PinInput } from '@/lib/reports';
 import { useT } from '@/i18n';
 import styles from './ResultCard.module.css';
 
@@ -45,17 +46,21 @@ export function ResultCard({
   sql,
   endorsed = false,
   title,
+  onPin,
 }: {
   result: unknown;
   sql?: string;
   endorsed?: boolean;
   /** Header label; falls back to "Query results". */
   title?: string;
+  /** Pin this table into the thread's report (v3.4). Omitted in read-only views. */
+  onPin?: (input: PinInput) => void;
 }) {
   const t = useT();
   const [showSql, setShowSql] = useState(false);
   const [copied, setCopied] = useState<'' | 'csv' | 'sql'>('');
   const [expanded, setExpanded] = useState(false);
+  const [pinned, setPinned] = useState(false);
 
   if (!isSqlResult(result)) {
     return <pre className={styles.json}>{JSON.stringify(result, null, 2)}</pre>;
@@ -102,6 +107,24 @@ export function ResultCard({
             onClick={() => void copyText(toCsv(result)).then(() => flash('csv'))}
           >
             {copied === 'csv' ? t.resultCard.copied : t.resultCard.copy}
+          </button>
+        ) : null}
+
+        {onPin && !isEmpty ? (
+          <button
+            className={styles.toolBtn}
+            title={t.resultCard.pin}
+            onClick={() => {
+              onPin({
+                kind: 'table',
+                title: title || t.resultCard.title,
+                payload: { ...result, sql, endorsed },
+              });
+              setPinned(true);
+              window.setTimeout(() => setPinned(false), 1400);
+            }}
+          >
+            {pinned ? t.resultCard.pinned : t.resultCard.pin}
           </button>
         ) : null}
 
