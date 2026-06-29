@@ -50,10 +50,16 @@ const yamlErrors = (e: unknown): YamlMarker[] =>
     ? ((e.info as { yamlErrors?: YamlMarker[] }).yamlErrors ?? [])
     : [];
 
+/** The cube `name:` declared in a YAML doc, or null if absent/unparseable. The
+ *  cube name is a model's identity (model id === cube name), so it's how we match
+ *  an assistant proposal back to the file it belongs to. */
+function readCubeName(yaml: string): string | null {
+  return /^name:\s*([A-Za-z_][A-Za-z0-9_]*)/m.exec(yaml)?.[1] ?? null;
+}
+
 /** Best-effort tab label from a cube's `name:` line; falls back to `untitled`. */
 function fileTitle(yaml: string, fallback: string): string {
-  const m = /^name:\s*([A-Za-z_][A-Za-z0-9_]*)/m.exec(yaml);
-  return `${m ? m[1] : fallback}.yml`;
+  return `${readCubeName(yaml) ?? fallback}.yml`;
 }
 
 // How long the editor stays idle before an edited file is auto-saved to the
@@ -418,29 +424,55 @@ export function useModelStudio(projectId: string, untitledLabel: string) {
     [projectId, reloadProject],
   );
 
-  /** Drop an assistant proposal's YAML into the active file (or open a new one). */
+  /**
+   * Route an assistant proposal to the file it's *about*, identified by the cube
+   * `name:` in its YAML — never blindly to whatever tab happens to be active (that
+   * silently overwrote an unrelated draft the user was viewing). Precedence:
+   *   1) an open tab for this cube (by its live name or persisted id) → update it;
+   *   2) a persisted model with this name that isn't open → open a tab bound to it
+   *      (autosave then UPDATEs that model, no duplicate);
+   *   3) otherwise → a brand-new draft tab.
+   * A proposal with no parseable name falls through to (3).
+   */
   const applyProposal = useCallback(
     (yaml: string, template: string) => {
-      setActiveKey((cur) => {
-        if (cur) {
-          patchFile(cur, (f) =>
-            f.builtin
-              ? f
-              : { ...f, yaml, title: fileTitle(yaml, f.modelId ?? untitledLabel), markers: [] },
+      const name = readCubeName(yaml);
+
+      const open =
+        name != null
+          ? files.find((f) => !f.builtin && (f.modelId === name || readCubeName(f.yaml) === name))
+          : null;
+      if (open) {
+        patchFile(open.key, (f) => ({
+          ...f,
+          yaml,
+          title: fileTitle(yaml, f.modelId ?? untitledLabel),
+          markers: [],
+        }));
+        setActiveKey(open.key);
+        return;
+      }
+
+      const existing =
+        name != null ? (project?.models ?? []).find((m) => !m.builtin && m.id === name) : undefined;
+      const key = existing ? existing.id : `new:${newCounter.current++}`;
+      setFiles((prev) => {
+        if (prev.some((f) => f.key === key)) {
+          return prev.map((f) =>
+            f.key === key
+              ? { ...f, yaml, title: fileTitle(yaml, f.modelId ?? untitledLabel), markers: [] }
+              : f,
           );
-          return cur;
         }
-        // No open file → open a new one seeded with the proposal.
-        const key = `new:${newCounter.current++}`;
-        setFiles((prev) => [
+        return [
           ...prev,
           {
             key,
-            modelId: null,
+            modelId: existing ? existing.id : null,
             title: fileTitle(yaml, untitledLabel),
             yaml: yaml || template,
             savedYaml: '',
-            status: 'draft',
+            status: existing?.status ?? 'draft',
             builtin: false,
             loading: false,
             loadError: null,
@@ -448,11 +480,11 @@ export function useModelStudio(projectId: string, untitledLabel: string) {
             markers: [],
             saving: false,
           },
-        ]);
-        return key;
+        ];
       });
+      setActiveKey(key);
     },
-    [patchFile, untitledLabel],
+    [files, project, patchFile, untitledLabel],
   );
 
   /** Merge a visually-built relation into the active file's YAML (the dialog's

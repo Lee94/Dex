@@ -144,3 +144,41 @@ describe('useModelStudio localStorage fallback', () => {
     expect(localStorage.getItem(KEY)).toBeNull();
   });
 });
+
+const OTHER = 'name: other_model\nsql: t2\nmeasures:\n  - name: count\n    type: count\n';
+const MY_MODEL_V2 = 'name: my_model\nsql: my_table\nmeasures:\n  - name: total\n    type: count\n';
+
+describe('useModelStudio assistant proposal routing', () => {
+  it('routes a proposal by cube name, not the active tab (no clobbering a draft)', async () => {
+    const { result } = renderHook(() => useModelStudio('dex', 'untitled'));
+    await act(async () => {});
+
+    // User is editing a draft named "my_model" — it's the active tab.
+    act(() => result.current.openNew(TEMPLATE));
+    const keyA = result.current.files[0].key;
+    expect(result.current.activeKey).toBe(keyA);
+
+    // The assistant proposes a DIFFERENT cube → it must open a new tab, leaving
+    // the draft the user was on untouched.
+    act(() => result.current.applyProposal(OTHER, TEMPLATE));
+    expect(result.current.files).toHaveLength(2);
+    expect(result.current.files.find((f) => f.key === keyA)!.yaml).toBe(TEMPLATE);
+    const created = result.current.files.find((f) => f.key !== keyA)!;
+    expect(created.yaml).toBe(OTHER);
+    expect(result.current.activeKey).toBe(created.key);
+  });
+
+  it('updates the matching tab in place when the proposal targets that cube', async () => {
+    const { result } = renderHook(() => useModelStudio('dex', 'untitled'));
+    await act(async () => {});
+
+    act(() => result.current.openNew(TEMPLATE)); // name: my_model
+    const keyA = result.current.files[0].key;
+
+    // A proposal for the SAME cube name edits that tab — no second tab.
+    act(() => result.current.applyProposal(MY_MODEL_V2, TEMPLATE));
+    expect(result.current.files).toHaveLength(1);
+    expect(result.current.files[0].key).toBe(keyA);
+    expect(result.current.files[0].yaml).toBe(MY_MODEL_V2);
+  });
+});
