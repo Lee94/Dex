@@ -1,5 +1,5 @@
 import { registerApiRoute } from '@mastra/core/server';
-import { deleteChart, getChart, updateChartDsl } from '../db/charts';
+import { deleteChart, getChart, updateChartSpec } from '../db/charts';
 import { fetchBaseRows, runCompute, sampleBaseData, type ComputeQuery } from '../db/chart-compute';
 import { fail } from './http';
 
@@ -8,12 +8,13 @@ import { fail } from './http';
  *
  * A chart is a persisted backend entity (`db/charts.ts`); the web renders one by id
  * and computes its data live:
- *  - GET    /charts/:id          → the chart's DSL + label, plus a small schema probe
- *                                  (columns + sample rows) so the web can build the
- *                                  vinci `table` snapshot the viewer/designer needs.
+ *  - GET    /charts/:id          → the chart's snapshot `spec` (null until the web
+ *                                  materializes it) + label, plus a small schema probe
+ *                                  (columns + sample rows) for the vinci `table`.
  *  - POST   /charts/:id/compute  → translate the viewer's compute queries to SQL over
  *                                  the chart's base query and run them (live data).
- *  - PATCH  /charts/:id          → overwrite the DSL (a manual VinciDesigner edit).
+ *  - PATCH  /charts/:id          → store the final snapshot `spec` (the web
+ *                                  materializing the DSL seed, or a manual edit).
  *  - DELETE /charts/:id          → remove the chart.
  *
  * Independent of the agent stream, like the other root route modules. Raw SQL never
@@ -31,7 +32,7 @@ export const chartRoutes = [
         const { columns, rows } = await sampleBaseData(chart.baseSql, chart.datasourceId);
         return c.json({
           id: chart.id,
-          dsl: chart.dsl,
+          spec: chart.spec,
           label: chart.label,
           datasourceId: chart.datasourceId,
           columns,
@@ -42,7 +43,7 @@ export const chartRoutes = [
         // definition so the web can show a clear "couldn't load data" state.
         return c.json({
           id: chart.id,
-          dsl: chart.dsl,
+          spec: chart.spec,
           label: chart.label,
           datasourceId: chart.datasourceId,
           columns: [],
@@ -77,8 +78,11 @@ export const chartRoutes = [
       const body = (await c.req.json().catch(() => ({}))) as { queries?: unknown };
       const queries = Array.isArray(body.queries) ? (body.queries as ComputeQuery[]) : [];
       try {
-        const results = await runCompute(chart.baseSql, chart.datasourceId, queries);
-        return c.json({ results });
+        const { results, warnings } = await runCompute(chart.baseSql, chart.datasourceId, queries);
+        // `warnings` lists anything we couldn't translate to SQL (a parameter filter, a
+        // dynamic date, a percentile aggregate). The web ignores extra fields today; it's
+        // here so the UI can surface "some sorting/filtering wasn't applied" later.
+        return c.json({ results, warnings });
       } catch (e) {
         return c.json(fail(e instanceof Error ? e.message : String(e), 400), 400);
       }
@@ -89,11 +93,11 @@ export const chartRoutes = [
     method: 'PATCH',
     requiresAuth: false,
     handler: async (c) => {
-      const body = (await c.req.json().catch(() => ({}))) as { dsl?: unknown };
-      if (!body.dsl || typeof body.dsl !== 'object') {
-        return c.json(fail('dsl (an object) is required'), 400);
+      const body = (await c.req.json().catch(() => ({}))) as { spec?: unknown };
+      if (!body.spec || typeof body.spec !== 'object') {
+        return c.json(fail('spec (an object) is required'), 400);
       }
-      const chart = await updateChartDsl(c.req.param('id'), body.dsl as Record<string, unknown>);
+      const chart = await updateChartSpec(c.req.param('id'), body.spec as Record<string, unknown>);
       if (!chart) return c.json(fail('Chart not found', 404), 404);
       return c.json({ chart });
     },

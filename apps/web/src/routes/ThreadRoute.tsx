@@ -1,8 +1,10 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { useThreadsContext } from '@/contexts/ThreadsContext';
 import { useProjectsContext } from '@/contexts/ProjectsContext';
 import { createPin } from '@/lib/reports';
+
+const route = getRouteApi('/threads/$id');
 
 // Code-split the thread view (and its chart/result rendering) — loaded only when
 // a thread is opened.
@@ -16,7 +18,7 @@ const ThreadView = lazy(() =>
  * navigation actions push routes instead of mutating selection state.
  */
 export function ThreadRoute() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = route.useParams();
   const { threads, listLoading, loadMessages, sendMessage, editMessage, regenerate, stop } =
     useThreadsContext();
   const { projects } = useProjectsContext();
@@ -40,7 +42,7 @@ export function ThreadRoute() {
   // and still doesn't contain it, fall back to the list.
   useEffect(() => {
     if (id && !listLoading && !threads.some((t) => t.id === id)) {
-      navigate('/threads', { replace: true });
+      navigate({ to: '/threads', replace: true });
     }
   }, [id, listLoading, threads, navigate]);
 
@@ -51,14 +53,14 @@ export function ThreadRoute() {
       <ThreadView
         thread={thread}
         project={project}
-        onBack={() => navigate('/threads')}
+        onBack={() => navigate({ to: '/threads' })}
         onSend={(text) => sendMessage(thread.id, text)}
         onStop={stop}
         onRetryLoad={() => void loadMessages(thread.id)}
         onEdit={(messageId, text) => void editMessage(thread.id, messageId, text)}
         onRegenerate={(messageId) => void regenerate(thread.id, messageId)}
         onPin={(input) => void createPin(thread.id, input).catch((e) => console.error(e))}
-        onShare={() => navigate(`/reports/${thread.id}`)}
+        onShare={() => navigate({ to: '/reports/$threadId', params: { threadId: thread.id } })}
       />
     </Suspense>
   );

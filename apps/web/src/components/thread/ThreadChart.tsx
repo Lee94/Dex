@@ -4,8 +4,15 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { toCsv, type SqlResult } from '@/types';
 import { buildSnapshot, compileSurface, type CompiledSurface } from '@/vinci/compileSurface';
+import { buildVinciTableSnapshot } from '@/vinci/vinciTable';
 import { loadVan } from '@/vinci/loadVan';
-import { createServerApiService, getChart, getChartRows, type ChartDef } from '@/lib/charts';
+import {
+  createServerApiService,
+  getChart,
+  getChartRows,
+  updateChartSpec,
+  type ChartDef,
+} from '@/lib/charts';
 import type { PinInput } from '@/lib/reports';
 import { useT } from '@/i18n';
 import styles from './ThreadChart.module.css';
@@ -36,11 +43,14 @@ const safeName = (label?: string) =>
 
 /**
  * A chart embedded in a thread. In the live-data redesign a chart is a persisted
- * backend entity addressed by `chartId`: we fetch its DSL + a schema probe, render
- * it with vinci's `VinciViewer`, and feed the viewer a **server-backed** compute
- * service so its aggregation runs as live SQL (no rows cross the wire raw). The
- * single "Edit chart" button opens the full `VinciDesigner` (manual editing, which
- * persists straight back) with an "edit in words" box inside it.
+ * backend entity addressed by `chartId`. The store holds the **final vinci snapshot
+ * (`spec`)** — not a DSL. On first render that spec is still null, so we compile the
+ * `dsl` **seed** the agent returned in the conversation, render it immediately, and
+ * persist the resulting snapshot back (materialize); thereafter we render the stored
+ * spec directly. Either way the viewer gets a **server-backed** compute service so its
+ * aggregation runs as live SQL (no rows cross the wire raw). The single "Edit chart"
+ * button opens the full `VinciDesigner` (which stores the edited snapshot straight
+ * back) with an "edit in words" box inside it.
  *
  * Legacy fallback: older threads / pins that captured their DSL + rows inline (before
  * the redesign) pass `dsl` + `source` and render read-only via the in-browser path.
@@ -57,7 +67,8 @@ export default function ThreadChart({
 }: {
   /** The persisted chart id (live-data path). */
   chartId?: string;
-  /** Legacy inline DSL (pre-redesign threads/pins). */
+  /** The DSL seed (compiled to the stored snapshot on first render) — also the
+   *  inline DSL for legacy pre-redesign threads/pins. */
   dsl?: unknown;
   /** Legacy inline rows (pre-redesign threads/pins). */
   source?: SqlResult;
@@ -103,14 +114,39 @@ export default function ThreadChart({
   }, [chartId]);
 
   const isLive = !!def && def.columns.length > 0;
-  const defDslKey = def ? JSON.stringify(def.dsl ?? null) : '';
-  const legacyDslKey = dsl ? JSON.stringify(dsl) : '';
+  const specKey = def?.spec ? JSON.stringify(def.spec) : '';
+  const dslKey = dsl ? JSON.stringify(dsl) : '';
   const legacySig = `${source?.columns.join(',') ?? ''}|${source?.rowCount ?? 0}`;
 
   const compiled: CompiledSurface | null = useMemo(() => {
     if (isLive && def) {
-      const built = buildSnapshot(def.columns, def.sampleRows, def.dsl, label || 'data');
-      return { ...built, api: createServerApiService(def.id) };
+      const api = createServerApiService(def.id);
+      // Final snapshot already stored — render it directly; rebuild the field schema
+      // (vinci `table`) from the current sample rows so a schema drift stays correct.
+      if (def.spec) {
+        return {
+          snapshot: def.spec,
+          table: buildVinciTableSnapshot(def.columns, def.sampleRows, label || 'data'),
+          api,
+        };
+      }
+      // Not materialized yet — compile the DSL seed so it renders immediately (a
+      // separate effect persists this snapshot as the chart's spec).
+      if (dsl) {
+        const built = buildSnapshot(
+          def.columns,
+          def.sampleRows,
+          dsl as Record<string, unknown>,
+          label || 'data',
+        );
+        return { ...built, api };
+      }
+      // Live row with neither spec nor seed (e.g. a pinned chart reloaded without it).
+      return {
+        snapshot: null,
+        table: buildVinciTableSnapshot(def.columns, def.sampleRows, label || 'data'),
+        api,
+      };
     }
     if (hasLegacy && source) {
       return compileSurface(
@@ -122,7 +158,18 @@ export default function ThreadChart({
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLive, def?.id, defDslKey, legacySig, legacyDslKey, label]);
+  }, [isLive, def?.id, specKey, dslKey, legacySig, label]);
+
+  // Materialize: the first time a live chart has no stored spec, compile its DSL seed
+  // and persist the snapshot, so `dex_charts` ends up holding only the final JSON.
+  const snapshotToPersist = isLive && def && !def.spec ? compiled?.snapshot : null;
+  useEffect(() => {
+    if (!def || def.spec || !snapshotToPersist) return;
+    const spec = snapshotToPersist as Record<string, unknown>;
+    void updateChartSpec(def.id, spec).catch(() => {});
+    setDef((prev) => (prev && !prev.spec ? { ...prev, spec } : prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [def?.id, !!snapshotToPersist]);
 
   const exportCsv = async () => {
     if (isLive && def) {
@@ -203,7 +250,7 @@ export default function ThreadChart({
       {compiled?.snapshot ? (
         <div className={styles.surface} ref={surfaceRef}>
           <VinciViewer
-            key={`${def?.id ?? 'legacy'}|${legacySig}|${defDslKey}|${legacyDslKey}`}
+            key={`${def?.id ?? 'legacy'}|${legacySig}|${specKey}|${dslKey}`}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data={compiled.snapshot as any}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -220,16 +267,16 @@ export default function ThreadChart({
         </div>
       )}
 
-      {editing && isLive && def ? (
+      {editing && isLive && def && compiled?.snapshot ? (
         <Suspense fallback={null}>
           <ChartDesignerModal
             chartId={def.id}
             label={label}
-            initialDsl={def.dsl}
+            initialSpec={(def.spec ?? compiled.snapshot) as Record<string, unknown>}
             columns={def.columns}
             sampleRows={def.sampleRows}
             onAiEdit={onEdit}
-            onSaved={(newDsl) => setDef((prev) => (prev ? { ...prev, dsl: newDsl } : prev))}
+            onSaved={(spec) => setDef((prev) => (prev ? { ...prev, spec } : prev))}
             onClose={() => setEditing(false)}
           />
         </Suspense>

@@ -4,6 +4,7 @@ import {
   fetchSchemaTree,
   fetchSemanticProject,
   listDataSources,
+  listSemanticProjects,
   type DataSource,
   type SchemaNode,
   type SemanticModel,
@@ -30,7 +31,9 @@ export function ContextPicker({
   onClose: () => void;
 }) {
   const [sources, setSources] = useState<DataSource[]>([]);
-  const [models, setModels] = useState<SemanticModel[]>([]);
+  // Each pickable model carries its semantic project so the attachment can tell
+  // the agent which project (and thus data source) to query it through.
+  const [models, setModels] = useState<{ model: SemanticModel; projectId: string }[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -44,14 +47,28 @@ export function ContextPicker({
     let alive = true;
     void (async () => {
       try {
-        const [srcs, project, ups] = await Promise.all([
+        const [srcs, projectList, ups] = await Promise.all([
           listDataSources(),
-          fetchSemanticProject('dex').catch(() => null),
+          listSemanticProjects().catch(() => []),
           listUploads().catch(() => [] as Upload[]),
         ]);
+        // Pull each project's full detail (the list view omits models), across the
+        // built-in `dex` project and every user-created one.
+        const details = await Promise.all(
+          projectList.map((p) => fetchSemanticProject(p.id).catch(() => null)),
+        );
         if (!alive) return;
         setSources(srcs);
-        setModels(project?.models ?? []);
+        setModels(
+          details.flatMap((p) =>
+            p
+              ? // Drafts aren't live to the agent — only offer queryable models.
+                (p.models ?? [])
+                  .filter((m) => m.status !== 'draft')
+                  .map((model) => ({ model, projectId: p.id }))
+              : [],
+          ),
+        );
         setUploads(ups);
       } catch (e) {
         if (alive) setError(errMsg(e));
@@ -119,14 +136,16 @@ export function ContextPicker({
               {models.length === 0 ? (
                 <div className={styles.pickerEmpty}>{t.contextPicker.noModels}</div>
               ) : (
-                models.map((m) => {
+                models.map(({ model: m, projectId }) => {
                   const key = `model:${m.id}`;
                   return (
                     <button
                       key={key}
                       type="button"
                       className={styles.pickerItem}
-                      onClick={() => onToggle({ key, kind: 'model', label: m.name, ref: m.id })}
+                      onClick={() =>
+                        onToggle({ key, kind: 'model', label: m.name, ref: m.id, projectId })
+                      }
                     >
                       <Icon name="layers" size={14} color="var(--dex-accent)" />
                       <span className={styles.pickerItemLabel}>{m.name}</span>

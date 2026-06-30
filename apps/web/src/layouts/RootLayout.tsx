@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router';
+import { Outlet } from '@tanstack/react-router';
 import { useThreads } from '@/hooks/useThreads';
 import { ThreadsContext } from '@/contexts/ThreadsContext';
 import { useProjects } from '@/hooks/useProjects';

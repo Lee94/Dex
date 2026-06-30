@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { Icon } from '@/lib/icons';
 import { IconButton, Button, Pill } from '@/components/ui';
 import { useThreadsContext } from '@/contexts/ThreadsContext';
@@ -10,8 +10,21 @@ import styles from './Sidebar.module.css';
 const MAX_RECENTS = 8;
 
 // `label` keys into `t.sidebar.nav`; `key` is the icon name (which can differ,
-// e.g. the "applications" icon labels "Context Studio").
-type NavItem = { key: string; label: keyof Dict['sidebar']['nav']; path: string; beta?: boolean };
+// e.g. the "applications" icon labels "Context Studio"). `path` is a typed route
+// target checked against the router; the Data item carries TanStack's optional-param
+// template so it resolves to the `/data` drill-down route.
+type NavPath =
+  | '/home'
+  | '/applications'
+  | '/tasks'
+  | '/collections'
+  | '/knowledge'
+  | '/threads'
+  | '/projects'
+  | '/components'
+  | '/explorations'
+  | '/data/{-$connId}/{-$table}';
+type NavItem = { key: string; label: keyof Dict['sidebar']['nav']; path: NavPath; beta?: boolean };
 
 const NAV_TOP: NavItem[] = [
   { key: 'home', label: 'home', path: '/home' },
@@ -27,7 +40,7 @@ const NAV_MAIN: NavItem[] = [
   { key: 'projects', label: 'projects', path: '/projects' },
   { key: 'components', label: 'components', path: '/components' },
   { key: 'explorations', label: 'explorations', path: '/explorations' },
-  { key: 'data', label: 'data', path: '/data' },
+  { key: 'data', label: 'data', path: '/data/{-$connId}/{-$table}' },
 ];
 
 export function Sidebar() {
@@ -37,15 +50,17 @@ export function Sidebar() {
   const [recentsOpen, setRecentsOpen] = useState(true);
   const recents = threads.slice(0, MAX_RECENTS);
 
-  const newThread = () => navigate(`/threads/${createThread()}`);
+  const newThread = () => navigate({ to: '/threads/$id', params: { id: createThread() } });
 
-  // Nav rows are links now — active state comes from the URL via NavLink.
+  // Nav rows are links — active state comes from the URL via TanStack's Link
+  // (base className always applied; `activeProps` merges the active class on match).
   const renderNav = (items: NavItem[]) =>
     items.map((it) => (
-      <NavLink
+      <Link
         key={it.key}
         to={it.path}
-        className={({ isActive }) => `${styles.navRow} ${isActive ? styles.navRowActive : ''}`}
+        className={styles.navRow}
+        activeProps={{ className: styles.navRowActive }}
       >
         {({ isActive }) => (
           <>
@@ -60,7 +75,7 @@ export function Sidebar() {
             {it.beta ? <Pill tone="beta">{t.sidebar.beta}</Pill> : null}
           </>
         )}
-      </NavLink>
+      </Link>
     ));
 
   const divider = <div className={styles.divider} />;
@@ -86,7 +101,7 @@ export function Sidebar() {
 
       {/* quick create */}
       <div className={styles.quickRow}>
-        <Button variant="quick" onClick={() => navigate('/projects')} style={{ flex: 1 }}>
+        <Button variant="quick" onClick={() => navigate({ to: '/projects' })} style={{ flex: 1 }}>
           <Icon name="projects" size={13} color="var(--dex-icon)" />
           {t.sidebar.project}
         </Button>
@@ -139,10 +154,15 @@ export function Sidebar() {
               <div className={styles.recentsEmpty}>{t.sidebar.noThreads}</div>
             ) : (
               recents.map((thr) => (
-                <NavLink key={thr.id} to={`/threads/${thr.id}`} className={styles.recentRow}>
+                <Link
+                  key={thr.id}
+                  to="/threads/$id"
+                  params={{ id: thr.id }}
+                  className={styles.recentRow}
+                >
                   <Icon name="threads" size={14} color="var(--dex-icon-subtle)" />
                   <span className={styles.recentLabel}>{thr.title}</span>
-                </NavLink>
+                </Link>
               ))
             )}
           </div>

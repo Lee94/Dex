@@ -1,11 +1,17 @@
 import { VinciDesigner } from '@vinci/designer';
+// The designer's controls are FineUI (`.x-*`) components from @fx-ui/fine-design;
+// their base styles + `--fd-*` tokens live in fine_design.css, which the host must
+// load (designer.css only carries tokens + scoped overrides). Order matters: FineUI
+// base + the chart/table renderers first, then designer.css last so its overrides win.
+import '@fx-ui/fine-design/dist/fine_design.css';
+import '@vinci/shared/shared.css';
+import '@vinci/viewer/viewer.css';
 import '@vinci/designer/designer.css';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Modal } from '@/components/ui';
-import { buildSnapshot } from '@/vinci/compileSurface';
-import { snapshotToDsl } from '@/vinci/dsl';
+import { buildVinciTableSnapshot } from '@/vinci/vinciTable';
 import { loadVan } from '@/vinci/loadVan';
-import { createServerApiService, updateChartDsl, type Row } from '@/lib/charts';
+import { createServerApiService, updateChartSpec, type Row } from '@/lib/charts';
 import { useT } from '@/i18n';
 import styles from './ChartDesignerModal.module.css';
 
@@ -14,18 +20,19 @@ void loadVan();
 
 /**
  * Full-screen manual chart editor (the merged "edit" entry). Mounts vinci's
- * `VinciDesigner` over the chart's compiled snapshot + a server-backed compute
- * service (live data). Every edit is decompiled back to a surface DSL and persisted
- * to the backend (`PATCH /charts/:id`), so a manual edit survives reloads with no
- * conversation rewriting. The same panel also offers an "edit in words" box that
- * re-delegates to the agent (which builds a fresh chart) — both paths in one place.
+ * `VinciDesigner` over the chart's stored **snapshot** (`initialSpec` — the final
+ * JSON, no DSL round-trip) + a server-backed compute service (live data). The
+ * designer's `onChange` already emits a snapshot, which we store straight to the
+ * backend (`PATCH /charts/:id` → `spec`), so an edit survives reloads losslessly —
+ * even edits that use features the surface DSL can't express. The same panel also
+ * offers an "edit in words" box that re-delegates to the agent (builds a fresh chart).
  *
  * Lazy-loaded by ThreadChart (the designer bundle is heavy). Default export.
  */
 export default function ChartDesignerModal({
   chartId,
   label,
-  initialDsl,
+  initialSpec,
   columns,
   sampleRows,
   onClose,
@@ -34,11 +41,12 @@ export default function ChartDesignerModal({
 }: {
   chartId: string;
   label?: string;
-  initialDsl?: Record<string, unknown>;
+  /** The current chart snapshot (final JSON) to edit. */
+  initialSpec: Record<string, unknown>;
   columns: string[];
   sampleRows: Row[];
-  /** Persist + lift the edited DSL back to the thread viewer on close. */
-  onSaved: (dsl: Record<string, unknown>) => void;
+  /** Persist + lift the edited snapshot back to the thread viewer on close. */
+  onSaved: (spec: Record<string, unknown>) => void;
   onClose: () => void;
   /** Send a natural-language revision to the agent (builds a new chart). */
   onAiEdit?: (instruction: string) => void;
@@ -46,14 +54,14 @@ export default function ChartDesignerModal({
   const t = useT();
   const [warn, setWarn] = useState(false);
   const [aiText, setAiText] = useState('');
-  const latest = useRef<Record<string, unknown> | undefined>(initialDsl);
+  const latest = useRef<Record<string, unknown>>(initialSpec);
   const dirty = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // Build the model once from the incoming DSL; the designer then owns the edit
-  // state and reports changes via onChange (re-feeding `data` would reset it).
-  const compiled = useMemo(
-    () => buildSnapshot(columns, sampleRows, initialDsl, label || 'data'),
+  // The field schema (vinci `table`) + the live compute service. Built once — the
+  // designer owns the edit state and reports changes via onChange.
+  const table = useMemo(
+    () => buildVinciTableSnapshot(columns, sampleRows, label || 'data'),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [chartId],
   );
@@ -61,21 +69,13 @@ export default function ChartDesignerModal({
 
   const handleChange = useCallback(
     (snap: unknown) => {
-      let next: Record<string, unknown>;
-      try {
-        // Decompile the edited vinci snapshot back to a surface DSL. Out-of-scope
-        // edits (features beyond the v1 surface DSL) throw — keep the last good DSL.
-        next = snapshotToDsl(snap as never) as unknown as Record<string, unknown>;
-      } catch {
-        setWarn(true);
-        return;
-      }
-      setWarn(false);
-      latest.current = next;
+      // The designer emits the final snapshot — store it as-is (no DSL conversion).
+      const spec = snap as Record<string, unknown>;
+      latest.current = spec;
       dirty.current = true;
       clearTimeout(timer.current);
       timer.current = setTimeout(() => {
-        void updateChartDsl(chartId, next).catch(() => {});
+        void updateChartSpec(chartId, spec).catch(() => setWarn(true));
       }, 600);
     },
     [chartId],
@@ -83,8 +83,8 @@ export default function ChartDesignerModal({
 
   const close = useCallback(() => {
     clearTimeout(timer.current);
-    if (dirty.current && latest.current) {
-      void updateChartDsl(chartId, latest.current).catch(() => {});
+    if (dirty.current) {
+      void updateChartSpec(chartId, latest.current).catch(() => {});
       onSaved(latest.current);
     }
     onClose();
@@ -114,23 +114,19 @@ export default function ChartDesignerModal({
       <div className={styles.body}>
         {warn ? <div className={styles.warn}>{t.chart.persistError}</div> : null}
         <div className={styles.surface}>
-          {compiled.snapshot ? (
-            <VinciDesigner
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              data={compiled.snapshot as any}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              table={compiled.table as any}
-              apiService={api as never}
-              onChange={handleChange}
-              supportNoneSortType
-            />
-          ) : (
-            <div className={styles.placeholder}>
-              {compiled.error
-                ? t.chart.dslError(String((compiled.error as Error)?.message ?? compiled.error))
-                : t.chart.noData}
-            </div>
-          )}
+          {/* `VinciDesigner` mounts its own (react-router) MemoryRouter for internal
+              panel navigation. The Dex app now routes via TanStack Router, so there's
+              no parent react-router instance to clash with — the designer's inner
+              router is free-standing and needs no context reset. */}
+          <VinciDesigner
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            data={initialSpec as any}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            table={table as any}
+            apiService={api as never}
+            onChange={handleChange}
+            supportNoneSortType
+          />
         </div>
 
         {onAiEdit ? (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router';
+import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { Placeholder } from '@/components/Placeholder';
 import { useDataBrowser, type DataBrowserState, type HeaderTab } from '@/hooks/useDataBrowser';
 import { SourceList } from './SourceList';
@@ -9,6 +9,8 @@ import { DataModelsPanel } from './DataModelsPanel';
 import { AddConnectionDialog } from './AddConnectionDialog';
 import { useT, type Dict } from '@/i18n';
 import styles from './dataBrowser.module.css';
+
+const route = getRouteApi('/shell/data/{-$connId}/{-$table}');
 
 const TABS: { key: HeaderTab; label: keyof Dict['dataBrowser']['tabs'] }[] = [
   { key: 'recommended', label: 'recommended' },
@@ -26,19 +28,18 @@ const TABS: { key: HeaderTab; label: keyof Dict['dataBrowser']['tabs'] }[] = [
  */
 export function DataBrowserView() {
   const db = useDataBrowser();
-  const { connId, table } = useParams<{ connId?: string; table?: string }>();
+  const { connId, table } = route.useParams();
+  const { tab: tabHint } = route.useSearch();
   const navigate = useNavigate();
-  const location = useLocation();
   const tr = useT();
   const [addOpen, setAddOpen] = useState(false);
 
   // Returning from the full-screen model studio lands here with a tab hint —
-  // restore the Data Models tab (the studio's "Back" passes `state.tab`).
+  // restore the Data Models tab (the studio's "Back" passes `?tab=datamodels`).
   const { pickHeader } = db;
   useEffect(() => {
-    const st = location.state as { tab?: string } | null;
-    if (st?.tab === 'datamodels') pickHeader('datamodels');
-  }, [location.state, pickHeader]);
+    if (tabHint === 'datamodels') pickHeader('datamodels');
+  }, [tabHint, pickHeader]);
 
   // Pull the selection + its stable handles out of the per-render `db` object so
   // the sync effects below depend on plain identifiers.
@@ -70,20 +71,22 @@ export function DataBrowserView() {
   // above then drive the hook. `addConnection`/`removeConnection` perform their
   // backend mutation first, then route so the URL tracks the new selection.
   const cur = connId ?? db.selectedConnId ?? '';
+  // TanStack encodes path params automatically — pass raw ids/names.
   const nav: DataBrowserState = {
     ...db,
-    selectConn: (id) => navigate(`/data/${encodeURIComponent(id)}`),
-    backToSources: () => navigate('/data'),
-    selectTable: (t) => navigate(`/data/${encodeURIComponent(cur)}/${encodeURIComponent(t)}`),
-    gotoSchema: () => navigate(`/data/${encodeURIComponent(cur)}`),
+    selectConn: (id) => navigate({ to: '/data/{-$connId}/{-$table}', params: { connId: id } }),
+    backToSources: () => navigate({ to: '/data/{-$connId}/{-$table}', params: {} }),
+    selectTable: (t) =>
+      navigate({ to: '/data/{-$connId}/{-$table}', params: { connId: cur, table: t } }),
+    gotoSchema: () => navigate({ to: '/data/{-$connId}/{-$table}', params: { connId: cur } }),
     addConnection: async (input) => {
       const created = await db.addConnection(input);
-      navigate(`/data/${encodeURIComponent(created.id)}`);
+      navigate({ to: '/data/{-$connId}/{-$table}', params: { connId: created.id } });
       return created;
     },
     removeConnection: async (id) => {
       await db.removeConnection(id);
-      if (id === connId) navigate('/data');
+      if (id === connId) navigate({ to: '/data/{-$connId}/{-$table}', params: {} });
     },
   };
 

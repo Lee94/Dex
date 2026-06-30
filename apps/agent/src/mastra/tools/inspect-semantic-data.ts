@@ -1,7 +1,7 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { getConnectorById } from '../db/connector';
-import { loadMergedModel } from '../db/semantic';
+import { loadMergedModel, resolveSemanticProjectSource } from '../db/semantic';
 import { SEMANTIC_PROJECT } from './find-semantic-columns';
 
 /**
@@ -23,6 +23,15 @@ export const inspectSemanticDataTool = createTool({
   inputSchema: z.object({
     projectName: z.string().nullable().optional(),
     resourceName: z.string().nullable().optional(),
+    semanticProjectId: z
+      .string()
+      .nullable()
+      .optional()
+      .describe(
+        'Semantic project to inspect. Omit for the built-in "dex" project; pass the ' +
+          "semanticProjectId from the question's context preamble to inspect a model that lives " +
+          'in another semantic project (its data source is resolved automatically).',
+      ),
     dataConnectionId: z.string().nullable().optional(),
   }),
   outputSchema: z.object({
@@ -48,15 +57,19 @@ export const inspectSemanticDataTool = createTool({
     found: z.boolean().optional(),
   }),
   execute: async (input) => {
-    const model = await loadMergedModel();
+    const projectId = input.semanticProjectId?.trim() || SEMANTIC_PROJECT;
+    const model = await loadMergedModel(projectId);
 
     // Level 1: no project → list projects.
     if (!input.projectName) {
       return {
         projects: [
           {
-            name: SEMANTIC_PROJECT,
-            description: 'The Dex e-commerce semantic model (governed metrics + cubes).',
+            name: projectId,
+            description:
+              projectId === SEMANTIC_PROJECT
+                ? 'The Dex e-commerce semantic model (governed metrics + cubes).'
+                : `User-defined semantic project "${projectId}".`,
             datasetCount: model.cubes.length,
           },
         ],
@@ -106,7 +119,8 @@ export const inspectSemanticDataTool = createTool({
       let sample: { columns: string[]; rows: Record<string, unknown>[] } | undefined;
       if (cube.dimensions.length > 0) {
         try {
-          const connector = await getConnectorById(input.dataConnectionId?.trim() || 'builtin');
+          const { sourceId } = await resolveSemanticProjectSource(projectId);
+          const connector = await getConnectorById(input.dataConnectionId?.trim() || sourceId);
           const select = cube.dimensions.map((d) => `${d.sql} AS ${d.name}`).join(', ');
           const sql = `SELECT ${select} FROM ${cube.sql} AS ${cube.name} LIMIT 10`;
           const res = await connector.runReadOnlySql(sql);

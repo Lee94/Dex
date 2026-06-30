@@ -18,7 +18,8 @@ export type Row = Record<string, unknown>;
 /** The chart definition + a small schema probe for building the vinci table snapshot. */
 export interface ChartDef {
   id: string;
-  dsl?: Record<string, unknown>;
+  /** The final vinci snapshot JSON (the renderable spec); null until materialized. */
+  spec?: Record<string, unknown> | null;
   label?: string;
   datasourceId?: string;
   /** Columns of the base query (for the field schema the designer shows). */
@@ -43,10 +44,16 @@ export async function getChart(id: string): Promise<ChartDef> {
 }
 
 export async function computeChart(id: string, queries: unknown[]): Promise<ChartDataResult[]> {
-  const { results } = await apiFetch<{ results: ChartDataResult[] }>(
+  const { results, warnings } = await apiFetch<{ results: ChartDataResult[]; warnings?: string[] }>(
     `/charts/${encodeURIComponent(id)}/compute`,
     { method: 'POST', body: JSON.stringify({ queries }) },
   );
+  // The backend translates the viewer's sort/filter/grain/calc to SQL; anything it
+  // can't express (a parameter filter, a dynamic date, a percentile) comes back here so
+  // it isn't silently dropped. No UI surface for it yet — log for now.
+  if (warnings && warnings.length > 0) {
+    console.warn(`[chart ${id}] some compute options weren't applied:`, warnings);
+  }
   return results;
 }
 
@@ -55,10 +62,11 @@ export async function getChartRows(id: string): Promise<SqlResult> {
   return apiFetch<SqlResult>(`/charts/${encodeURIComponent(id)}/rows`);
 }
 
-export async function updateChartDsl(id: string, dsl: Record<string, unknown>): Promise<void> {
+/** Store the chart's final snapshot JSON (web materialization or a manual edit). */
+export async function updateChartSpec(id: string, spec: Record<string, unknown>): Promise<void> {
   await apiFetch(`/charts/${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    body: JSON.stringify({ dsl }),
+    body: JSON.stringify({ spec }),
   });
 }
 

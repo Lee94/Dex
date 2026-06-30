@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { useProjectsContext } from '@/contexts/ProjectsContext';
 import { useThreadsContext } from '@/contexts/ThreadsContext';
 import { ProjectDetail } from '@/components/projects/ProjectDetail';
 import { listProjectThreads } from '@/lib/threads';
 import type { Thread } from '@/types';
+
+const route = getRouteApi('/shell/projects/$id');
 
 /**
  * Project detail at `/projects/:id`. Resolves the project from context (URL is the
@@ -13,7 +15,7 @@ import type { Thread } from '@/types';
  * projects context (optimistic).
  */
 export function ProjectRoute() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = route.useParams();
   const { projects, loading, updateProject, removeProject } = useProjectsContext();
   const { threads: sessionThreads, createThread } = useThreadsContext();
   const navigate = useNavigate();
@@ -38,7 +40,7 @@ export function ProjectRoute() {
   // Unknown project (deleted or stale link) → back to the list once loaded.
   useEffect(() => {
     if (id && !loading && !projects.some((p) => p.id === id)) {
-      navigate('/projects', { replace: true });
+      navigate({ to: '/projects', replace: true });
     }
   }, [id, loading, projects, navigate]);
 
@@ -59,14 +61,14 @@ export function ProjectRoute() {
       key={project.id}
       project={project}
       threads={threads}
-      onBack={() => navigate('/projects')}
+      onBack={() => navigate({ to: '/projects' })}
       onChange={(patch) => void updateProject(project.id, patch)}
       onDelete={async () => {
         await removeProject(project.id);
-        navigate('/projects');
+        navigate({ to: '/projects' });
       }}
-      onOpenThread={(tid) => navigate(`/threads/${tid}`)}
-      onNewThread={() => navigate(`/threads/${createThread(project.id)}`)}
+      onOpenThread={(tid) => navigate({ to: '/threads/$id', params: { id: tid } })}
+      onNewThread={() => navigate({ to: '/threads/$id', params: { id: createThread(project.id) } })}
     />
   );
 }

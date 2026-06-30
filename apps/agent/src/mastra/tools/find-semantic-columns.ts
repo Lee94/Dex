@@ -2,7 +2,8 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { loadMergedModel } from '../db/semantic';
 
-/** Dex has a single semantic project; this is its name (used across the semantic tools). */
+/** The built-in semantic project's id — the default scope for the semantic tools
+ *  when the question doesn't attach a model from another project. */
 export const SEMANTIC_PROJECT = 'dex';
 
 /**
@@ -25,6 +26,15 @@ export const findSemanticColumnsTool = createTool({
     'ShowSemanticTable rather than re-deriving the same number in raw SQL.',
   inputSchema: z.object({
     query: z.string().describe('Keyword search over semantic members (3-10 high-signal tokens).'),
+    semanticProjectId: z
+      .string()
+      .nullable()
+      .optional()
+      .describe(
+        'Semantic project to search within. Omit for the built-in "dex" project; pass the ' +
+          "semanticProjectId from the question's context preamble to search a model that lives " +
+          'in another semantic project.',
+      ),
     dataConnectionId: z.string().nullable().optional(),
   }),
   outputSchema: z.object({
@@ -42,7 +52,8 @@ export const findSemanticColumnsTool = createTool({
     ),
   }),
   execute: async (input) => {
-    const model = await loadMergedModel();
+    const projectId = input.semanticProjectId?.trim() || SEMANTIC_PROJECT;
+    const model = await loadMergedModel(projectId);
     type Col = {
       name: string;
       ref: string;
@@ -63,7 +74,7 @@ export const findSemanticColumnsTool = createTool({
           type: m.type,
           description: m.description,
           dataset: cube.name,
-          project: SEMANTIC_PROJECT,
+          project: projectId,
           endorsed: !!m.endorsed,
         });
       }
@@ -75,7 +86,7 @@ export const findSemanticColumnsTool = createTool({
           type: d.type,
           description: d.description,
           dataset: cube.name,
-          project: SEMANTIC_PROJECT,
+          project: projectId,
           endorsed: !!cube.endorsed,
         });
       }

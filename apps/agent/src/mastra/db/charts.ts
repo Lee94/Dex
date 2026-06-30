@@ -2,26 +2,26 @@ import { randomUUID } from 'node:crypto';
 import { dexStore } from './store';
 
 /**
- * Charts store (manual-edit / live-data redesign) — a chart is now a **persisted
- * backend entity**, not a DSL blob that rides inside a conversation tool result.
+ * Charts store (manual-edit / live-data redesign). A chart is a **persisted backend
+ * entity**, not a DSL blob in the conversation.
  *
- * The visualization flow persists `{ id, dsl, label, baseSql, datasourceId }` here
- * and returns only the `id`; the web renders a chart by fetching this record by id
- * and computing its data **live** (the `baseSql` is re-run on demand and the
- * viewer's aggregation is pushed down to SQL — see `db/chart-compute.ts`). Manual
- * edits in the VinciDesigner write the new `dsl` straight back here (`PATCH`), so
- * an edit survives reloads with no conversation rewriting.
+ * What's stored is the **final vinci snapshot JSON** (`spec`) — the exact thing
+ * `VinciViewer`/`VinciDesigner` render from — never the surface DSL. The agent can
+ * only author a surface DSL and has no vinci compiler, so it creates the row with
+ * just the `base_sql` (+ label/datasource) and a **null** spec; the web materializes
+ * the spec on first render (compiles the DSL seed it carries in the conversation),
+ * `PATCH`es it here, and every manual edit stores the edited snapshot directly. So
+ * `dex_charts` only ever holds the final JSON — the DSL never lands in this table.
  *
- * Like the other Dex stores it lives in `dex.db` and is keyed by a UUID. `base_sql`
- * is the upstream **unaggregated** query the analyst ran for the bound result;
- * `datasource_id` is the registered connection it ran against ('builtin' default).
- * `thread_id` is optional bookkeeping (tools can't read the ambient thread id).
+ * `base_sql` is the upstream **unaggregated** query the chart's data is computed from
+ * live (see `db/chart-compute.ts`); `datasource_id` is the connection it runs against
+ * ('builtin' default). `thread_id` is optional bookkeeping.
  */
 
 export interface Chart {
   id: string;
-  /** The vinci surface DSL (a SurfaceDoc); opaque to the agent, owned by the web. */
-  dsl: Record<string, unknown>;
+  /** The final vinci model snapshot (the renderable JSON); null until materialized. */
+  spec: Record<string, unknown> | null;
   label: string;
   /** The upstream unaggregated SQL the chart's data is computed from (live). */
   baseSql: string;
@@ -35,7 +35,6 @@ export interface Chart {
 export interface NewChartInput {
   /** Use the build_chart cellId so the conversation's [result:<id>] embed resolves. */
   id?: string;
-  dsl: Record<string, unknown>;
   label?: string;
   baseSql: string;
   datasourceId?: string;
@@ -50,7 +49,7 @@ function ensureSchema(): Promise<void> {
       .execute(
         `CREATE TABLE IF NOT EXISTS dex_charts (
            id            TEXT PRIMARY KEY,
-           dsl           TEXT,
+           spec          TEXT,
            label         TEXT,
            base_sql      TEXT,
            datasource_id TEXT,
@@ -59,6 +58,10 @@ function ensureSchema(): Promise<void> {
            updated_at    INTEGER
          )`,
       )
+      // Defensive: a dex.db created during the earlier (dsl-storing) iteration has a
+      // `dsl` column but no `spec`. Add it so the new code path doesn't error. Ignore
+      // the "duplicate column" error on fresh/already-migrated DBs.
+      .then(() => dexStore.execute('ALTER TABLE dex_charts ADD COLUMN spec TEXT').catch(() => {}))
       .then(() => undefined);
   }
   return schemaReady;
@@ -66,20 +69,20 @@ function ensureSchema(): Promise<void> {
 
 type Cell = unknown;
 
-function parseDsl(raw: Cell): Record<string, unknown> {
-  if (raw == null) return {};
+function parseSpec(raw: Cell): Record<string, unknown> | null {
+  if (raw == null) return null;
   try {
     const parsed = JSON.parse(String(raw));
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
   } catch {
-    return {};
+    return null;
   }
 }
 
 function rowToChart(row: Record<string, Cell>): Chart {
   return {
     id: String(row.id),
-    dsl: parseDsl(row.dsl),
+    spec: parseSpec(row.spec),
     label: row.label == null ? '' : String(row.label),
     baseSql: row.base_sql == null ? '' : String(row.base_sql),
     datasourceId: row.datasource_id == null ? 'builtin' : String(row.datasource_id),
@@ -96,13 +99,17 @@ export async function getChart(id: string): Promise<Chart | null> {
   return row ? rowToChart(row) : null;
 }
 
-/** Persist a chart the visualization flow just built. */
+/**
+ * Persist a chart the visualization flow just built (spec starts null — the web
+ * materializes it). Re-creating the same id refreshes its base SQL/label but
+ * **preserves** an already-materialized spec.
+ */
 export async function createChart(input: NewChartInput): Promise<Chart> {
   await ensureSchema();
   const now = Date.now();
   const chart: Chart = {
     id: input.id ?? randomUUID(),
-    dsl: input.dsl ?? {},
+    spec: null,
     label: input.label?.trim() || 'Chart',
     baseSql: input.baseSql,
     datasourceId: input.datasourceId?.trim() || 'builtin',
@@ -111,17 +118,15 @@ export async function createChart(input: NewChartInput): Promise<Chart> {
     updatedAt: now,
   };
   await dexStore.execute({
-    sql: `INSERT INTO dex_charts (id, dsl, label, base_sql, datasource_id, thread_id, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    sql: `INSERT INTO dex_charts (id, spec, label, base_sql, datasource_id, thread_id, created_at, updated_at)
+          VALUES (?, NULL, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
-            dsl = excluded.dsl,
             label = excluded.label,
             base_sql = excluded.base_sql,
             datasource_id = excluded.datasource_id,
             updated_at = excluded.updated_at`,
     args: [
       chart.id,
-      JSON.stringify(chart.dsl),
       chart.label,
       chart.baseSql,
       chart.datasourceId,
@@ -133,16 +138,16 @@ export async function createChart(input: NewChartInput): Promise<Chart> {
   return chart;
 }
 
-/** Overwrite a chart's DSL (a manual VinciDesigner edit, or an AI revision). */
-export async function updateChartDsl(
+/** Store a chart's final snapshot JSON (the web materializing it, or a manual edit). */
+export async function updateChartSpec(
   id: string,
-  dsl: Record<string, unknown>,
+  spec: Record<string, unknown>,
 ): Promise<Chart | null> {
   await ensureSchema();
   const now = Date.now();
   const res = await dexStore.execute({
-    sql: 'UPDATE dex_charts SET dsl = ?, updated_at = ? WHERE id = ?',
-    args: [JSON.stringify(dsl), now, id],
+    sql: 'UPDATE dex_charts SET spec = ?, updated_at = ? WHERE id = ?',
+    args: [JSON.stringify(spec), now, id],
   });
   if ((res.rowsAffected ?? 0) === 0) return null;
   return getChart(id);

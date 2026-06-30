@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { Icon } from '@/lib/icons';
 import { Button, IconButton } from '@/components/ui';
 import { ResultCard } from '@/components/ResultCard';
@@ -15,6 +15,8 @@ import {
 import type { SqlResult } from '@/types';
 import { useT } from '@/i18n';
 import styles from './ReportRoute.module.css';
+
+const route = getRouteApi('/reports/$threadId');
 
 const ThreadChart = lazy(() => import('@/components/thread/ThreadChart'));
 
@@ -42,7 +44,7 @@ function downloadFile(content: string, filename: string, type: string): void {
  * thread's Share target: copy the link, export to Markdown, reorder/remove pins.
  */
 export function ReportRoute() {
-  const { threadId } = useParams<{ threadId: string }>();
+  const { threadId } = route.useParams();
   const navigate = useNavigate();
   const t = useT();
   const { threads } = useThreadsContext();
@@ -116,7 +118,7 @@ export function ReportRoute() {
           size={17}
           color="var(--dex-text-strong)"
           title={t.report.backToThread}
-          onClick={() => navigate(threadId ? `/threads/${threadId}` : '/threads')}
+          onClick={() => navigate({ to: '/threads/$id', params: { id: threadId } })}
           hover="strong"
         />
         <div className={styles.titleWrap}>

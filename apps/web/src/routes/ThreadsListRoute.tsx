@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { ThreadsList } from '@/components/ThreadsList';
 import { useThreadsContext } from '@/contexts/ThreadsContext';
 
@@ -17,8 +17,8 @@ export function ThreadsListRoute() {
       threads={threads}
       loading={listLoading}
       error={listError}
-      onOpenThread={(id) => navigate(`/threads/${id}`)}
-      onNewThread={() => navigate(`/threads/${createThread()}`)}
+      onOpenThread={(id) => navigate({ to: '/threads/$id', params: { id } })}
+      onNewThread={() => navigate({ to: '/threads/$id', params: { id: createThread() } })}
       onRetry={refreshList}
       onRename={renameThread}
       onDelete={removeThread}

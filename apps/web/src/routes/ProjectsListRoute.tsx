@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useProjectsContext } from '@/contexts/ProjectsContext';
 import { ProjectsList } from '@/components/projects/ProjectsList';
 import { useT } from '@/i18n';
@@ -18,12 +18,12 @@ export function ProjectsListRoute() {
       projects={projects}
       loading={loading}
       error={error}
-      onOpen={(id) => navigate(`/projects/${id}`)}
+      onOpen={(id) => navigate({ to: '/projects/$id', params: { id } })}
       onRetry={() => void refresh()}
       onNew={() =>
         void (async () => {
           const p = await createProject({ name: t.projects.untitled });
-          if (p) navigate(`/projects/${p.id}`);
+          if (p) navigate({ to: '/projects/$id', params: { id: p.id } });
         })()
       }
     />

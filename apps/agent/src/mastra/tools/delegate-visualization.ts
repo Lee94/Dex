@@ -14,11 +14,12 @@ import { createChart } from '../db/charts';
  *
  * The chart is built **inside the sub-agent**, so its `build_chart` tool call never
  * surfaces as a step in the analyst's own stream. We lift the built chart(s) out of
- * the sub-agent run (id + the authored DSL + the upstream `sourceOutputName`) and
- * **persist each as a backend chart** (`db/charts.ts`) with its base SQL, so the web
- * renders it by id with **live data** (the chart re-runs its query — see
- * `db/chart-compute.ts`) and manual edits write straight back. We return only the
- * chart `id` + label to the analyst; the DSL no longer rides in the conversation.
+ * the sub-agent run and **persist a backend chart row** (`db/charts.ts`) with its base
+ * SQL — but NOT the DSL: `dex_charts` stores the final vinci snapshot, which only the
+ * web can compile. So we return `{cellId, label, dsl}`; the web compiles that DSL seed
+ * to a snapshot on first render and `PATCH`es it in (the DSL never lands in the chart
+ * store). The web then renders by id with **live data** (the chart re-runs its query —
+ * see `db/chart-compute.ts`) and manual edits store the edited snapshot straight back.
  */
 
 /** A chart the sub-agent built, lifted from its run for the analyst's stream. */
@@ -136,13 +137,15 @@ export const delegateVisualizationTool = createTool({
   }),
   outputSchema: z.object({
     summary: z.string(),
-    // The chart(s) the sub-agent built and we persisted — surfaced so the thread can
-    // render the chart inline by id (the DSL + data now live in the backend, not here).
+    // The chart(s) the sub-agent built — surfaced so the thread can render by id. The
+    // `dsl` is the materialization seed the web compiles to the stored snapshot; it is
+    // NOT persisted in the chart store (which holds only the final snapshot).
     vizCells: z
       .array(
         z.object({
           cellId: z.string(),
           label: z.string().optional(),
+          dsl: z.record(z.string(), z.any()).optional(),
         }),
       )
       .optional(),
@@ -173,7 +176,7 @@ Create the visualization now: author the surface DSL over the source's columns a
     // the unaggregated base SQL of its bound source — so the web renders it live by id.
     const cells = createdVizCells(out);
     const sourceByName = new Map(input.dataSources.map((s) => [s.name, s]));
-    const vizCells: Array<{ cellId: string; label?: string }> = [];
+    const vizCells: Array<{ cellId: string; label?: string; dsl?: Record<string, unknown> }> = [];
     for (const cell of cells) {
       // Match the built chart to its data source by outputName; if the sub-agent named
       // it slightly differently (LLM variance) and there's only one source, use that —
@@ -181,15 +184,16 @@ Create the visualization now: author the surface DSL over the source's columns a
       const source =
         (cell.sourceOutputName ? sourceByName.get(cell.sourceOutputName) : undefined) ??
         (input.dataSources.length === 1 ? input.dataSources[0] : undefined);
+      // Create the row with the base SQL only (spec starts null); the web materializes
+      // the snapshot from the `dsl` seed we return below.
       await createChart({
         id: cell.cellId,
-        dsl: cell.dsl ?? {},
         label: cell.label,
         baseSql: source?.sql?.trim() || '',
         datasourceId:
           source?.dataConnectionId?.trim() || input.dataConnectionId?.trim() || 'builtin',
       });
-      vizCells.push({ cellId: cell.cellId, label: cell.label });
+      vizCells.push({ cellId: cell.cellId, label: cell.label, dsl: cell.dsl });
     }
     return { summary: out.text, vizCells };
   },

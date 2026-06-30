@@ -3,6 +3,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import {
   loadMergedModel,
+  resolveSemanticProjectSource,
   runSemanticQuery,
   type SemanticFilter,
   type SemanticQuery,
@@ -81,6 +82,15 @@ export const showSemanticTableTool = createTool({
       semanticProjectName: z.string(),
       datasetName: z.string(),
     }),
+    semanticProjectId: z
+      .string()
+      .nullable()
+      .optional()
+      .describe(
+        'Semantic project the dataset belongs to. Omit for the built-in "dex" project; pass the ' +
+          "semanticProjectId from the question's context preamble for a model in another semantic " +
+          "project — the query then runs against that project's bound data source automatically.",
+      ),
     label: z.string().optional().describe('Short human label shown as the result table title.'),
     outputName: z
       .string()
@@ -112,6 +122,7 @@ export const showSemanticTableTool = createTool({
     via: z.literal('semantic'),
   }),
   execute: async (input) => {
+    const projectId = input.semanticProjectId?.trim() || 'dex';
     const base = input.semanticInput.datasetName;
     const measures = (input.measures ?? []).map((m) => refOf(m, base));
     if (measures.length === 0 && (input.dimensions ?? []).length === 0) {
@@ -132,7 +143,7 @@ export const showSemanticTableTool = createTool({
     // compiler — inject a count measure from the base cube so the table compiles.
     let effectiveMeasures = measures;
     if (effectiveMeasures.length === 0) {
-      const model = await loadMergedModel();
+      const model = await loadMergedModel(projectId);
       const cube = model.cubes.find((c) => c.name === base);
       const counter =
         cube?.measures.find((m) => m.type === 'count' || m.type === 'count_distinct') ??
@@ -154,7 +165,11 @@ export const showSemanticTableTool = createTool({
         : undefined,
     };
 
-    const result = await runSemanticQuery(query);
+    const { sourceId } = await resolveSemanticProjectSource(projectId);
+    const result = await runSemanticQuery(query, {
+      projectId,
+      sourceId: input.dataConnectionId?.trim() || sourceId,
+    });
 
     return {
       cellId: randomUUID(),

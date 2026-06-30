@@ -88,20 +88,21 @@ export function outputNameOf(value: unknown): string | undefined {
  * A chart the visualization sub-agent built, surfaced through the
  * `DelegateToVisualizationAgent` result. In the live-data redesign the chart is a
  * **persisted backend entity** keyed by `cellId`; the thread renders it by id
- * (fetching its DSL + computing data live). `label` is shown while the chart loads.
+ * (fetching its stored snapshot + computing data live). `label` is shown while it loads.
  *
- * `sourceOutputName` / `dsl` are **legacy** fields that only older threads (built
- * before the redesign, when the DSL rode in the tool result) still carry — the
- * thread falls back to rendering those inline over the upstream rows. New charts
- * carry neither.
+ * `dsl` is the **materialization seed**: the chart store holds only the final snapshot
+ * (which the agent can't compile), so the agent returns the authored DSL here and the
+ * web compiles it to the snapshot on first render, then persists it. It's also what a
+ * legacy pre-redesign thread carries for the inline fallback. `sourceOutputName` is
+ * legacy-only.
  */
 export type VizCellRef = {
   cellId: string;
   label?: string;
+  /** Seed DSL the web compiles to the stored snapshot (also the legacy inline DSL). */
+  dsl?: unknown;
   /** @deprecated legacy inline binding (pre-redesign threads only). */
   sourceOutputName?: string;
-  /** @deprecated legacy inline DSL (pre-redesign threads only). */
-  dsl?: unknown;
 };
 
 /** Read charts out of a `DelegateToVisualizationAgent` tool result, if any. */

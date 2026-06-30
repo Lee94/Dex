@@ -11,11 +11,14 @@ import { PostgresConnector } from './connectors/postgres';
 import {
   compile,
   createModel,
+  createProject,
   deleteModel,
+  deleteProject,
   publishModel,
   describeModelSummaryAsync,
   loadMergedModel,
   model,
+  resolveSemanticProjectSource,
   runSemanticQuery,
   validateModel,
 } from './semantic';
@@ -549,6 +552,58 @@ async function main(): Promise<void> {
       userQuery.endorsed === false,
     userQuery.rows,
   );
+
+  // A model in a NON-`dex` semantic project must be invisible to the default
+  // (dex) merged model, yet queryable when its own project is targeted — the
+  // path the analyst takes when a thread attaches a model from another project.
+  const smokeProject = await createProject({ name: 'Smoke project', sourceId: 'builtin' });
+  const SMOKE_PROJ_CUBE = 'smoke_proj_products';
+  await deleteModel(SMOKE_PROJ_CUBE); // clean any leftover from a prior run
+  await createModel(
+    {
+      name: SMOKE_PROJ_CUBE,
+      title: 'Smoke project products',
+      sql: 'products',
+      endorsed: false,
+      measures: [{ name: 'n', title: 'Rows', type: 'count', format: 'integer' }],
+      dimensions: [
+        {
+          name: 'category',
+          title: 'Category',
+          type: 'categorical',
+          sql: `${SMOKE_PROJ_CUBE}.category`,
+        },
+      ],
+      joins: [],
+    },
+    true, // published
+    smokeProject.id, // ...but scoped to a non-dex project
+  );
+  check(
+    'a non-dex project model is hidden from the default (dex) merged model',
+    !(await loadMergedModel()).cubes.some((cc) => cc.name === SMOKE_PROJ_CUBE),
+  );
+  check(
+    'a non-dex project model loads when its own project is targeted',
+    (await loadMergedModel(smokeProject.id)).cubes.some((cc) => cc.name === SMOKE_PROJ_CUBE),
+  );
+  const resolvedSource = await resolveSemanticProjectSource(smokeProject.id);
+  check(
+    'resolveSemanticProjectSource returns the project bound source',
+    resolvedSource.projectId === smokeProject.id && resolvedSource.sourceId === 'builtin',
+    resolvedSource,
+  );
+  const projQuery = await runSemanticQuery(
+    { measures: [`${SMOKE_PROJ_CUBE}.n`], dimensions: [`${SMOKE_PROJ_CUBE}.category`] },
+    { projectId: smokeProject.id, sourceId: resolvedSource.sourceId },
+  );
+  check(
+    'runSemanticQuery runs a non-dex project model against its bound source',
+    projQuery.columns.includes('category') && projQuery.rows.length === 3,
+    projQuery.rows,
+  );
+  await deleteModel(SMOKE_PROJ_CUBE);
+  await deleteProject(smokeProject.id);
 
   // versioned drafts (v3.1): a draft stays invisible to the agent until published
   const SMOKE_DRAFT = 'smoke_draft';

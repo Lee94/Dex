@@ -1,5 +1,7 @@
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { ModelStudio } from '@/components/model-studio/ModelStudio';
+
+const route = getRouteApi('/data/models/$projectId');
 
 /**
  * Full-screen model studio at `/data/models/:projectId` (outside the Shell, like
@@ -8,17 +10,16 @@ import { ModelStudio } from '@/components/model-studio/ModelStudio';
  * Models tab of the data browser.
  */
 export function ModelStudioRoute() {
-  const { projectId } = useParams<{ projectId: string }>();
-  const [params] = useSearchParams();
+  const { projectId } = route.useParams();
+  const { open, new: isNew } = route.useSearch();
   const navigate = useNavigate();
-  if (!projectId) return null;
   return (
     <ModelStudio
       key={projectId}
       projectId={projectId}
-      initialOpen={params.get('open') ?? undefined}
-      initialNew={params.get('new') === '1'}
-      onBack={() => navigate('/data', { state: { tab: 'datamodels' } })}
+      initialOpen={open}
+      initialNew={isNew}
+      onBack={() => navigate({ to: '/data/{-$connId}/{-$table}', search: { tab: 'datamodels' } })}
     />
   );
 }

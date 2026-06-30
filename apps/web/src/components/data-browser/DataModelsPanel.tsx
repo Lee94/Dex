@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { Icon } from '@/lib/icons';
 import { Button, IconButton, Pill, ConfirmDialog } from '@/components/ui';
 import {
@@ -13,11 +13,6 @@ import { DataGrid } from './Detail';
 import { AddProjectDialog } from './AddProjectDialog';
 import { useT } from '@/i18n';
 import styles from './dataBrowser.module.css';
-
-/** Path to the full-screen model studio for a project, optionally pre-opening a file. */
-function studioPath(projectId: string, query: string): string {
-  return `/data/models/${encodeURIComponent(projectId)}${query}`;
-}
 
 /** Data Models tab: semantic projects → models → measures/dimensions/joins.
  *  Creating / editing a model jumps to the full-page studio (`/data/models/:id`). */
@@ -155,7 +150,9 @@ function ProjectDetail({ db }: { db: DataBrowserState }) {
         <Button
           variant="green"
           style={{ marginLeft: 'auto' }}
-          onClick={() => navigate(studioPath(project.id, ''))}
+          onClick={() =>
+            navigate({ to: '/data/models/$projectId', params: { projectId: project.id } })
+          }
         >
           <Icon name="edit" size={13} color="#fff" />
           {t.dataModels.editModels}
@@ -263,7 +260,11 @@ function ModelDetail({ db }: { db: DataBrowserState }) {
             <Button
               variant="ghost"
               onClick={() =>
-                navigate(studioPath(project?.id ?? 'dex', `?open=${encodeURIComponent(model.id)}`))
+                navigate({
+                  to: '/data/models/$projectId',
+                  params: { projectId: project?.id ?? 'dex' },
+                  search: { open: model.id },
+                })
               }
             >
               <Icon name="edit" size={13} color="var(--dex-icon)" />

@@ -1,10 +1,11 @@
 import { assertReadOnly } from '../guard';
-import { getActiveProvider, getConnector } from '../connector';
+import { getActiveProvider, getConnector, getConnectorById } from '../connector';
 import type { QueryResult } from '../types';
 import { compileSemanticQuery } from './compile';
 import { model } from './model';
 import { assertValidModel, validateModel } from './validate';
 import { listStoredModels } from './store';
+import { getStoredProject } from './projects-store';
 import type { Cube, CompileResult, SemanticModel, SemanticQuery } from './types';
 
 export { model } from './model';
@@ -27,26 +28,28 @@ assertValidModel(model);
  * validation, is skipped so a bad row can never take the whole model (or the
  * agent) down.
  */
-export async function loadMergedModel(): Promise<SemanticModel> {
+export async function loadMergedModel(projectId = 'dex'): Promise<SemanticModel> {
+  const isDex = projectId === 'dex';
   let stored;
   try {
-    stored = await listStoredModels();
+    // `dex` reads every row (and keeps its own below); a user project's rows are
+    // scoped by the store so only that project's cubes come back.
+    stored = await listStoredModels(isDex ? undefined : projectId);
   } catch {
-    return model; // store unavailable → fall back to the built-in model
+    // store unavailable → the built-in model for `dex`, an empty model otherwise.
+    return isDex ? model : { cubes: [], metrics: [] };
   }
-  if (stored.length === 0) return model;
+  // The built-in cubes target the built-in warehouse, so only the `dex` project
+  // starts from them. A user project (bound to its own data source) is built
+  // purely from its own published cubes.
+  const merged: SemanticModel = isDex
+    ? { cubes: [...model.cubes], metrics: [...model.metrics] }
+    : { cubes: [], metrics: [] };
+  if (stored.length === 0) return merged;
 
-  const builtinNames = new Set(model.cubes.map((c) => c.name));
-  const merged: SemanticModel = {
-    cubes: [...model.cubes],
-    metrics: [...model.metrics],
-  };
+  const builtinNames = new Set(merged.cubes.map((c) => c.name));
   for (const m of stored) {
-    // The analyst agent queries the built-in warehouse, so only the built-in
-    // `dex` project's models are merged into its model. Models in other projects
-    // (bound to other data sources) are organizational — visible in the UI but
-    // not compiled into the agent's default semantic model.
-    if (m.projectId !== 'dex') continue;
+    if (isDex && m.projectId !== 'dex') continue; // dex merges only the dex project's cubes
     const cube = m.published; // the agent only ever sees the published version
     if (!cube) continue; // draft / never-published → invisible to the agent
     if (builtinNames.has(cube.name)) continue; // never shadow a built-in cube
@@ -63,6 +66,17 @@ export async function loadMergedModel(): Promise<SemanticModel> {
     }
   }
   return merged;
+}
+
+/** Resolve a semantic project id to the model scope + bound data source the agent
+ *  should query it against. `dex` (and any unknown id) maps to the built-in
+ *  warehouse, so a stale id degrades to the default model instead of erroring. */
+export async function resolveSemanticProjectSource(
+  projectId?: string,
+): Promise<{ projectId: string; sourceId: string }> {
+  if (!projectId || projectId === 'dex') return { projectId: 'dex', sourceId: 'builtin' };
+  const p = await getStoredProject(projectId).catch(() => null);
+  return p ? { projectId, sourceId: p.sourceId } : { projectId: 'dex', sourceId: 'builtin' };
 }
 
 /** A project's cube as a join target — enough for the semantic-model assistant
@@ -138,14 +152,25 @@ export function compile(query: SemanticQuery): CompileResult {
   return compileSemanticQuery(query, getActiveProvider(), model);
 }
 
-/** Compile + guard + run a semantic query against the active connector. Uses the
- *  merged model so user-defined cubes are queryable too. */
-export async function runSemanticQuery(query: SemanticQuery): Promise<SemanticResult> {
-  const merged = await loadMergedModel();
-  const compiled = compileSemanticQuery(query, getActiveProvider(), merged);
+/** Compile + guard + run a semantic query. Uses the merged model so user-defined
+ *  cubes are queryable too. By default this targets the built-in `dex` project +
+ *  warehouse; pass `opts.projectId` / `opts.sourceId` to run a model from another
+ *  semantic project against its bound data source (the compiler picks up that
+ *  source's dialect). */
+export async function runSemanticQuery(
+  query: SemanticQuery,
+  opts?: { projectId?: string; sourceId?: string },
+): Promise<SemanticResult> {
+  const projectId = opts?.projectId ?? 'dex';
+  const merged = await loadMergedModel(projectId);
+  const connector =
+    opts?.sourceId && opts.sourceId !== 'builtin'
+      ? await getConnectorById(opts.sourceId)
+      : getConnector();
+  const compiled = compileSemanticQuery(query, connector.dialect, merged);
   // The compiled SQL passes through the same read-only guard as hand-written SQL.
   assertReadOnly(compiled.sql);
-  const result = await getConnector().runReadOnlySql(compiled.sql);
+  const result = await connector.runReadOnlySql(compiled.sql);
   return {
     ...result,
     via: 'semantic',
@@ -218,10 +243,10 @@ export function describeModelSummary(m: SemanticModel = model) {
 
 /** Async variants over the merged model — what the agent's tools call so user
  *  cubes are visible to the agent, not just the UI. */
-export async function describeModelSummaryAsync() {
-  return describeModelSummary(await loadMergedModel());
+export async function describeModelSummaryAsync(projectId?: string) {
+  return describeModelSummary(await loadMergedModel(projectId));
 }
 
-export async function listMetricsCatalogAsync() {
-  return listMetricsCatalog(await loadMergedModel());
+export async function listMetricsCatalogAsync(projectId?: string) {
+  return listMetricsCatalog(await loadMergedModel(projectId));
 }
