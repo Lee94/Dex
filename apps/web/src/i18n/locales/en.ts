@@ -140,6 +140,15 @@ export const en = {
     // The follow-up message an edit sends to the agent.
     reviseMessage: (label: string, instruction: string) =>
       `Revise the chart${label ? ` "${label}"` : ''}: ${instruction}. Rebuild it from the same data.`,
+    // Live-data / manual-editor states.
+    loading: 'Loading chart…',
+    loadFailed: 'Couldn’t load this chart.',
+    noData: 'This result needs a category column and a numeric column to chart.',
+    dslError: (msg: string) => `Couldn’t build this chart from the DSL: ${msg}`,
+    designerTitle: (label: string) => (label ? `Edit chart — ${label}` : 'Edit chart'),
+    done: 'Done',
+    persistError: 'Couldn’t save this edit — try again.',
+    aiHint: 'Or describe a change in words and let AI rebuild it.',
   },
 
   // Report / pins surface — v3.4

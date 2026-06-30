@@ -85,16 +85,23 @@ export function outputNameOf(value: unknown): string | undefined {
 }
 
 /**
- * A chart the visualization sub-agent built. It's authored inside the sub-agent
- * (not an analyst step), so the analyst surfaces it through the
- * `DelegateToVisualizationAgent` result; the thread renders it over the upstream
- * result's rows (matched by `sourceOutputName`). `cellId` is just the embeddable id.
+ * A chart the visualization sub-agent built, surfaced through the
+ * `DelegateToVisualizationAgent` result. In the live-data redesign the chart is a
+ * **persisted backend entity** keyed by `cellId`; the thread renders it by id
+ * (fetching its DSL + computing data live). `label` is shown while the chart loads.
+ *
+ * `sourceOutputName` / `dsl` are **legacy** fields that only older threads (built
+ * before the redesign, when the DSL rode in the tool result) still carry — the
+ * thread falls back to rendering those inline over the upstream rows. New charts
+ * carry neither.
  */
 export type VizCellRef = {
   cellId: string;
-  sourceOutputName?: string;
-  dsl?: unknown;
   label?: string;
+  /** @deprecated legacy inline binding (pre-redesign threads only). */
+  sourceOutputName?: string;
+  /** @deprecated legacy inline DSL (pre-redesign threads only). */
+  dsl?: unknown;
 };
 
 /** Read charts out of a `DelegateToVisualizationAgent` tool result, if any. */

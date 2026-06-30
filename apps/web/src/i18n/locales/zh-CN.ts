@@ -130,6 +130,15 @@ export const zhCN: Dict = {
     pinned: '已固定 ✓',
     reviseMessage: (label: string, instruction: string) =>
       `修改图表${label ? `"${label}"` : ''}：${instruction}。基于相同的数据重新生成。`,
+    // 实时取数 / 手动编辑器状态。
+    loading: '正在加载图表…',
+    loadFailed: '无法加载该图表。',
+    noData: '该结果需要一个分类列和一个数值列才能绘图。',
+    dslError: (msg: string) => `无法根据 DSL 构建该图表：${msg}`,
+    designerTitle: (label: string) => (label ? `编辑图表 — ${label}` : '编辑图表'),
+    done: '完成',
+    persistError: '保存这次编辑失败 — 请重试。',
+    aiHint: '或用文字描述改动，让 AI 重新生成。',
   },
 
   // 报告 / 固定项 — v3.4

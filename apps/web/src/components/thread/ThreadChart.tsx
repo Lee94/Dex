@@ -1,13 +1,16 @@
 import { VinciViewer } from '@vinci/viewer';
 import '@vinci/viewer/viewer.css';
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons';
 import { toCsv, type SqlResult } from '@/types';
-import { compileSurface } from '@/vinci/compileSurface';
+import { buildSnapshot, compileSurface, type CompiledSurface } from '@/vinci/compileSurface';
 import { loadVan } from '@/vinci/loadVan';
+import { createServerApiService, getChart, getChartRows, type ChartDef } from '@/lib/charts';
 import type { PinInput } from '@/lib/reports';
 import { useT } from '@/i18n';
 import styles from './ThreadChart.module.css';
+
+const ChartDesignerModal = lazy(() => import('./ChartDesignerModal'));
 
 // Kick off the @van/analysis global load as soon as this module loads (idempotent).
 void loadVan();
@@ -32,28 +35,34 @@ const safeName = (label?: string) =>
     .replace(/^-|-$/g, '') || 'chart';
 
 /**
- * A chart embedded in a thread. The visualization sub-agent authored a vinci
- * **surface DSL**; here we compile it against an upstream result's rows (`source`)
- * and render it with vinci's `VinciViewer`. Data is NOT queried — aggregation
- * happens in-browser per the DSL.
+ * A chart embedded in a thread. In the live-data redesign a chart is a persisted
+ * backend entity addressed by `chartId`: we fetch its DSL + a schema probe, render
+ * it with vinci's `VinciViewer`, and feed the viewer a **server-backed** compute
+ * service so its aggregation runs as live SQL (no rows cross the wire raw). The
+ * single "Edit chart" button opens the full `VinciDesigner` (manual editing, which
+ * persists straight back) with an "edit in words" box inside it.
  *
- * v3.3 adds a toolbar: "edit in words" (re-delegates to the agent via `onEdit`,
- * which rebuilds the chart in a follow-up turn) and export (the underlying data as
- * CSV always; the rendered chart as SVG when the viewer drew one).
+ * Legacy fallback: older threads / pins that captured their DSL + rows inline (before
+ * the redesign) pass `dsl` + `source` and render read-only via the in-browser path.
  *
  * Lazy-loaded by its caller (the vinci stack is heavy) — this is the default export.
  */
 export default function ThreadChart({
+  chartId,
   dsl,
   source,
   label,
   onEdit,
   onPin,
 }: {
+  /** The persisted chart id (live-data path). */
+  chartId?: string;
+  /** Legacy inline DSL (pre-redesign threads/pins). */
   dsl?: unknown;
+  /** Legacy inline rows (pre-redesign threads/pins). */
   source?: SqlResult;
   label?: string;
-  /** Send a natural-language revision back to the agent (v3.3). */
+  /** Send a natural-language revision back to the agent (rebuilds as a new chart). */
   onEdit?: (instruction: string) => void;
   /** Pin this chart into the thread's report (v3.4). */
   onPin?: (input: PinInput) => void;
@@ -61,44 +70,72 @@ export default function ThreadChart({
   const t = useT();
   const surfaceRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
-  const [instruction, setInstruction] = useState('');
   const [pinned, setPinned] = useState(false);
 
-  const dslKey = dsl ? JSON.stringify(dsl) : '';
-  const sig = `${source?.columns.join(',') ?? ''}|${source?.rowCount ?? 0}`;
-  const compiled = useMemo(() => {
-    if (!source || source.columns.length === 0) return null;
-    return compileSurface(
-      source.columns,
-      source.rows,
-      dsl as Record<string, unknown> | undefined,
-      label || 'data',
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sig, dslKey]);
+  // Live chart definition (fetched by id). Null in legacy mode or while loading.
+  const [def, setDef] = useState<ChartDef | null>(null);
+  const [loading, setLoading] = useState(!!chartId);
 
-  if (!source) {
-    return <div className={styles.placeholder}>No data is available for this chart.</div>;
-  }
+  const hasLegacy = !!source && source.columns.length > 0;
 
-  const submitEdit = () => {
-    const text = instruction.trim();
-    if (!text || !onEdit) return;
-    setInstruction('');
-    setEditing(false);
-    onEdit(t.chart.reviseMessage(label ?? '', text));
-  };
-  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      submitEdit();
-    } else if (e.key === 'Escape') {
-      setEditing(false);
+  useEffect(() => {
+    if (!chartId) {
+      setLoading(false);
+      return;
     }
-  };
+    let alive = true;
+    setLoading(true);
+    getChart(chartId)
+      .then((d) => {
+        if (alive) setDef(d);
+      })
+      .catch(() => {
+        // No backend chart for this id (e.g. a pre-redesign thread). The render
+        // falls back to the inline DSL + rows if the caller supplied them.
+        if (alive) setDef(null);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [chartId]);
 
-  const exportCsv = () =>
-    downloadFile(toCsv(source), `${safeName(label)}.csv`, 'text/csv;charset=utf-8');
+  const isLive = !!def && def.columns.length > 0;
+  const defDslKey = def ? JSON.stringify(def.dsl ?? null) : '';
+  const legacyDslKey = dsl ? JSON.stringify(dsl) : '';
+  const legacySig = `${source?.columns.join(',') ?? ''}|${source?.rowCount ?? 0}`;
+
+  const compiled: CompiledSurface | null = useMemo(() => {
+    if (isLive && def) {
+      const built = buildSnapshot(def.columns, def.sampleRows, def.dsl, label || 'data');
+      return { ...built, api: createServerApiService(def.id) };
+    }
+    if (hasLegacy && source) {
+      return compileSurface(
+        source.columns,
+        source.rows,
+        dsl as Record<string, unknown> | undefined,
+        label || 'data',
+      );
+    }
+    return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLive, def?.id, defDslKey, legacySig, legacyDslKey, label]);
+
+  const exportCsv = async () => {
+    if (isLive && def) {
+      try {
+        const rows = await getChartRows(def.id);
+        downloadFile(toCsv(rows), `${safeName(label)}.csv`, 'text/csv;charset=utf-8');
+      } catch {
+        /* base query unavailable */
+      }
+      return;
+    }
+    if (source) downloadFile(toCsv(source), `${safeName(label)}.csv`, 'text/csv;charset=utf-8');
+  };
   const exportSvg = () => {
     const svg = surfaceRef.current?.querySelector('svg');
     if (!svg) return;
@@ -107,17 +144,34 @@ export default function ThreadChart({
     downloadFile(doc, `${safeName(label)}.svg`, 'image/svg+xml;charset=utf-8');
   };
 
+  const doPin = () => {
+    if (!onPin) return;
+    const payload = isLive && def ? { chartId: def.id, label } : { dsl, source, label };
+    onPin({ kind: 'chart', title: label || 'Chart', payload });
+    setPinned(true);
+    window.setTimeout(() => setPinned(false), 1400);
+  };
+
+  if (loading) {
+    return <div className={styles.placeholder}>{t.chart.loading}</div>;
+  }
+  if (!isLive && !hasLegacy) {
+    // Either the chart's base query couldn't run (def.error) or there's no chart to
+    // show at all (a stale id with no legacy fallback).
+    return <div className={styles.placeholder}>{def?.error ?? t.chart.loadFailed}</div>;
+  }
+
   return (
     <div className={styles.chart}>
       <div className={styles.bar}>
         {label ? <span className={styles.label}>{label}</span> : <span className={styles.label} />}
         <span className={styles.barSpacer} />
-        {onEdit ? (
+        {isLive ? (
           <button
             type="button"
             className={`${styles.toolBtn}${editing ? ` ${styles.toolOn}` : ''}`}
             title={t.chart.edit}
-            onClick={() => setEditing((e) => !e)}
+            onClick={() => setEditing(true)}
           >
             <Icon name="edit" size={12} color="var(--dex-icon)" />
             {t.chart.edit}
@@ -135,46 +189,21 @@ export default function ThreadChart({
           type="button"
           className={styles.toolBtn}
           title={t.chart.exportData}
-          onClick={exportCsv}
+          onClick={() => void exportCsv()}
         >
           {t.chart.csv}
         </button>
         {onPin ? (
-          <button
-            type="button"
-            className={styles.toolBtn}
-            title={t.chart.pin}
-            onClick={() => {
-              onPin({ kind: 'chart', title: label || 'Chart', payload: { dsl, source, label } });
-              setPinned(true);
-              window.setTimeout(() => setPinned(false), 1400);
-            }}
-          >
+          <button type="button" className={styles.toolBtn} title={t.chart.pin} onClick={doPin}>
             {pinned ? t.chart.pinned : t.chart.pin}
           </button>
         ) : null}
       </div>
 
-      {editing && onEdit ? (
-        <div className={styles.editRow}>
-          <input
-            className={styles.editInput}
-            value={instruction}
-            autoFocus
-            placeholder={t.chart.editPlaceholder}
-            onChange={(e) => setInstruction(e.target.value)}
-            onKeyDown={onKey}
-          />
-          <button type="button" className={styles.applyBtn} onClick={submitEdit}>
-            {t.chart.apply}
-          </button>
-        </div>
-      ) : null}
-
       {compiled?.snapshot ? (
         <div className={styles.surface} ref={surfaceRef}>
           <VinciViewer
-            key={`${sig}|${dslKey}`}
+            key={`${def?.id ?? 'legacy'}|${legacySig}|${defDslKey}|${legacyDslKey}`}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data={compiled.snapshot as any}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -186,10 +215,25 @@ export default function ThreadChart({
       ) : (
         <div className={styles.placeholder}>
           {compiled?.error
-            ? `Couldn’t build this chart from the DSL: ${String((compiled.error as Error)?.message ?? compiled.error)}`
-            : 'This result needs a category column and a numeric column to chart.'}
+            ? t.chart.dslError(String((compiled.error as Error)?.message ?? compiled.error))
+            : t.chart.noData}
         </div>
       )}
+
+      {editing && isLive && def ? (
+        <Suspense fallback={null}>
+          <ChartDesignerModal
+            chartId={def.id}
+            label={label}
+            initialDsl={def.dsl}
+            columns={def.columns}
+            sampleRows={def.sampleRows}
+            onAiEdit={onEdit}
+            onSaved={(newDsl) => setDef((prev) => (prev ? { ...prev, dsl: newDsl } : prev))}
+            onClose={() => setEditing(false)}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

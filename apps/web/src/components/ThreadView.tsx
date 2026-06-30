@@ -254,7 +254,14 @@ function VizCard({
   const t = useT();
   return (
     <Suspense fallback={<div className={styles.answerText}>{t.thread.loadingChart}</div>}>
-      <ThreadChart dsl={viz.dsl} source={source} label={viz.label} onEdit={onEdit} onPin={onPin} />
+      <ThreadChart
+        chartId={viz.cellId}
+        dsl={viz.dsl}
+        source={source}
+        label={viz.label}
+        onEdit={onEdit}
+        onPin={onPin}
+      />
     </Suspense>
   );
 }

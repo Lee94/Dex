@@ -16,9 +16,17 @@ export interface TablePinPayload extends SqlResult {
   endorsed?: boolean;
 }
 
-/** Render snapshot for a chart pin (the vinci DSL over a captured source). */
+/**
+ * What a chart pin references. In the live-data redesign a pin stores the backend
+ * `chartId` and the report renders it live (and editable). `dsl` / `source` are
+ * **legacy** fields kept only so pre-redesign pins (which captured the DSL + rows
+ * inline) still render.
+ */
 export interface ChartPinPayload {
+  chartId?: string;
+  /** @deprecated legacy inline DSL (pre-redesign pins only). */
   dsl?: unknown;
+  /** @deprecated legacy captured rows (pre-redesign pins only). */
   source?: SqlResult;
   label?: string;
 }

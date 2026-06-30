@@ -1,21 +1,24 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { visualizationAgent } from '../agents/visualization';
+import { createChart } from '../db/charts';
 
 /**
  * `delegate_to_visualization` (Hex `DelegateToVisualizationAgent`) — hand all chart
  * work to the visualization specialist. You provide the analytical goal and the
  * data source(s) — for Dex, the **outputName of an upstream SQL/semantic result**
- * plus its columns/types (pass *unaggregated* data; the chart aggregates). The
- * specialist autonomously authors a vinci DSL and **builds the chart** with
- * `build_chart`, returning a short summary naming the chart it made (which you then
- * embed with [result:<id>]).
+ * plus its columns/types AND the unaggregated `sql` that produced it (pass
+ * *unaggregated* data; the chart aggregates). The specialist autonomously authors a
+ * vinci DSL and **builds the chart** with `build_chart`, returning a short summary
+ * naming the chart it made (which you then embed with [result:<id>]).
  *
  * The chart is built **inside the sub-agent**, so its `build_chart` tool call never
- * surfaces as a step in the analyst's own stream. We therefore lift the built
- * chart(s) out of the sub-agent run (id + the authored DSL + the upstream
- * `sourceOutputName`) and return them alongside the summary, so the web thread can
- * resolve `[result:<id>]` and render the chart (over the matching result's rows).
+ * surfaces as a step in the analyst's own stream. We lift the built chart(s) out of
+ * the sub-agent run (id + the authored DSL + the upstream `sourceOutputName`) and
+ * **persist each as a backend chart** (`db/charts.ts`) with its base SQL, so the web
+ * renders it by id with **live data** (the chart re-runs its query — see
+ * `db/chart-compute.ts`) and manual edits write straight back. We return only the
+ * chart `id` + label to the analyst; the DSL no longer rides in the conversation.
  */
 
 /** A chart the sub-agent built, lifted from its run for the analyst's stream. */
@@ -101,6 +104,19 @@ export const delegateVisualizationTool = createTool({
             .nullable()
             .optional()
             .describe('The result columns and their types.'),
+          sql: z
+            .string()
+            .nullable()
+            .optional()
+            .describe(
+              'The unaggregated read-only SQL whose rows this result holds (your ShowSql query, ' +
+                "or a semantic result's compiled `sql`). The chart re-runs it for live data.",
+            ),
+          dataConnectionId: z
+            .string()
+            .nullable()
+            .optional()
+            .describe('The connection this source ran against, if not the builtin warehouse.'),
           description: z.string().nullable().optional(),
         }),
       )
@@ -120,14 +136,12 @@ export const delegateVisualizationTool = createTool({
   }),
   outputSchema: z.object({
     summary: z.string(),
-    // The chart(s) the sub-agent built — surfaced so the thread can render the
-    // chart inline (the sub-agent's build_chart isn't an analyst step).
+    // The chart(s) the sub-agent built and we persisted — surfaced so the thread can
+    // render the chart inline by id (the DSL + data now live in the backend, not here).
     vizCells: z
       .array(
         z.object({
           cellId: z.string(),
-          sourceOutputName: z.string().optional(),
-          dsl: z.record(z.string(), z.any()).optional(),
           label: z.string().optional(),
         }),
       )
@@ -154,6 +168,29 @@ ${sources}${input.userPreferences ? `\nUser preferences: ${input.userPreferences
 Create the visualization now: author the surface DSL over the source's columns and call build_chart with sourceOutputName set to the source's name.`;
 
     const out = await visualizationAgent.generate(prompt);
-    return { summary: out.text, vizCells: createdVizCells(out) };
+
+    // Persist each built chart as a backend entity keyed by its build_chart id, with
+    // the unaggregated base SQL of its bound source — so the web renders it live by id.
+    const cells = createdVizCells(out);
+    const sourceByName = new Map(input.dataSources.map((s) => [s.name, s]));
+    const vizCells: Array<{ cellId: string; label?: string }> = [];
+    for (const cell of cells) {
+      // Match the built chart to its data source by outputName; if the sub-agent named
+      // it slightly differently (LLM variance) and there's only one source, use that —
+      // otherwise the chart would persist with an empty base SQL and never load data.
+      const source =
+        (cell.sourceOutputName ? sourceByName.get(cell.sourceOutputName) : undefined) ??
+        (input.dataSources.length === 1 ? input.dataSources[0] : undefined);
+      await createChart({
+        id: cell.cellId,
+        dsl: cell.dsl ?? {},
+        label: cell.label,
+        baseSql: source?.sql?.trim() || '',
+        datasourceId:
+          source?.dataConnectionId?.trim() || input.dataConnectionId?.trim() || 'builtin',
+      });
+      vizCells.push({ cellId: cell.cellId, label: cell.label });
+    }
+    return { summary: out.text, vizCells };
   },
 });

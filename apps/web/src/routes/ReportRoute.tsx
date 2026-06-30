@@ -190,6 +190,7 @@ export function ReportRoute() {
                 ) : (
                   <Suspense fallback={<div className={styles.state}>{t.thread.loadingChart}</div>}>
                     <ThreadChart
+                      chartId={(pin.payload as ChartPinPayload).chartId}
                       dsl={(pin.payload as ChartPinPayload).dsl}
                       source={(pin.payload as ChartPinPayload).source as SqlResult | undefined}
                       label={(pin.payload as ChartPinPayload).label}
